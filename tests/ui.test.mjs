@@ -235,7 +235,7 @@ test('Marcas: hub lista as 3 linhas e cada uma abre sua página com tema própri
  assert.equal(s.doc.querySelector('.brand-notify'),null,'marca com coleção não mostra form de aviso');
  s.w.location.hash='marca-solfado';await new Promise(r=>setTimeout(r,10));
  assert.equal(s.doc.querySelectorAll('#marcas-view .brand-prod').length,10,'solfado: 10 estampas');
- assert(s.doc.querySelector('#marcas-view .brand-prod-tile'),'solfado: estampa como tile (sem foto)');
+ assert(s.doc.querySelector('#marcas-view .brand-prod-img img[src*="solfado-"]'),'solfado: estampa com foto real');
  s.w.location.hash='marca-geek';await new Promise(r=>setTimeout(r,10));
  assert.equal(s.doc.querySelectorAll('#marcas-view .brand-drop').length,3,'geek segue com 3 teasers em breve');
  assert(s.doc.querySelector('.brand-notify'),'geek: form de aviso presente');
