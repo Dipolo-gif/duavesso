@@ -1,6 +1,6 @@
-import {PRODUCTS,SIZES,CUSTOM,FREE_SHIPPING_MIN,INSTALLMENTS,installment,customMode,shippingSuggestion,setProducts,money,escapeHTML as esc,totals,addItem,changeQuantity,normalizeCart,validImageURL,garmentLabel,PRINT_ZONES,PRINT_ZONE_AT,isZone,MAX_PRINTS,printsSummary} from './commerce.js';
+import {PRODUCTS,SIZES,CUSTOM,FREE_SHIPPING_MIN,INSTALLMENTS,installment,customMode,shippingSuggestion,money,escapeHTML as esc,totals,addItem,changeQuantity,normalizeCart,validImageURL,garmentLabel,PRINT_ZONES,PRINT_ZONE_AT,isZone,MAX_PRINTS,printsSummary} from './commerce.js';
 import {CHEST_Y,UNIT} from './studio-placement.js';
-import {online,fetchProducts,rpc,uploadDesign,dataURLToBlob,getUser,signIn,signUp,signOut,resetPassword,updatePassword,signInWithGoogle,handleAuthRedirect,fetchProfile,updateProfile,fetchMyOrders} from './api.js';
+import {online,rpc,uploadDesign,dataURLToBlob,getUser,signIn,signUp,signOut,resetPassword,updatePassword,signInWithGoogle,handleAuthRedirect,fetchProfile,updateProfile,fetchMyOrders} from './api.js';
 const $=(selector,root=document)=>root.querySelector(selector);
 const $$=(selector,root=document)=>[...root.querySelectorAll(selector)];
 let filter='all';
@@ -15,7 +15,6 @@ const variantOf=(p,base)=>p.variants?(p.variants.find(v=>v.base===base)||p.varia
 const photosOf=(p,base)=>{const v=variantOf(p,base);if(v)return v.photos;return Array.isArray(p.photos)&&p.photos.length?p.photos:null;};
 const colorDots=p=>p.variants?`<span class="color-dots">${p.variants.map(v=>`<i class="color-dot" style="background:${v.swatch}"></i>`).join('')} ${p.variants.length} cores</span>`:`<span><i class="color-dot" style="background:${p.swatch}"></i>${p.color}</span>`;
 function cardVisual(p){const ph=photosOf(p);if(!ph)return `<div class="product-visual">${teePicture(p.base,`${p.name}, ${p.color}`,'(max-width:700px) 48vw, 24vw','loading="lazy"')}${graphicHTML(p)}</div>`;return `<div class="product-visual poses">${ph.map((n,i)=>`<div class="pose${i?'':' is-active'}">${photoPicture(n,`${p.name}, ${p.color}, pose ${i+1}`,'(max-width:700px) 48vw, 24vw','loading="lazy"')}</div>`).join('')}</div>`;}
-function detailVisual(p){const ph=photosOf(p);if(!ph)return `<div class="detail-visual"><div class="product-visual">${teePicture(p.base,p.name,'(max-width:700px) 94vw, 450px')}${graphicHTML(p)}</div></div>`;return `<div class="detail-visual gallery">${ph.map((n,i)=>`<div class="product-visual pose-full">${photoPicture(n,`${p.name}, pose ${i+1} de ${ph.length}`,'(max-width:700px) 94vw, 430px')}</div>`).join('')}</div>`;}
 function wirePoseHovers(){if(typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;$$('.product-visual.poses').forEach(v=>{const poses=$$('.pose',v);if(poses.length<2)return;let idx=0,timer=null;const show=i=>poses.forEach((el,k)=>el.classList.toggle('is-active',k===i));const stop=()=>{clearInterval(timer);timer=null;idx=0;show(0);};const start=()=>{if(timer)return;timer=setInterval(()=>{idx=(idx+1)%poses.length;show(idx);},760);};const host=v.closest('.product-image-button')||v;host.addEventListener('mouseenter',start);host.addEventListener('mouseleave',stop);host.addEventListener('focusin',start);host.addEventListener('focusout',stop);});}
 function renderCatalog(){
  const query=$('#search').value.trim().toLocaleLowerCase('pt-BR');

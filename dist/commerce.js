@@ -1,6 +1,5 @@
 export const SIZES=['P','M','G','GG'];
 const CARE='Lavar do avesso, em água fria. Não usar alvejante. Secar à sombra.';
-const AMERICANA_SPEC={fabric:'100% algodão fio 30.1 · 160 g/m²',finish:'Gola canelada alta de 3 cm; caimento reto e estruturado',fit:'Oversized americana: ombros marcados e corpo reto. Para um caimento mais justo, escolha um tamanho abaixo.',care:CARE};
 const HEAVY_SPEC={fabric:'Suedine premium (algodão + poliamida) · 250 g/m²',finish:'Toque Pima, alta gramatura, menor encolhimento e caimento estável',fit:'Oversized heavy: encorpada e pesada, cai reto no corpo. Para menos volume, escolha um tamanho abaixo.',care:CARE};
 export const PRODUCTS=[
  {id:'heavy-avesso',name:'Heavy · Do Avesso',category:'graphic',color:'Preto lavado',base:'black',swatch:'#26272a',photos:['tee-porta-1','tee-porta-2','tee-porta-3'],price:15990,tag:'ESTAMPA AUTORAL',graphic:'DO SEU\nAVESSO.',graphicClass:'graphic-off',description:'Nossa peça mais encorpada, suedine 250 g, com uma estampa para vestir do seu avesso. O modelo também vem liso em preto, off-white e marrom.',print:'Serigrafia à base d’água, toque leve, resistente a lavagens',...HEAVY_SPEC},
