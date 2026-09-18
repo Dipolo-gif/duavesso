@@ -231,7 +231,8 @@ test('Marcas: hub lista as 3 linhas e cada uma abre sua página com tema própri
  assert.equal(s.doc.querySelectorAll('#marcas-view .brand-prod').length,5,'5 produtos reais da TRY84');
  assert(s.doc.querySelector('.brand-prod-img img[src*="try84-"]'),'foto de produto hospedada local');
  assert(s.doc.querySelector('.brand-prod[href^="https://try84.com.br/"]'),'produto linka pro site da marca');
- assert(s.doc.querySelector('.brand-site[href="https://try84.com.br"]'),'link para o site da marca');
+ assert(s.doc.querySelector('.brand-banner img[src*="try84-hero"]'),'banner oficial no hero da try84');
+ assert(s.doc.querySelector('#marcas-view a[href="https://try84.com.br"]'),'link para o site da marca');
  assert.equal(s.doc.querySelector('.brand-notify'),null,'marca com coleção não mostra form de aviso');
  s.w.location.hash='marca-solfado';await new Promise(r=>setTimeout(r,10));
  assert.equal(s.doc.querySelectorAll('#marcas-view .brand-prod').length,10,'solfado: 10 estampas');

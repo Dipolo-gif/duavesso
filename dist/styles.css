@@ -207,3 +207,8 @@ input[type=range]:disabled{opacity:.4}
 .brand[data-theme=music] .brand-prod-tile{background:#fff;border:1px solid #e2ddce}
 .brand[data-theme=music] .brand-prod-tile span{font-family:Georgia,'Times New Roman',serif;font-style:italic;color:#17324f}
 @media(max-width:700px){.brand-prods{grid-template-columns:1fr 1fr}}
+
+/* Banner (foto oficial) no hero da página da marca */
+.brand-banner img{width:100%;height:auto;display:block}
+.brand-bannercta{display:flex;align-items:center;gap:22px;margin:26px 0 6px;flex-wrap:wrap}
+.brand-bannerlink{font-weight:600;font-size:13px;text-decoration:underline;text-underline-offset:4px}
