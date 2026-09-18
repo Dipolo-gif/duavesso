@@ -218,14 +218,19 @@ test('several prints: free zones, 2D zone buttons, placeholders left out of the 
  }finally{s.close();}
  const r=await setup({'duavesso.cart.v1':saved});try{r.click('#open-cart');assert(r.doc.querySelector('#cart-content').textContent.includes('2 estampas: frente, manga esquerda'));}finally{r.close();}
 });
-test('rota Marcas mostra a página geek e esconde a loja',async()=>{
+test('Marcas: hub lista as 3 linhas e cada uma abre sua página com tema próprio',async()=>{
  const s=await setup();try{
  assert(s.doc.querySelector('.desktop-nav a[href="#marcas"]'),'link Marcas no menu');
  s.w.location.hash='marcas';await new Promise(r=>setTimeout(r,10));
  assert.equal(s.doc.querySelector('#marcas-view').hidden,false,'tela Marcas visível');
  assert.equal(s.doc.querySelector('#shop-view').hidden,true,'loja escondida');
- assert(s.doc.querySelector('#marcas-view .geek-logo'),'logo geek presente');
- assert.equal(s.doc.querySelectorAll('#marcas-view .geek-card').length,3,'3 teasers de drop');
+ assert.equal(s.doc.querySelectorAll('#marcas-view .brand-card').length,3,'3 marcas no hub');
+ assert(s.doc.querySelector('.brand-card[href="#marca-solfado"][data-theme="music"]'),'card solfado com tema music');
+ s.w.location.hash='marca-try84';await new Promise(r=>setTimeout(r,10));
+ assert(s.doc.querySelector('#marcas-view .brand[data-theme="rugby"]'),'página try84 com tema rugby');
+ assert.equal(s.doc.querySelectorAll('#marcas-view .brand-drop').length,3,'3 teasers na página da marca');
+ assert(s.doc.querySelector('.brand-site[href="https://try84.com.br"]'),'link para o site da marca');
+ assert(s.doc.querySelector('.brand-notify'),'form de aviso na página da marca');
  s.w.location.hash='colecao';await new Promise(r=>setTimeout(r,10));
  assert.equal(s.doc.querySelector('#marcas-view').hidden,true,'ao sair, Marcas some');
  assert.equal(s.doc.querySelector('#shop-view').hidden,false,'loja volta');
