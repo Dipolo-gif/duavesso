@@ -218,3 +218,16 @@ test('several prints: free zones, 2D zone buttons, placeholders left out of the 
  }finally{s.close();}
  const r=await setup({'duavesso.cart.v1':saved});try{r.click('#open-cart');assert(r.doc.querySelector('#cart-content').textContent.includes('2 estampas: frente, manga esquerda'));}finally{r.close();}
 });
+test('rota Marcas mostra a página geek e esconde a loja',async()=>{
+ const s=await setup();try{
+ assert(s.doc.querySelector('.desktop-nav a[href="#marcas"]'),'link Marcas no menu');
+ s.w.location.hash='marcas';await new Promise(r=>setTimeout(r,10));
+ assert.equal(s.doc.querySelector('#marcas-view').hidden,false,'tela Marcas visível');
+ assert.equal(s.doc.querySelector('#shop-view').hidden,true,'loja escondida');
+ assert(s.doc.querySelector('#marcas-view .geek-logo'),'logo geek presente');
+ assert.equal(s.doc.querySelectorAll('#marcas-view .geek-card').length,3,'3 teasers de drop');
+ s.w.location.hash='colecao';await new Promise(r=>setTimeout(r,10));
+ assert.equal(s.doc.querySelector('#marcas-view').hidden,true,'ao sair, Marcas some');
+ assert.equal(s.doc.querySelector('#shop-view').hidden,false,'loja volta');
+ }finally{s.close();}
+});

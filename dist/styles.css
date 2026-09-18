@@ -121,3 +121,38 @@ input[type=range]:disabled{opacity:.4}
 .detail-main{aspect-ratio:auto;height:min(60vh,112vw)}
 .detail-thumb{width:50px}
 }
+
+/* Marcas + duavessogeek (minimalista com toque geek) */
+.marcas-view{padding-top:35px}
+.marcas-intro{max-width:660px;margin:6px 0 40px}
+.marcas-intro h1{font-family:var(--display);font-weight:600;font-size:clamp(40px,6vw,72px);letter-spacing:-1px;line-height:1}
+.marcas-intro p{color:var(--muted);margin-top:18px;font-size:16px;line-height:1.7}
+.marcas-intro strong{color:var(--ink)}
+.geek{--geek:#3a5bff}
+.geek-hero{background:#141519;color:#eceef2;padding:clamp(28px,4vw,56px);display:grid;grid-template-columns:1.35fr 1fr;gap:30px;align-items:center;background-image:repeating-linear-gradient(0deg,#ffffff08 0 1px,transparent 1px 5px)}
+.geek-tag{font-family:ui-monospace,'Courier New',monospace;font-size:12px;letter-spacing:.06em;color:var(--geek)}
+.geek-logo{display:flex;align-items:baseline;gap:5px;margin:14px 0 20px}
+.geek-logo-word{font-family:var(--display);font-weight:800;font-size:clamp(38px,6vw,64px);line-height:1;letter-spacing:-2px;color:#fff}
+.geek-logo-tag{font-family:ui-monospace,'Courier New',monospace;font-weight:700;font-size:clamp(18px,3vw,30px);background:var(--geek);color:#fff;padding:2px 8px;letter-spacing:-.02em}
+.geek-cursor{display:inline-block;width:9px;height:1.05em;background:var(--geek);margin-left:3px;transform:translateY(2px);animation:geek-blink 1.1s steps(1) infinite}
+@keyframes geek-blink{50%{opacity:0}}
+.geek-lead{max-width:440px;color:#b9bdc7;line-height:1.7;font-size:15px}
+.geek-cta{display:flex;align-items:center;gap:22px;margin-top:26px;flex-wrap:wrap}
+.geek-soon{font-family:ui-monospace,'Courier New',monospace;font-size:12px;color:#8b90a0}
+.geek-soon b{color:var(--geek)}
+.geek-hero-art{justify-self:center}
+.geek-hero-art img{width:min(70%,220px);height:auto;image-rendering:pixelated;opacity:.95}
+.geek-drops{padding:44px 0 0}
+.geek-drops .section-heading{margin-bottom:22px}
+.geek-drops .section-heading h2{font-family:var(--display);font-weight:600;font-size:clamp(28px,3.2vw,40px);letter-spacing:-1px}
+.geek-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.geek-card{aspect-ratio:1/1.08;background:#141519;color:#eceef2;display:flex;flex-direction:column;padding:20px;border:1px solid #23252c}
+.geek-card-art{font-family:ui-monospace,'Courier New',monospace;font-size:40px;font-weight:700;color:var(--geek);letter-spacing:1px}
+.geek-card-name{font-family:var(--display);font-weight:700;font-size:22px;margin-top:auto}
+.geek-card-soon{font-family:ui-monospace,'Courier New',monospace;font-size:11px;letter-spacing:.14em;color:#8b90a0;margin-top:6px}
+.geek-notify{margin-top:44px;max-width:520px}
+.geek-notify label{display:block;font-family:var(--display);font-weight:600;font-size:24px;margin-bottom:12px}
+.geek-notify-row{display:flex;gap:8px}
+.geek-notify-row input#geek-email{flex:1;min-width:0}
+.geek-notify p{font-size:12px;color:var(--muted);margin-top:10px}
+@media(max-width:700px){.geek-hero{grid-template-columns:1fr}.geek-hero-art{display:none}.geek-grid{grid-template-columns:1fr 1fr}}

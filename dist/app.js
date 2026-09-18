@@ -90,7 +90,9 @@ $('#footer-size-guide').addEventListener('click',showSizeGuide);
 $('#open-returns').addEventListener('click',()=>showInfo('Trocas e devoluções','<p>Política demonstrativa. Os termos reais devem ser definidos antes de iniciar vendas.</p><h3>30 dias para decidir</h3><p>Peças do catálogo podem ser trocadas ou devolvidas em até 30 dias após o recebimento, sem uso, com etiqueta e na embalagem original.</p><h3>Primeira troca por nossa conta</h3><p>Errou o tamanho? A primeira troca de tamanho tem envio de ida e volta gratuito.</p><h3>Camisetas personalizadas</h3><p>Peças criadas no estúdio são produzidas sob demanda e só entram em troca por defeito de fabricação ou erro de produção. Por isso a prévia é aprovada antes de produzir.</p>'));
 $('#open-shipping').addEventListener('click',()=>showInfo('Entregas e prazos',`<p>Valores e prazos demonstrativos.</p><h3>Padrão</h3><p>R$ 14,90 · 5 a 8 dias úteis. Grátis em pedidos a partir de ${money(FREE_SHIPPING_MIN)} em produtos.</p><h3>Expressa</h3><p>R$ 24,90 · 2 a 3 dias úteis.</p><h3>Personalizadas</h3><p>Peças do estúdio somam 3 dias úteis de produção ao prazo de entrega. Estampas sob medida entram em produção após a aprovação da prévia.</p><h3>Acompanhamento</h3><p>Em uma loja real, o código de rastreio seria enviado por e-mail assim que a peça saísse para entrega.</p>`));
 $('#open-contact').addEventListener('click',()=>showInfo('Fale com a gente','<p>Canal de atendimento demonstrativo.</p><h3>Como funcionaria</h3><p>Atendimento por WhatsApp e e-mail, de segunda a sexta, das 9h às 18h. Dúvidas sobre tamanho, prazo ou estampa respondidas em até um dia útil.</p><h3>Por enquanto</h3><p>Esta versão não envia nem recebe mensagens. Consulte as dúvidas frequentes para as respostas mais comuns.</p>'));
-$('#newsletter').addEventListener('submit',async e=>{e.preventDefault();const form=e.target;if(!form.reportValidity())return;if(form.elements.namedItem('website').value){form.reset();return;}if(!online()){form.reset();toast('Cadastro demonstrativo: nenhum e-mail foi enviado ou guardado.');return;}const button=$('button[type=submit]',form);button.disabled=true;try{await rpc('subscribe_newsletter',{p_email:form.elements.namedItem('email').value});form.reset();toast('Pronto! Você está na lista. Sem spam, só novidades.');}catch(error){toast(error.message);}finally{button.disabled=false;}});
+function subscribeForm(sel,demo,ok){const form=$(sel);if(!form)return;form.addEventListener('submit',async e=>{e.preventDefault();if(!form.reportValidity())return;if(form.elements.namedItem('website')?.value){form.reset();return;}if(!online()){form.reset();toast(demo);return;}const button=$('button[type=submit]',form);button.disabled=true;try{await rpc('subscribe_newsletter',{p_email:form.elements.namedItem('email').value});form.reset();toast(ok);}catch(error){toast(error.message);}finally{button.disabled=false;}});}
+subscribeForm('#newsletter','Cadastro demonstrativo: nenhum e-mail foi enviado ou guardado.','Pronto! Você está na lista. Sem spam, só novidades.');
+subscribeForm('#geek-notify','Anotado! Você está na lista geek (demonstração).','Pronto! Te avisamos quando a duavessogeek lançar.');
 function showInfo(title,html){$('#info-title').textContent=title;$('#info-content').innerHTML=html;openDialog('#info-dialog');}
 function itemThumb(item){const prod=PRODUCTS.find(x=>x.id===item.id),ph=prod&&photosOf(prod,item.base);return `<div class="cart-thumb">${item.preview&&validImageURL(item.preview)?`<img src="${item.preview}" alt="${esc(item.name)}">`:ph?photoPicture(ph[0],esc(item.name),'88px'):teePicture(item.base,esc(item.name),'88px')+graphicHTML(item)}</div>`;}
 function showCart(){renderCart();openDialog('#cart-dialog');}
@@ -361,11 +363,12 @@ $('#design-form').addEventListener('submit',async e=>{
 });
 
 function route(){
- const hash=location.hash||'#inicio',studio=hash==='#estudio';
- $('#shop-view').hidden=studio;$('#studio-view').hidden=!studio;document.documentElement.classList.toggle('studio',studio);
- document.title=studio?'Crie sua camiseta personalizada · duavesso Studio':'duavesso · Camisetas oversized e estampas personalizadas';
+ const hash=location.hash||'#inicio',studio=hash==='#estudio',marcas=hash==='#marcas';
+ $('#shop-view').hidden=studio||marcas;$('#studio-view').hidden=!studio;$('#marcas-view').hidden=!marcas;document.documentElement.classList.toggle('studio',studio);
+ document.title=studio?'Crie sua camiseta personalizada · duavesso Studio':marcas?'duavessogeek · Marcas duavesso':'duavesso · Camisetas oversized e estampas personalizadas';
  if(hash.startsWith('#produto-'))showProduct(hash.slice(9));
  if(studio){window.scrollTo({top:0,behavior:'instant'});renderDesign();}
+ else if(marcas)window.scrollTo({top:0,behavior:'instant'});
  else if(['#inicio','#colecao','#sobre'].includes(hash))requestAnimationFrame(()=>$(hash).scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'}));
 }
 window.addEventListener('hashchange',route);
