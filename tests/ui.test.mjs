@@ -245,3 +245,31 @@ test('Marcas: hub lista as 3 linhas e cada uma abre sua página com tema própri
  assert.equal(s.doc.querySelector('#shop-view').hidden,false,'loja volta');
  }finally{s.close();}
 });
+test('LGPD: banner de consentimento aparece na primeira visita e registra a escolha',async()=>{
+ const s=await setup();try{
+ const bar=s.doc.querySelector('#cookie-banner');assert(bar,'banner aparece sem consentimento salvo');
+ assert(bar.querySelector('[data-consent="accepted"]'));assert(bar.querySelector('[data-consent="essential"]'));assert(bar.querySelector('[data-consent="more"]'),'link para a política');
+ s.click('#cookie-banner [data-consent="accepted"]');
+ assert.equal(s.doc.querySelector('#cookie-banner'),null,'banner some depois de escolher');
+ const stored=JSON.parse(s.w.localStorage.getItem('duavesso.consent.v1'));assert.equal(stored.choice,'accepted');
+ assert.equal(s.w.dvConsent.analytics,true,'aceitar libera dados de navegação opcionais');
+ }finally{s.close();}
+});
+test('LGPD: com consentimento salvo o banner não reaparece e só o essencial bloqueia opcionais',async()=>{
+ const s=await setup({'duavesso.consent.v1':{v:1,choice:'essential'}});try{
+ assert.equal(s.doc.querySelector('#cookie-banner'),null,'não reaparece com escolha salva');
+ assert.equal(s.w.dvConsent.analytics,false,'só o essencial mantém os opcionais desligados');
+ }finally{s.close();}
+});
+test('LGPD: a política de privacidade abre pelo rodapé com o conteúdo exigido',async()=>{
+ const s=await setup({'duavesso.consent.v1':{v:1,choice:'accepted'}});try{
+ assert(s.doc.querySelector('#open-privacy'),'link Privacidade no rodapé');
+ s.click('#open-privacy');
+ assert(s.doc.querySelector('#info-dialog').open,'diálogo abre');
+ assert(s.doc.querySelector('#info-title').textContent.includes('Privacidade'));
+ const text=s.doc.querySelector('#info-content').textContent;
+ assert(text.includes('LGPD'),'cita a LGPD');
+ assert(text.includes('Supabase'),'lista os operadores');
+ assert(text.includes('privacidade@duavesso.com.br'),'canal de contato de privacidade');
+ }finally{s.close();}
+});
