@@ -238,8 +238,14 @@ test('Marcas: hub lista as 3 linhas e cada uma abre sua página com tema própri
  assert.equal(s.doc.querySelectorAll('#marcas-view .brand-prod').length,10,'solfado: 10 estampas');
  assert(s.doc.querySelector('#marcas-view .brand-prod-img img[src*="solfado-"]'),'solfado: estampa com foto real');
  s.w.location.hash='marca-geek';await new Promise(r=>setTimeout(r,10));
- assert.equal(s.doc.querySelectorAll('#marcas-view .brand-drop').length,3,'geek segue com 3 teasers em breve');
- assert(s.doc.querySelector('.brand-notify'),'geek: form de aviso presente');
+ assert.equal(s.doc.querySelectorAll('#marcas-view .brand-prod').length,2,'geek: 2 primeiros drops com foto');
+ assert(s.doc.querySelector('#marcas-view .brand-prod-img.poses .pose'),'geek: card com poses (Frente/Costas/Lado)');
+ assert.equal(s.doc.querySelector('.brand-notify'),null,'geek com produtos: sem form de aviso');
+ s.click('#marcas-view [data-gallery="geek-coracao"]');
+ assert(s.doc.querySelector('#product-dialog').open,'clicar abre a galeria');
+ assert.equal(s.doc.querySelectorAll('#detail-thumbs .detail-thumb').length,3,'galeria com as 3 fotos');
+ assert(s.doc.querySelector('#detail-main img[src*="geek-coracao-1"]'),'galeria começa na frente');
+ s.doc.querySelector('#product-dialog').close();
  s.w.location.hash='colecao';await new Promise(r=>setTimeout(r,10));
  assert.equal(s.doc.querySelector('#marcas-view').hidden,true,'ao sair, Marcas some');
  assert.equal(s.doc.querySelector('#shop-view').hidden,false,'loja volta');

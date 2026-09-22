@@ -226,3 +226,10 @@ input[type=range]:disabled{opacity:.4}
 @media (prefers-reduced-motion:reduce){.cookie-banner{animation:none}}
 #info-content{max-height:70vh;overflow-y:auto}
 #info-content .privacy-note{background:var(--surface);color:var(--ink);padding:12px 14px;font-size:13px;margin:14px 0}
+/* Primeiros drops da duavessogeek: cards com poses (hover) + galeria no clique */
+.brand-prod-gallery{border:0;background:transparent;padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%}
+.brand-prod-img.poses{position:relative}
+.brand-prod-img.poses .pose{position:absolute;inset:0;opacity:0;transition:opacity .5s ease}
+.brand-prod-img.poses .pose.is-active{opacity:1}
+.brand-prod-img.poses .pose picture{display:block;width:100%;height:100%}
+.brand-prod-img.poses .pose img{width:100%;height:100%;object-fit:cover;object-position:center 20%}
