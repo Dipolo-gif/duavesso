@@ -11,10 +11,11 @@
     "vendor": "esbuild scripts/vendor/motion-entry.js --bundle --format=esm --minify --target=es2022 --legal-comments=none --outfile=dist/vendor/motion.js && esbuild scripts/vendor/three-entry.js --bundle --format=esm --minify --target=es2022 --legal-comments=none --outfile=dist/vendor/three.js"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "esbuild": "^0.28.2",
     "jsdom": "^30.0.1",
     "motion": "^13.2.0",
-    "sharp": "^0.35.4",
+    "sharp": "^0.35.5",
     "three": "^0.186.0"
   }
 }
