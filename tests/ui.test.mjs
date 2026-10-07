@@ -312,3 +312,51 @@ test('checkout sends the chosen color and uploads every studio image in parallel
  assert(s.doc.querySelector('.order-id').textContent.includes('AV-TEST-0002'));
  }finally{s.close();}
 });
+test('sessions: one refresh at a time, other tabs stay in sync, sign out revokes an expired session, 30-day limit',async()=>{
+ const now=Math.floor(Date.now()/1000),user={id:'u1',email:'c@example.com',name:'Cliente',provider:'email'};
+ const stored=(extra={})=>({access_token:'tok1',refresh_token:'ref1',expires_at:now-10,started_at:now-100,user,...extra});
+ let calls=[],offline=false;
+ const fetchStub=async(url,init={})=>{
+  url=String(url);calls.push({url,init});
+  if(offline)throw new TypeError('Failed to fetch');
+  const json=(body,status=200)=>({ok:status<400,status,json:async()=>body});
+  if(url.includes('grant_type=refresh_token')){await new Promise(r=>setTimeout(r,10));const n=calls.filter(c=>c.url.includes('refresh_token')).length+1;return json({access_token:`tok${n}`,refresh_token:`ref${n}`,expires_in:3600,user:{id:'u1',email:'c@example.com',user_metadata:{name:'Cliente'},app_metadata:{provider:'email'}}});}
+  if(url.includes('/auth/v1/logout'))return json(null,204);
+  return json([]);
+ };
+ const s=await setup({'duavesso.session.v1':stored()},fetchStub);try{
+ const auth=[];s.w.addEventListener('duavesso:auth',e=>auth.push(e.detail));
+ const headers=await Promise.all([s.w.authHeaders(),s.w.authHeaders(),s.w.authHeaders()]);
+ assert.equal(calls.filter(c=>c.url.includes('refresh_token')).length,1,'3 pedidos ao mesmo tempo, 1 renovação só');
+ assert(headers.every(h=>h.Authorization==='Bearer tok2'));
+ assert.equal(JSON.parse(s.w.localStorage.getItem('duavesso.session.v1')).started_at,now-100,'renovar não reinicia o prazo de 30 dias');
+ assert.equal(auth.length,0,'renovar não dispara troca de usuário (o perfil não é apagado)');
+
+ // Outra aba renovou: esta passa a usar o token novo sem chamar o servidor.
+ const other={...stored(),access_token:'tokX',refresh_token:'refX',expires_at:now+3600};
+ s.w.localStorage.setItem('duavesso.session.v1',JSON.stringify(other));
+ s.w.dispatchEvent(new s.w.StorageEvent('storage',{key:'duavesso.session.v1',newValue:JSON.stringify(other)}));
+ calls=[];assert.equal((await s.w.authHeaders()).Authorization,'Bearer tokX');assert.equal(calls.length,0);
+ // Outra aba saiu: esta também sai.
+ s.w.localStorage.removeItem('duavesso.session.v1');
+ s.w.dispatchEvent(new s.w.StorageEvent('storage',{key:'duavesso.session.v1',newValue:null}));
+ assert.match((await s.w.authHeaders()).Authorization,/^Bearer sb_publishable_/);assert.equal(auth.at(-1),null);
+
+ // Sem internet na hora de renovar: continua logado (não perde a sessão por uma queda de rede).
+ s.w.localStorage.setItem('duavesso.session.v1',JSON.stringify(stored()));
+ s.w.dispatchEvent(new s.w.StorageEvent('storage',{key:'duavesso.session.v1'}));
+ offline=true;const kept=await s.w.authHeaders();offline=false;
+ assert.equal(kept.Authorization,'Bearer tok1');assert(s.w.localStorage.getItem('duavesso.session.v1'));
+
+ // Sair com o acesso vencido: renova primeiro e revoga com o token válido.
+ calls=[];await s.w.signOut();
+ assert.equal(s.w.localStorage.getItem('duavesso.session.v1'),null);
+ const logout=calls.find(c=>c.url.includes('/auth/v1/logout'));assert(logout,'logout chamado');
+ assert(calls.findIndex(c=>c.url.includes('refresh_token'))<calls.indexOf(logout),'renova antes de revogar');
+ assert.notEqual(logout.init.headers.Authorization,'Bearer tok1','não usa o token vencido');
+ }finally{s.close();}
+ // Sessão com mais de 30 dias: ao abrir o site, pede login de novo.
+ const t=await setup({'duavesso.session.v1':stored({expires_at:now+3600,started_at:now-31*24*3600})},fetchStub);try{
+  assert.match((await t.w.authHeaders()).Authorization,/^Bearer sb_publishable_/);assert.equal(t.w.localStorage.getItem('duavesso.session.v1'),null);
+ }finally{t.close();}
+});

@@ -19,21 +19,48 @@ async function net(url,options){try{return await fetch(url,options);}catch{throw
 const siteURL=()=>location.origin+location.pathname;
 
 // Sessão ------------------------------------------------------------------------
-let session=null;
-try{session=JSON.parse(localStorage.getItem(SESSION_KEY));if(!session?.access_token||!session?.refresh_token)session=null;}catch{session=null;}
+// Prazo máximo de uma sessão: depois de 30 dias do login, pede para entrar de novo.
+const MAX_SESSION_SECONDS=30*24*3600;
+const now=()=>Math.floor(Date.now()/1000);
+function readStoredSession(){
+ try{const s=JSON.parse(localStorage.getItem(SESSION_KEY));if(!s?.access_token||!s?.refresh_token)return null;return {...s,started_at:s.started_at||now()};}catch{return null;}
+}
+let session=readStoredSession();
+if(session&&now()-session.started_at>MAX_SESSION_SECONDS){session=null;try{localStorage.removeItem(SESSION_KEY);}catch{}}
 export const getSession=()=>session;
 export const getUser=()=>session?.user||null;
-function setSession(next){
- session=next&&next.access_token?{access_token:next.access_token,refresh_token:next.refresh_token,expires_at:next.expires_at||Math.floor(Date.now()/1000)+(next.expires_in||3600),user:userView(next.user)}:null;
+// fresh=true num login novo (começa a contar os 30 dias); renovações mantêm o início da sessão.
+// O evento duavesso:auth só dispara quando a pessoa logada muda, não a cada renovação de token.
+function setSession(next,fresh=false){
+ const before=JSON.stringify(session?.user||null);
+ session=next&&next.access_token?{access_token:next.access_token,refresh_token:next.refresh_token,expires_at:next.expires_at||now()+(next.expires_in||3600),started_at:fresh||!session?.started_at?now():session.started_at,user:next.user===undefined?session?.user||null:userView(next.user)}:null;
  try{if(session)localStorage.setItem(SESSION_KEY,JSON.stringify(session));else localStorage.removeItem(SESSION_KEY);}catch{}
- window.dispatchEvent(new CustomEvent('duavesso:auth',{detail:session?.user||null}));
+ if(JSON.stringify(session?.user||null)!==before)window.dispatchEvent(new CustomEvent('duavesso:auth',{detail:session?.user||null}));
 }
-function userView(u){if(!u)return null;const m=u.user_metadata||{};return {id:u.id,email:u.email,name:m.name||m.full_name||'',provider:u.app_metadata?.provider||'email'};}
-async function refreshIfNeeded(){
+function userView(u){if(!u)return null;if(!u.user_metadata&&'name' in u)return u;const m=u.user_metadata||{};return {id:u.id,email:u.email,name:m.name||m.full_name||'',provider:u.app_metadata?.provider||'email'};}
+// Outra aba entrou, saiu ou renovou o token: esta aba passa a usar a mesma sessão.
+window.addEventListener('storage',e=>{
+ if(e.key!==SESSION_KEY)return;
+ const before=JSON.stringify(session?.user||null);
+ session=readStoredSession();
+ if(JSON.stringify(session?.user||null)!==before)window.dispatchEvent(new CustomEvent('duavesso:auth',{detail:session?.user||null}));
+});
+// O token de renovação só vale uma vez. Uma renovação por vez nesta aba (promessa compartilhada)
+// e entre abas (Web Locks, quando o navegador tem); dentro da trava, se outra aba já renovou, usa a dela.
+let refreshing=null;
+async function refreshNow(){
  if(!session)return;
- if(session.expires_at-Math.floor(Date.now()/1000)>60)return;
+ const stored=readStoredSession();
+ if(stored&&stored.refresh_token!==session?.refresh_token&&stored.expires_at-now()>60){session=stored;return;}
  try{const data=await authFetch('token?grant_type=refresh_token',{refresh_token:session.refresh_token});setSession(data);}
- catch{setSession(null);}
+ catch(error){if(error.message!==OFFLINE)setSession(null);} // sem internet não desloga; token inválido desloga
+}
+function refreshIfNeeded(){
+ if(!session)return;
+ if(now()-session.started_at>MAX_SESSION_SECONDS){signOut();return;}
+ if(session.expires_at-now()>60)return;
+ refreshing??=(navigator.locks?.request?navigator.locks.request('duavesso-auth-refresh',refreshNow):refreshNow()).finally(()=>{refreshing=null;});
+ return refreshing;
 }
 export async function authHeaders(){
  await refreshIfNeeded();
@@ -70,17 +97,27 @@ async function authFetch(path,body,method='POST',extra={}){
 // Conta ---------------------------------------------------------------------------
 export async function signUp(email,password,name){
  const data=await authFetch('signup',{email,password,data:{name}});
- if(data?.access_token){setSession(data);return {confirmed:true};}
+ if(data?.access_token){setSession(data,true);return {confirmed:true};}
  return {confirmed:false};
 }
 export async function signIn(email,password){
  const data=await authFetch('token?grant_type=password',{email,password});
- setSession(data);return session.user;
+ setSession(data,true);return session.user;
 }
+// Sai na hora (nesta e nas outras abas) e revoga a sessão no servidor. Se o acesso já venceu, renova
+// antes, senão o logout falharia em silêncio e a sessão continuaria válida lá. Sem internet, tenta 2 vezes.
 export async function signOut(){
- const token=session?.access_token;
+ const old=session;
  setSession(null);
- if(token)try{await net(`${SUPABASE_URL}/auth/v1/logout`,{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${token}`}});}catch{}
+ if(!old)return;
+ let {access_token:token,refresh_token:refresh,expires_at:expires}=old;
+ for(let attempt=0;attempt<2;attempt++){
+  try{
+   if(expires-now()<=30){const data=await authFetch('token?grant_type=refresh_token',{refresh_token:refresh});({access_token:token,refresh_token:refresh}=data);expires=now()+(data.expires_in||3600);}
+   const response=await net(`${SUPABASE_URL}/auth/v1/logout`,{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${token}`}});
+   if(response.ok||response.status===401||response.status===403)return; // 401/403: a sessão já não existe no servidor
+  }catch(error){if(error.message!==OFFLINE)return;} // token de renovação inválido: nada a revogar
+ }
 }
 export async function resetPassword(email){
  await authFetch('recover',{email},'POST',{});
@@ -109,10 +146,10 @@ export async function handleAuthRedirect(){
  if(code){
   const verifier=localStorage.getItem(PKCE_KEY);localStorage.removeItem(PKCE_KEY);
   url.searchParams.delete('code');
-  try{if(!verifier)throw new Error('Abra o link no mesmo navegador em que começou o login.');const data=await authFetch('token?grant_type=pkce',{auth_code:code,code_verifier:verifier});setSession(data);outcome={type:'signed_in'};}
+  try{if(!verifier)throw new Error('Abra o link no mesmo navegador em que começou o login.');const data=await authFetch('token?grant_type=pkce',{auth_code:code,code_verifier:verifier});setSession(data,true);outcome={type:'signed_in'};}
   catch(error){outcome={type:'error',message:error.message};}
  }else if(hash.get('access_token')){
-  setSession({access_token:hash.get('access_token'),refresh_token:hash.get('refresh_token'),expires_in:Number(hash.get('expires_in'))||3600,user:null});
+  setSession({access_token:hash.get('access_token'),refresh_token:hash.get('refresh_token'),expires_in:Number(hash.get('expires_in'))||3600,user:null},true);
   try{const user=await handle(await net(`${SUPABASE_URL}/auth/v1/user`,{headers:await authHeaders()}));setSession({...session,user,expires_in:session.expires_at-Math.floor(Date.now()/1000)});}catch{}
   outcome={type:hash.get('type')==='recovery'?'recovery':'signed_in'};
   url.hash='';
