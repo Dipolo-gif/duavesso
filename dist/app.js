@@ -174,16 +174,16 @@ function showCheckout(){
  openDialog('#checkout-dialog');
 }
 async function submitOrder(data,shipping,payment){
- const items=[];
- for(const item of cart){
-  if(item.id!=='custom'){items.push({kind:'catalog',product_id:item.id,size:item.size,qty:item.qty});continue;}
-  const folder=crypto.randomUUID(),mode=customMode(item.design),design=JSON.parse(JSON.stringify(item.design||{}));
-  const preview_path=await uploadDesign(`${folder}/preview.jpg`,dataURLToBlob(item.preview));
-  let image_path=null;delete design.image;
-  for(const p of design.prints||[]){delete p.image_path;if(!p.image)continue;p.image_path=await uploadDesign(`${crypto.randomUUID()}/art.webp`,dataURLToBlob(p.image));delete p.image;image_path??=p.image_path;}
-  if(design.prints)design.image_paths=design.prints.map(p=>p.image_path||null);
-  items.push({kind:mode==='brief'?'brief':'custom',base:item.base,size:item.size,qty:item.qty,design,preview_path,image_path});
- }
+ // Prévias e artes do estúdio sobem todas em paralelo; a cor (base) de cada peça vai junto para o banco.
+ const items=await Promise.all(cart.map(async item=>{
+  if(item.id!=='custom')return {kind:'catalog',product_id:item.id,base:item.base,size:item.size,qty:item.qty};
+  const mode=customMode(item.design),design=JSON.parse(JSON.stringify(item.design||{})),prints=design.prints||[];
+  delete design.image;prints.forEach(p=>delete p.image_path);
+  const [preview_path,...arts]=await Promise.all([uploadDesign(`${crypto.randomUUID()}/preview.jpg`,dataURLToBlob(item.preview)),...prints.map(p=>p.image?uploadDesign(`${crypto.randomUUID()}/art.webp`,dataURLToBlob(p.image)):null)]);
+  prints.forEach((p,i)=>{if(arts[i]){p.image_path=arts[i];delete p.image;}});
+  if(design.prints)design.image_paths=prints.map(p=>p.image_path||null);
+  return {kind:mode==='brief'?'brief':'custom',base:item.base,size:item.size,qty:item.qty,design,preview_path,image_path:arts.find(Boolean)??null};
+ }));
  return rpc('place_order',{p_customer:{name:data.get('name'),email:data.get('email'),cep:data.get('cep'),city:data.get('city'),address:data.get('address')},p_shipping:shipping,p_payment:payment,p_items:items});
 }
 const STATUS_LABEL={aguardando_pagamento:'Aguardando pagamento',pago:'Pagamento confirmado',em_producao:'Em produção',enviado:'Enviado',entregue:'Entregue',cancelado:'Cancelado'};

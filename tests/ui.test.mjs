@@ -102,7 +102,7 @@ test('the catalog stays local (stale server products ignored) and online checkou
  for(const [k,v] of Object.entries({name:'Cliente Real',email:'cliente@example.com',cep:'60000-000',city:'Fortaleza',address:'Rua Um, 10'}))form.elements.namedItem(k).value=v;
  form.dispatchEvent(new s.w.Event('submit',{bubbles:true,cancelable:true}));await new Promise(r=>setTimeout(r,30));
  const order=calls.find(c=>c.url.includes('place_order'));assert(order);const body=JSON.parse(order.init.body);
- assert.deepEqual(body.p_items,[{kind:'catalog',product_id:'heavy-eclipse',size:'M',qty:1}]);assert.equal(body.p_customer.email,'cliente@example.com');
+ assert.deepEqual(body.p_items,[{kind:'catalog',product_id:'heavy-eclipse',base:'brown',size:'M',qty:1}]);assert.equal(body.p_customer.email,'cliente@example.com');
  assert(order.init.headers.apikey.startsWith('sb_publishable_'));
  assert(s.doc.querySelector('.order-id').textContent.includes('AV-TEST-0001'));assert.equal(s.doc.querySelector('#cart-count').textContent,'0');
  const raw=s.w.localStorage.getItem('duavesso.orders.v1');assert(raw.includes('AV-TEST-0001'));assert(!raw.includes('cliente@example.com'));
@@ -282,5 +282,33 @@ test('LGPD: a política de privacidade abre pelo rodapé com o conteúdo exigido
  assert(text.includes('LGPD'),'cita a LGPD');
  assert(text.includes('Supabase'),'lista os operadores');
  assert(text.includes('privacidade@duavesso.com.br'),'canal de contato de privacidade');
+ }finally{s.close();}
+});
+test('checkout sends the chosen color and uploads every studio image in parallel',async()=>{
+ const calls=[];let inFlight=0,peak=0;
+ const fetchStub=async(url,init={})=>{
+  url=String(url);calls.push({url,init});
+  const json=(body,status=200)=>({ok:status<400,status,json:async()=>body});
+  if(url.includes('/storage/v1/object/designs/')){inFlight++;peak=Math.max(peak,inFlight);await new Promise(r=>setTimeout(r,15));inFlight--;return json({Key:'designs/x'});}
+  if(url.includes('/rest/v1/rpc/place_order'))return json({code:'AV-TEST-0002',status:'aguardando_pagamento',count:2,subtotal_cents:24980,delivery_cents:1490,total_cents:26470});
+  return json([],200);
+ };
+ const cart=[{id:'simples',base:'brown',size:'G',qty:1},{id:'custom',key:'custom-par-1',base:'white',size:'M',qty:1,preview:'data:image/jpeg;base64,AA==',design:{mode:'create',color:'white',prints:[{text:'A',image:'data:image/png;base64,AA=='},{text:'B'},{text:'C',image:'data:image/webp;base64,AA=='}]}}];
+ const s=await setup({'duavesso.cart.v1':cart},fetchStub);try{
+ s.click('#open-cart');s.click('#begin-checkout');
+ const form=s.doc.querySelector('#checkout-form');
+ for(const [k,v] of Object.entries({name:'Cliente Real',email:'cliente@example.com',cep:'60000-000',city:'Fortaleza',address:'Rua Um, 10'}))form.elements.namedItem(k).value=v;
+ form.dispatchEvent(new s.w.Event('submit',{bubbles:true,cancelable:true}));await new Promise(r=>setTimeout(r,80));
+ const uploads=calls.filter(c=>c.url.includes('/storage/v1/object/designs/'));
+ assert.equal(uploads.length,3,'1 prévia + 2 artes (a estampa só de texto não sobe nada)');
+ assert.equal(peak,3,'as 3 imagens sobem ao mesmo tempo');
+ const body=JSON.parse(calls.find(c=>c.url.includes('place_order')).init.body),[catalog,custom]=body.p_items;
+ assert.deepEqual(catalog,{kind:'catalog',product_id:'simples',base:'brown',size:'G',qty:1});
+ const paths=uploads.map(c=>c.url.split('/designs/')[1]);
+ assert.equal(custom.preview_path,paths.find(p=>p.endsWith('/preview.jpg')));
+ assert.deepEqual(custom.design.image_paths.map(p=>p&&p.endsWith('/art.webp')),[true,null,true]);
+ assert.equal(custom.image_path,custom.design.image_paths[0]);
+ assert(custom.design.prints.every(p=>!('image' in p)||p.image===null),'nenhuma imagem em base64 vai no pedido');
+ assert(s.doc.querySelector('.order-id').textContent.includes('AV-TEST-0002'));
  }finally{s.close();}
 });

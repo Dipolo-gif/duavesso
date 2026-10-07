@@ -1,21 +1,21 @@
 # DUAVESSO — loja de camisetas
 
-Loja em português com catálogo, filtro, busca, ordenação, tamanhos, sacola, checkout, histórico de pedidos e estúdio de estampas (criar na hora ou descrever a ideia). Site estático publicado no GitHub Pages; catálogo, pedidos, artes e newsletter no Supabase.
+Loja em português com catálogo, filtro, busca, ordenação, tamanhos, sacola, checkout, histórico de pedidos e estúdio de estampas (criar na hora ou descrever a ideia). Site estático publicado na Vercel; catálogo, pedidos, artes e newsletter no Supabase.
 
 - Site: https://loja-duavesso.vercel.app/
-- Publicação: a cada push na `main`, o workflow roda `npm audit`, `npm test` e `npm run validate` e publica `dist/`.
+- Publicação: a Vercel publica `dist/` a cada push na `main`. O workflow de CI roda `npm audit`, `npm test` e `npm run validate` em todo push e em todo pull request.
 
 ## Executar
 
 Node.js 22 ou mais recente. `npm start` abre o servidor local em http://127.0.0.1:5174 (com cabeçalhos de segurança). O site de produção é estático; não precisa de dependências de execução.
 
-`npm test` executa verificações de compra e interação com DOM emulado (inclui o modo online com `fetch` simulado). `npm run validate` verifica referências, sintaxe e estrutura estática. `npm run images` regenera as imagens de `dist/assets/` a partir dos originais em `assets-src/`.
+`npm test` executa verificações de compra e interação com DOM emulado (inclui o modo online com `fetch` simulado) e aplica todas as migrações num Postgres local (PGlite) para conferir que o catálogo do banco é o mesmo do site e que cada peça e cada cor podem ser pedidas. `npm run validate` verifica referências, sintaxe e estrutura estática. `npm run images` regenera as imagens de `dist/assets/` a partir dos originais em `assets-src/`.
 
 ## Backend (Supabase)
 
 Projeto `duavesso` (região São Paulo). O navegador usa a chave pública de `dist/api.js`; o que ela pode fazer é definido pelas migrações em `supabase/migrations/`:
 
-- `products` e `store_settings`: leitura pública (catálogo, frete, preços do estúdio).
+- `products`, `product_variants` e `store_settings`: leitura pública (catálogo, cores de cada peça, frete, preços do estúdio). O catálogo do banco precisa ser igual ao de `dist/commerce.js`: ao mudar uma peça no site, crie uma migração que atualize o banco (o teste `tests/db.test.mjs` falha se os dois divergirem).
 - `orders` e `order_items`: sem acesso direto; gravados só por `place_order()`, que recalcula preços e frete no servidor, valida tudo e limita 10 pedidos/hora por e-mail. Status inicial `aguardando_pagamento`.
 - `newsletter_subscribers`: só por `subscribe_newsletter()`.
 - `get_order(código, e-mail)`: consulta de status sem login.
