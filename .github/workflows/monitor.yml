@@ -1,0 +1,57 @@
+name: Monitor da loja
+
+# A cada 30 minutos roda scripts/check-live.mjs (loja, cabeçalhos, Supabase e catálogo do banco igual ao do site).
+# Na primeira falha abre UMA issue com o rótulo fora-do-ar (o GitHub manda e-mail); enquanto continuar
+# falhando não repete; quando volta ao normal fecha a issue (outro e-mail).
+# A consulta ao banco conta como atividade e evita que o Supabase grátis pause por inatividade.
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Verificar loja e Supabase
+        id: check
+        run: |
+          set +e
+          node scripts/check-live.mjs > "$RUNNER_TEMP/relatorio.md"
+          echo "falhou=$?" >> "$GITHUB_OUTPUT"
+          echo -e "\nExecução: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >> "$RUNNER_TEMP/relatorio.md"
+          cat "$RUNNER_TEMP/relatorio.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Abrir ou fechar o aviso
+        env:
+          FALHOU: ${{ steps.check.outputs.falhou }}
+          DONO: ${{ github.repository_owner }}
+        run: |
+          gh label create fora-do-ar --color B60205 --description "Aberta pelo monitor da loja" --force >/dev/null 2>&1 || true
+          aberta=$(gh issue list --label fora-do-ar --state open --json number --jq '.[0].number // empty')
+          agora=$(date -u '+%Y-%m-%d %H:%M')
+          if [ "$FALHOU" != "0" ]; then
+            if [ -z "$aberta" ]; then
+              { echo "@$DONO a verificação automática da loja encontrou um problema."; echo; cat "$RUNNER_TEMP/relatorio.md"; } > "$RUNNER_TEMP/issue.md"
+              gh issue create --title "Problema na loja: $agora UTC" --label fora-do-ar --body-file "$RUNNER_TEMP/issue.md"
+            fi
+          elif [ -n "$aberta" ]; then
+            gh issue close "$aberta" --comment "Tudo normal de novo em $agora UTC. $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          fi
