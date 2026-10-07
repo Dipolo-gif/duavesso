@@ -33,7 +33,8 @@ for(const tag of ['rel="canonical"','property="og:image"','name="twitter:card"']
 for(const m of html.matchAll(/(?:href|content)="(https:\/\/loja-duavesso\.vercel\.app\/[^"#]+)"/g))await exists(m[1].slice(SITE.length));
 // Páginas geradas (npm run pages): atualizadas, com título único, canonical igual ao endereço e link interno na loja.
 const {buildPages}=await import('./build-pages.mjs');
-for(const [rel,content] of Object.entries(buildPages()))assert.equal(await readFile(`dist/${rel}`,'utf8'),content,`dist/${rel} desatualizado: rode npm run pages`);
+const lf=s=>s.replace(/\r\n/g,'\n'); // o git no Windows pode trocar as quebras de linha da cópia local
+for(const [rel,content] of Object.entries(buildPages()))assert.equal(lf(await readFile(`dist/${rel}`,'utf8')),lf(content),`dist/${rel} desatualizado: rode npm run pages`);
 const locs=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1]),titles=new Set();
 for(const loc of locs){
  const rel=loc.slice(SITE.length),doc=await readFile(`dist/${page(rel)||'index.html'}`,'utf8'),title=doc.match(/<title>(.*?)<\/title>/)[1];
