@@ -554,7 +554,7 @@ async function showAccount(tab){
   if(cpfDigits&&!validCPF(cpfDigits)){toast('CPF inválido. Confira os números.');return;}
   busyToast(form,async()=>{
    const data={name:el('name').value.trim(),cep:cepEl.value.trim(),country:el('country').value||'BR',state:stateEl.value||null,city:cityEl.value.trim(),address:addressEl.value.trim(),phone:phoneDigits||null,cpf:cpfDigits||null,avatar:avatarData||null};
-   await updateProfile(data);profile={...profile,...data};renderAuthState();toast('Perfil salvo.');
+   await updateProfile(data,profile?.cpf);profile={...profile,...data};renderAuthState();toast('Perfil salvo.');
   });
  });
 }

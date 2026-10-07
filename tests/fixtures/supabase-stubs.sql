@@ -17,7 +17,9 @@ create table storage.objects (
   id uuid primary key default gen_random_uuid(),
   bucket_id text,
   name text,
-  metadata jsonb not null default '{}'::jsonb
+  metadata jsonb not null default '{}'::jsonb,
+  owner uuid,
+  created_at timestamptz not null default now()
 );
 alter table storage.objects enable row level security;
 create function storage.foldername(name text) returns text[] language sql immutable as $$
@@ -27,3 +29,6 @@ create function storage.filename(name text) returns text language sql immutable 
   select (string_to_array(name, '/'))[array_length(string_to_array(name, '/'), 1)]
 $$;
 create function public.rls_auto_enable() returns event_trigger language plpgsql as $$ begin end $$;
+-- Como no Supabase: a API (anon e authenticated) enxerga o esquema storage e grava em storage.objects via RLS.
+grant usage on schema storage to anon, authenticated;
+grant select, insert on storage.objects to anon, authenticated;

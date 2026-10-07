@@ -83,10 +83,15 @@ function friendlyAuthError(body){
  for(const [re,msg] of AUTH_MESSAGES)if(re.test(raw))return msg;
  return 'Não foi possível concluir agora. Tente de novo em instantes.';
 }
+// Erro inesperado: o cliente vê um código curto para passar ao suporte (código do erro + hora em base 36),
+// que permite achar a falha nos logs do Supabase em vez de só "tente de novo".
+const GENERIC_ERROR='Não foi possível falar com a loja agora. Tente de novo em instantes.';
+const supportCode=code=>`${String(code).replace(/[^\w]/g,'').slice(0,10).toUpperCase()}-${Date.now().toString(36).slice(-6).toUpperCase()}`;
 async function handle(response){
  if(response.ok)return response.status===204?null:response.json();
- let message='Não foi possível falar com a loja agora. Tente de novo em instantes.';
- try{const error=await response.json();if(error.code==='23505')message='Este CPF já está cadastrado em outra conta. Cada CPF pode ter só uma conta.';else if(USER_ERRORS.has(error.code)&&typeof error.message==='string')message=error.message;else if(error.msg||error.error_code||error.error_description||error.error)message=friendlyAuthError(error);}catch{}
+ let message=GENERIC_ERROR,code=response.status;
+ try{const error=await response.json();code=error.code||error.error_code||code;if(error.code==='23505')message='Este CPF já está cadastrado em outra conta. Cada CPF pode ter só uma conta.';else if(USER_ERRORS.has(error.code)&&typeof error.message==='string')message=error.message;else if(error.msg||error.error_code||error.error_description||error.error)message=friendlyAuthError(error);}catch{}
+ if(message===GENERIC_ERROR)message+=` Se continuar, informe ao suporte o código ${supportCode(code)}.`;
  throw new Error(message);
 }
 async function authFetch(path,body,method='POST',extra={}){
@@ -180,9 +185,17 @@ export async function fetchProfile(){
  const rows=await handle(await net(`${SUPABASE_URL}/rest/v1/profiles?select=name,cep,city,address,phone,cpf,country,state,avatar&id=eq.${session.user.id}`,{headers:await authHeaders()}));
  return rows[0]||{name:'',cep:'',city:'',address:'',phone:'',cpf:'',country:'BR',state:'',avatar:''};
 }
-export async function updateProfile(profile){
- const headers=await authHeaders();
- await handle(await net(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}`,{method:'PATCH',headers:{...headers,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(profile)}));
+// O CPF só muda por set_profile_cpf (migração 0007: confere os dígitos e limita as tentativas por dia,
+// para ninguém usar a loja para descobrir de quem é um CPF). O resto do perfil vai por PATCH.
+export async function updateProfile(profile,previousCPF=null){
+ const {cpf=null,...rest}=profile;
+ const patch=async body=>handle(await net(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}`,{method:'PATCH',headers:{...await authHeaders(),'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(body)}));
+ await patch(rest);
+ if((cpf||null)===(previousCPF||null))return;
+ const response=await net(`${SUPABASE_URL}/rest/v1/rpc/set_profile_cpf`,{method:'POST',headers:{...await authHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_cpf:cpf})});
+ if(response.status===404){await patch({cpf});return;} // banco ainda sem a 0007: grava como antes
+ const result=await handle(response);
+ if(result?.ok===false)throw new Error(result.message);
 }
 export async function fetchMyOrders(){
  return handle(await net(`${SUPABASE_URL}/rest/v1/orders?select=code,status,created_at,total_cents,payment,shipping,order_items(name,base,size,qty,unit_price_cents)&order=created_at.desc&limit=20`,{headers:await authHeaders()}));

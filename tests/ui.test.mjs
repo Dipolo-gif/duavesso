@@ -370,3 +370,28 @@ test('card photos: only the first pose downloads; poses 2 and 3 load on first ho
  for(const i of [1,2]){assert(imgs[i].getAttribute('src').includes('tee-porta-'+(i+1)),'pose '+(i+1)+' carregada no hover');assert(sources[i].getAttribute('srcset').includes('.webp'));assert.equal(imgs[i].dataset.src,undefined);}
  }finally{s.close();}
 });
+test('profile: CPF goes through set_profile_cpf (falls back before migration 0007) and unexpected errors show a support code',async()=>{
+ const now=Math.floor(Date.now()/1000);let calls=[],rpcMode='ok';
+ const fetchStub=async(url,init={})=>{
+  url=String(url);calls.push({url,init});
+  const json=(body,status=200)=>({ok:status<400,status,json:async()=>body});
+  if(url.includes('/rpc/set_profile_cpf')){if(rpcMode==='missing')return json({code:'PGRST202',message:'not found'},404);return json(rpcMode==='ok'?{ok:true}:{ok:false,message:'Este CPF já está cadastrado em outra conta. Cada CPF pode ter só uma conta.'});}
+  if(url.includes('/rest/v1/profiles'))return init.method==='PATCH'?json(null,204):json([]);
+  if(url.includes('/rpc/get_order'))return json({code:'XX000',message:'internal'},500);
+  return json([]);
+ };
+ const s=await setup({'duavesso.session.v1':{access_token:'tok',refresh_token:'ref',expires_at:now+3600,started_at:now,user:{id:'u1',email:'c@example.com',name:'C',provider:'email'}}},fetchStub);try{
+ const patches=()=>calls.filter(c=>c.init.method==='PATCH').map(c=>JSON.parse(c.init.body)),rpcs=()=>calls.filter(c=>c.url.includes('set_profile_cpf'));
+ await s.w.updateProfile({name:'C',cpf:'52998224725'},null);
+ assert.deepEqual(patches(),[{name:'C'}],'o PATCH não leva o CPF');
+ assert.deepEqual(JSON.parse(rpcs()[0].init.body),{p_cpf:'52998224725'});
+ calls=[];await s.w.updateProfile({name:'C',cpf:'52998224725'},'52998224725');
+ assert.equal(rpcs().length,0,'CPF igual ao anterior: não chama a função');
+ calls=[];rpcMode='taken';
+ await assert.rejects(s.w.updateProfile({name:'C',cpf:'11144477735'},'52998224725'),/já está cadastrado/);
+ calls=[];rpcMode='missing';
+ await s.w.updateProfile({name:'C',cpf:'11144477735'},'52998224725');
+ assert.deepEqual(patches(),[{name:'C'},{cpf:'11144477735'}],'banco sem a 0007: grava o CPF como antes');
+ await assert.rejects(s.w.rpc('get_order',{p_code:'AV-1',p_email:'c@example.com'}),/informe ao suporte o código XX000-[0-9A-Z]{1,6}\./);
+ }finally{s.close();}
+});
