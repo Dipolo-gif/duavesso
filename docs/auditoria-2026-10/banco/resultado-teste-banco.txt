@@ -1,0 +1,80 @@
+migrações 0001 a 0005 aplicadas
+
+== A) O catálogo atual do site cabe no esquema atual?
+heavy-faces RECUSADO 23514: new row for relation "products" violates check constraint "products_base_check"
+simples RECUSADO 23514: new row for relation "products" violates check constraint "products_category_check"
+
+== B) place_order ATUAL (laço, migração 0003)
+[atual] valido: {"code":"AV-…","count":7,"status":"aguardando_pagamento","total_cents":105930,"delivery_cents":0,"subtotal_cents":105930} | escritas: order_items ins=4 upd=0, orders ins=1 upd=1
+[atual] qty_zero: 22023: Quantidade inválida.
+[atual] kind_ruim: 22023: Item inválido.
+[atual] produto_atual_do_site: 22023: Produto indisponível: heavy-faces
+[atual] brief_curto: 22023: Descreva a estampa com pelo menos 10 caracteres.
+[atual] design_lista: 22023: Personalização inválida.
+[atual] design_grande: 22023: Personalização inválida.
+[atual] sacola_vazia: 22023: Sacola vazia ou inválida.
+[atual] itens_nulos: {"code":"AV-…","count":0,"status":"aguardando_pagamento","total_cents":1490,"delivery_cents":1490,"subtotal_cents":0} | escritas: order_items ins=4 upd=0, orders ins=8 upd=2
+
+== C) aplica a proposta 0006
+0006 aplicada sem erro
+
+== D) place_order PROPOSTO (em lote)
+[proposto] valido: {"code":"AV-…","count":7,"status":"aguardando_pagamento","total_cents":105930,"delivery_cents":0,"subtotal_cents":105930} | escritas: order_events ins=1 upd=0, order_items ins=8 upd=0, orders ins=9 upd=2
+[proposto] qty_zero: 22023: Quantidade inválida.
+[proposto] kind_ruim: 22023: Item inválido.
+[proposto] produto_atual_do_site: {"code":"AV-…","count":1,"status":"aguardando_pagamento","total_cents":17480,"delivery_cents":1490,"subtotal_cents":15990} | escritas: order_events ins=2 upd=0, order_items ins=9 upd=0, orders ins=10 upd=2
+[proposto] brief_curto: 22023: Descreva a estampa com pelo menos 10 caracteres.
+[proposto] design_lista: 22023: Personalização inválida.
+[proposto] design_grande: 22023: Personalização inválida.
+[proposto] sacola_vazia: 22023: Sacola vazia ou inválida.
+[proposto] itens_nulos: 22023: Sacola vazia ou inválida.
+
+== E) Paridade atual x proposto
+valido                 IGUAL
+qty_zero               IGUAL
+kind_ruim              IGUAL
+produto_atual_do_site  DIFERENTE  atual="22023: Produto indisponível: heavy-faces"  proposto={"code":"AV-…","count":1,"status":"aguardando_pagamento","total_cents":17480,"delivery_cents":1490,"subtotal_cents":15990}
+brief_curto            IGUAL
+design_lista           IGUAL
+design_grande          IGUAL
+sacola_vazia           IGUAL
+itens_nulos            DIFERENTE  atual={"code":"AV-…","count":0,"status":"aguardando_pagamento","total_cents":1490,"delivery_cents":1490,"subtotal_cents":0}  proposto="22023: Sacola vazia ou inválida."
+
+== F) Cor da variante chega ao pedido (proposta)
+simples base=brown -> [{"name":"Oversized Simples","base":"brown"}]
+simples base=(não enviada) -> [{"name":"Oversized Simples","base":"black"}]
+simples base=purple -> 22023: Cor indisponível para este produto.
+
+== G) Linha do tempo do pedido (order_events)
+[
+  {
+    type: 'created',
+    status_from: null,
+    status_to: 'aguardando_pagamento',
+    source: 'checkout'
+  },
+  {
+    type: 'status_changed',
+    status_from: 'aguardando_pagamento',
+    status_to: 'pago',
+    source: 'webhook:teste'
+  }
+]
+uf gravada no pedido: { uf: 'RJ', cep: '20040-002', city: 'Rio de Janeiro' }
+
+== H) Índices usados pelas consultas do app (enable_seqscan=off só para provar que o índice serve)
+pedidos do usuário (fetchMyOrders + RLS)   Index Scan using orders_user_idx on orders  (cost=0.14..8.16 rows=1 width=40)  ; Index Cond: (user_id = '0f8fad5b-d9cb-469f-a165-70867728950e'::uuid)
+itens de um pedido (embed order_items)     Index Scan using order_items_order_idx on order_items  (cost=0.15..8.17 rows=1 width=32)  ; Index Cond: (order_id = 1)
+limite 10/hora por e-mail (place_order)    Index Only Scan using orders_email_created_idx on orders  (cost=0.15..8.17 rows=1 width=0)  ; Index Cond: ((customer_email = 'a@b.c'::text) AND (created_at > (now() - '01:00:00'::interval)))
+get_order por código                       Index Scan using orders_email_created_idx on orders  (cost=0.14..8.16 rows=1 width=4)  ; Index Cond: (customer_email = 'a@b.c'::text) 
+perfil por id                              Index Scan using profiles_pkey on profiles  (cost=0.14..8.16 rows=1 width=32)  ; Index Cond: (id = '0f8fad5b-d9cb-469f-a165-70867728950e'::uuid)
+painel: pedidos aguardando pagamento       Index Scan using orders_status_created_idx on orders  (cost=0.14..8.16 rows=1 width=40)  ; Index Cond: (status = 'aguardando_pagamento'::text)
+eventos de um pedido                       Index Scan on order_events_order_at_idx  (cost=0.00..4.16 rows=2 width=0)  ; Index Cond: (order_id = 1)
+
+== I) Chaves estrangeiras sem índice (mesma checagem do Performance Advisor)
+[]
+
+== J) "Quantos usuários são do Rio de Janeiro?"
+por UF do perfil (só quem preencheu)             1
+por faixa de CEP do RJ (20000000 a 28999999)     2
+cidade do Rio, texto livre normalizado           2

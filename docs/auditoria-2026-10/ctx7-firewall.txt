@@ -1,0 +1,79 @@
+### POST /v1/security/firewall/config/generate-rule
+
+Source: https://vercel.com/docs/rest-api
+
+Generates a firewall rule definition from natural language input. Assists in creating complex rule syntax automatically.
+
+```APIDOC
+## POST /v1/security/firewall/config/generate-rule
+
+### Description
+Generate a firewall rule from natural language
+
+### Method
+POST
+
+### Endpoint
+/v1/security/firewall/config/generate-rule
+```
+
+--------------------------------
+
+### Send POST Request with curl to Test Rate Limiting
+
+Source: https://vercel.com/academy/build-and-launch-with-ai/protect-the-form
+
+Sends an incomplete POST request to the workshop URL, printing only the HTTP status code. Run this command six times within 60 seconds to verify that the Vercel Firewall returns a 429 response after exceeding the limit.
+
+```bash
+curl --silent --output /dev/null --write-out '%{http_code}\n' --request POST --data 'email=invalid' 'PASTE_PRODUCTION_WORKSHOP_URL_HERE'
+```
+
+--------------------------------
+
+### Trigger a managed rule with curl
+
+Source: https://vercel.com/academy/optimize-your-vercel-account/managed-rules
+
+Send a request containing SQL injection syntax to test Vercel Managed Rules. In Log mode, the request passes through and is logged; in Deny mode, Vercel Firewall blocks the request with a 403 status code before reaching the function.
+
+```bash
+curl "https://YOUR_DOMAIN/?q=' OR 1=1--"
+```
+
+### Vercel WAF
+
+Source: https://vercel.com/docs/vercel-firewall
+
+Vercel WAF is available on [all plans](/docs/plans)
+
+Those with the [member](/docs/rbac/access-roles#member-role), [viewer](/docs/rbac/access-roles#viewer-role), [developer](/docs/rbac/access-roles#developer-role) and [administrator](/docs/rbac/access-roles#project-administrators) roles can access this feature
+
+The [Vercel WAF](/docs/vercel-firewall/vercel-waf) complements the platform-wide firewall by allowing you to define custom protection strategies using the following tools:
+
+-   [Custom Rules](/docs/vercel-firewall/vercel-waf/custom-rules)
+-   [IP Blocking](/docs/vercel-firewall/vercel-waf/ip-blocking)
+-   [WAF Managed Rulesets](/docs/vercel-firewall/vercel-waf/managed-rulesets)
+-   [Attack Mode](/docs/vercel-firewall/attack-mode)
+
+You can also manage bypass rules and your WAF configuration programmatically with the [REST API](/docs/vercel-firewall/firewall-api) through the Vercel SDK, direct endpoint calls, or Terraform.
+
+--------------------------------
+
+### Managed Rules
+
+Source: https://vercel.com/academy/optimize-your-vercel-account/managed-rules
+
+Plan tier
+
+The OWASP Core Ruleset this lesson enables is Enterprise-only and usage-priced by inspected requests and payload size. The Bot Management rulesets from Lesson 2.4 (Bot Protection, AI Bots) are managed rulesets too, and those come with every plan. If you're not on Enterprise, read along; you've already used the same log-first workflow.
+
+Custom firewall rules cover what you know about. The stock-check rate limit from Lesson 2.3 was your educated guess about where sneaker bots would aim. It's correct for that one specific endpoint. But it's not how all the threats arrive.
+
+SQL injection attempts. Cross-site scripting. Path traversal. Header smuggling. Variants of those that get added every time a new CVE drops. Vercel's managed rulesets implement OWASP top 10 (and a lot more) as a single toggle. You don't write the rules. You don't keep them current. You decide whether they're on, in log mode, or off.
+
+This is the last configuration in the course. We'll flip it on, leave it in log mode for a week, then talk about what to do next.
+
+What are managed rulesets?
+
+Firewall rule collections that Vercel writes and keeps current, covering standard attack patterns like the OWASP Top 10. You choose log or deny per ruleset; Vercel handles what the rules actually match.

@@ -1,0 +1,73 @@
+# RASCUNHO para .github/workflows/backup-supabase.yml (auditoria de 2026-10-07; nao aplicado)
+# O plano gratuito do Supabase NAO guarda backups acessiveis; a documentacao recomenda `supabase db dump`.
+# O repositorio e PUBLICO: o dump (com e-mails, CPF, enderecos) e criptografado antes de virar artefato,
+# porque artefatos de repositorio publico podem ser baixados por qualquer pessoa logada no GitHub.
+#
+# Segredos que o dono cadastra (Settings > Secrets and variables > Actions):
+#   SUPABASE_DB_URL     string do "Session pooler" (IPv4, porta 5432) copiada do botao Connect do painel:
+#                       postgresql://postgres.bkyzkighkuswsssvicpy:<SENHA>@aws-<n>-<regiao>.pooler.supabase.com:5432/postgres
+#                       (a conexao direta db.<ref>.supabase.co e so IPv6 e nao funciona no runner do GitHub)
+#   BACKUP_PASSPHRASE   frase longa (gerenciador de senhas). Sem ela o backup nao abre: guarde fora do GitHub.
+#
+# Restaurar (em outro projeto ou Postgres local):
+#   gpg -d duavesso-AAAA-MM-DD.tgz.gpg > b.tgz && tar xzf b.tgz
+#   psql --single-transaction -v ON_ERROR_STOP=1 -f backup/roles.sql -f backup/schema.sql \
+#        -c 'SET session_replication_role = replica' -f backup/data.sql -d "$NOVA_DB_URL"
+name: Backup do banco
+
+on:
+  schedule:
+    - cron: '17 6 * * *'   # todo dia, 03:17 em Brasilia
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-banco
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: latest
+      - name: Exportar papeis, estrutura e dados
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$DB_URL" || { echo "Segredo SUPABASE_DB_URL ausente"; exit 1; }
+          mkdir -p backup
+          supabase db dump --db-url "$DB_URL" -f backup/roles.sql --role-only
+          supabase db dump --db-url "$DB_URL" -f backup/schema.sql
+          supabase db dump --db-url "$DB_URL" -f backup/data.sql --data-only --use-copy
+          # Sanidade: o dump precisa ter as tabelas da loja (sem imprimir dados no log publico).
+          for t in products orders order_items profiles; do
+            if grep -Eq "COPY \"?public\"?\.\"?${t}\"? " backup/data.sql; then echo "ok: public.$t"
+            else echo "::warning::tabela public.$t nao encontrada no data.sql"; fi
+          done
+          grep -Eq "COPY \"?auth\"?\.\"?users\"? " backup/data.sql && echo "ok: auth.users" || echo "::warning::auth.users fora do dump (contas)"
+          ls -l backup
+          tar -czf backup.tgz backup
+          rm -rf backup
+      - name: Criptografar
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          test -n "$BACKUP_PASSPHRASE" || { echo "Segredo BACKUP_PASSPHRASE ausente"; exit 1; }
+          arquivo="duavesso-$(date -u +%F).tgz.gpg"
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 -o "$arquivo" backup.tgz
+          shred -u backup.tgz
+          sha256sum "$arquivo" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backup-banco-${{ github.run_id }}
+          path: duavesso-*.tgz.gpg
+          retention-days: 90
+          if-no-files-found: error

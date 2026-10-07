@@ -1,0 +1,81 @@
+# RASCUNHO para .github/workflows/monitor.yml (auditoria de 2026-10-07; nao aplicado)
+# Testa a loja e o Supabase a cada 30 min. Na primeira falha abre UMA issue (o GitHub manda e-mail),
+# enquanto continuar fora nao repete, e quando volta fecha a issue (novo e-mail).
+# A consulta real ao banco (products) tambem conta como atividade e evita a pausa do plano gratuito.
+name: Monitor da loja
+
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SITE: https://loja-duavesso.vercel.app/
+      SUPABASE_URL: https://bkyzkighkuswsssvicpy.supabase.co
+      # Chave publica (publishable), a mesma que ja esta em dist/api.js. Nao e segredo.
+      SUPABASE_KEY: sb_publishable_9rzjsC4wmHSmBxlKZfIwJg_SlDprprm
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Testar loja e Supabase
+        run: |
+          set -u
+          rel="$RUNNER_TEMP/relatorio.md"
+          falhas=0
+          {
+            echo "Verificacao de $(date -u '+%Y-%m-%d %H:%M') UTC"
+            echo
+            echo "| Teste | Esperado | Obtido | Tempo (s) |"
+            echo "|---|---|---|---|"
+          } > "$rel"
+          teste() {
+            nome="$1"; esperado="$2"; shift 2
+            saida=$(curl -sS -o "$RUNNER_TEMP/corpo" -w '%{http_code} %{time_total}' --max-time 20 --retry 2 --retry-delay 5 "$@" 2>/dev/null)
+            codigo="${saida%% *}"; tempo="${saida##* }"
+            if [ "$codigo" = "$esperado" ]; then
+              echo "| $nome | $esperado | $codigo | $tempo |" >> "$rel"
+            else
+              echo "| $nome | $esperado | **${codigo:-sem resposta}** | $tempo |" >> "$rel"
+              falhas=$((falhas+1))
+            fi
+          }
+          teste "Loja: pagina inicial" 200 "$SITE"
+          if ! grep -qi 'duavesso' "$RUNNER_TEMP/corpo" 2>/dev/null; then
+            echo "| Loja: conteudo esperado | contem DUAVESSO | **nao contem** | |" >> "$rel"; falhas=$((falhas+1))
+          fi
+          curl -sSI --max-time 20 "$SITE" > "$RUNNER_TEMP/cab" 2>/dev/null || true
+          for h in content-security-policy strict-transport-security x-frame-options x-content-type-options; do
+            grep -qi "^$h:" "$RUNNER_TEMP/cab" || { echo "| Cabecalho $h | presente | **ausente** | |" >> "$rel"; falhas=$((falhas+1)); }
+          done
+          teste "Supabase: login (Auth)" 200 "$SUPABASE_URL/auth/v1/health" -H "apikey: $SUPABASE_KEY"
+          teste "Supabase: banco (catalogo)" 200 "$SUPABASE_URL/rest/v1/products?select=id&limit=1" -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY"
+          {
+            echo
+            echo "Execucao: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo
+            echo "Dica: Supabase sem resposta (sem DNS ou 540) costuma ser projeto pausado: painel do Supabase, Restore project."
+          } >> "$rel"
+          cat "$rel" >> "$GITHUB_STEP_SUMMARY"
+
+          gh label create fora-do-ar --color B60205 --description "Aberta pelo monitor" --force >/dev/null 2>&1 || true
+          aberta=$(gh issue list --label fora-do-ar --state open --json number --jq '.[0].number // empty')
+          if [ "$falhas" -gt 0 ]; then
+            if [ -z "$aberta" ]; then
+              { echo "@${{ github.repository_owner }} a loja ou o Supabase falhou no monitor."; echo; cat "$rel"; } > "$RUNNER_TEMP/corpo-issue.md"
+              gh issue create --title "Fora do ar: $(date -u '+%Y-%m-%d %H:%M') UTC" --label fora-do-ar --body-file "$RUNNER_TEMP/corpo-issue.md"
+            fi
+          elif [ -n "$aberta" ]; then
+            gh issue close "$aberta" --comment "Voltou ao ar em $(date -u '+%Y-%m-%d %H:%M') UTC. $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          fi

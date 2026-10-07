@@ -1,0 +1,479 @@
+migração aplicada: 0001_avesso_init.sql
+migração aplicada: 0002_tighten_function_grants.sql
+migração aplicada: 0003_accounts.sql
+migração aplicada: 0004_profile_fields.sql
+migração aplicada: 0005_cpf_unique.sql
+
+### perfis criados pelo gatilho handle_new_user
+[
+ {
+  "id": "11111111-1111-4111-8111-111111111111",
+  "name": "Ana",
+  "cpf": null,
+  "state": "SP",
+  "city": "São Paulo"
+ },
+ {
+  "id": "22222222-2222-4222-8222-222222222222",
+  "name": "Bia",
+  "cpf": "22222222222",
+  "state": "RJ",
+  "city": "Rio de Janeiro"
+ }
+]
+
+### B faz um pedido logada
+{
+ "ok": true,
+ "rows": [
+  {
+   "r": {
+    "code": "AV-1A117FD79A3-3AAA",
+    "count": 1,
+    "status": "aguardando_pagamento",
+    "total_cents": 17480,
+    "delivery_cents": 1490,
+    "subtotal_cents": 15990
+   }
+  }
+ ],
+ "affectedRows": 0
+}
+
+### A faz um pedido logada
+{
+ "ok": true,
+ "rows": [
+  {
+   "r": {
+    "code": "AV-1A117FD79B0-0783",
+    "count": 1,
+    "status": "aguardando_pagamento",
+    "total_cents": 17480,
+    "delivery_cents": 1490,
+    "subtotal_cents": 15990
+   }
+  }
+ ],
+ "affectedRows": 0
+}
+
+### T1 A lê profiles?id=eq.<B> (esperado: 0 linhas)
+{
+ "ok": true,
+ "rows": [],
+ "affectedRows": 0
+}
+
+### T2 A lê profiles sem filtro (esperado: só a própria linha)
+{
+ "ok": true,
+ "rows": [
+  {
+   "id": "11111111-1111-4111-8111-111111111111",
+   "name": "Cliente Teste"
+  }
+ ],
+ "affectedRows": 0
+}
+
+### T3 A faz PATCH profiles?id=eq.<B> (esperado: 0 linhas afetadas)
+{
+ "ok": true,
+ "rows": [],
+ "affectedRows": 0
+}
+
+### T3b nome de B depois do ataque (visão do superusuário)
+[
+ {
+  "name": "Cliente Teste"
+ }
+]
+
+### T4 A insere perfil com id de outra pessoa (esperado: erro RLS)
+{
+ "ok": false,
+ "code": "42501",
+ "error": "new row violates row-level security policy for table \"profiles\""
+}
+
+### T5 A troca o próprio id para o de B (esperado: erro)
+{
+ "ok": false,
+ "code": "42501",
+ "error": "new row violates row-level security policy for table \"profiles\""
+}
+
+### T6 A apaga o próprio perfil (sem grant de delete)
+{
+ "ok": false,
+ "code": "42501",
+ "error": "permission denied for table profiles"
+}
+
+### T7 A lê orders?user_id=eq.<B> (esperado: 0)
+{
+ "ok": true,
+ "rows": [],
+ "affectedRows": 0
+}
+
+### T8 A lê todos os orders (esperado: só os seus)
+{
+ "ok": true,
+ "rows": [
+  {
+   "code": "AV-1A117FD79B0-0783",
+   "customer_email": "ana@example.com"
+  }
+ ],
+ "affectedRows": 0
+}
+
+### T9 A lê order_items?order_id=eq.1 (pedido 1 é da B; esperado: 0)
+{
+ "ok": true,
+ "rows": [],
+ "affectedRows": 0
+}
+
+### T10 A lê newsletter_subscribers (esperado: permissão negada)
+{
+ "ok": false,
+ "code": "42501",
+ "error": "permission denied for table newsletter_subscribers"
+}
+
+### T11 A tenta gravar pedido direto na tabela (esperado: permissão negada)
+{
+ "ok": false,
+ "code": "42501",
+ "error": "permission denied for table orders"
+}
+
+### T12 A muda status do próprio pedido (esperado: permissão negada)
+{
+ "ok": false,
+ "code": "42501",
+ "error": "permission denied for table orders"
+}
+
+### T13 anon lê profiles (esperado: permissão negada)
+{
+ "ok": false,
+ "code": "42501",
+ "error": "permission denied for table profiles"
+}
+
+### T14 anon lê orders (esperado: permissão negada)
+{
+ "ok": false,
+ "code": "42501",
+ "error": "permission denied for table orders"
+}
+
+### T15 A grava no próprio perfil o CPF de B (oráculo: 23505 revela que o CPF existe)
+{
+ "ok": false,
+ "code": "23505",
+ "error": "duplicate key value violates unique constraint \"profiles_cpf_unique\""
+}
+
+### T15b A grava um CPF que ninguém usa (passa)
+{
+ "ok": true,
+ "rows": [],
+ "affectedRows": 1
+}
+
+### T16 privilégios de EXECUTE
+[
+ {
+  "proname": "get_order",
+  "security_definer": true,
+  "config": [
+   "search_path=\"\""
+  ],
+  "anon_exec": true,
+  "auth_exec": true
+ },
+ {
+  "proname": "handle_new_user",
+  "security_definer": true,
+  "config": [
+   "search_path=\"\""
+  ],
+  "anon_exec": true,
+  "auth_exec": true
+ },
+ {
+  "proname": "place_order",
+  "security_definer": true,
+  "config": [
+   "search_path=\"\""
+  ],
+  "anon_exec": true,
+  "auth_exec": true
+ },
+ {
+  "proname": "rls_auto_enable",
+  "security_definer": false,
+  "config": null,
+  "anon_exec": false,
+  "auth_exec": false
+ },
+ {
+  "proname": "subscribe_newsletter",
+  "security_definer": true,
+  "config": [
+   "search_path=\"\""
+  ],
+  "anon_exec": true,
+  "auth_exec": true
+ },
+ {
+  "proname": "touch_updated_at",
+  "security_definer": false,
+  "config": [
+   "search_path=\"\""
+  ],
+  "anon_exec": true,
+  "auth_exec": true
+ }
+]
+
+### T17 anon chama handle_new_user() direto
+{
+ "ok": false,
+ "code": "0A000",
+ "error": "trigger functions can only be called as triggers"
+}
+
+{
+ "ok": true,
+ "rows": [
+  {
+   "code": "AV-1A117FD79D0-7A1B"
+  }
+ ],
+ "affectedRows": 0
+}
+
+{
+ "ok": true,
+ "rows": [
+  {
+   "code": "AV-1A117FD79D2-7D68"
+  }
+ ],
+ "affectedRows": 0
+}
+
+{
+ "ok": true,
+ "rows": [
+  {
+   "code": "AV-1A117FD79D5-5BB5"
+  }
+ ],
+ "affectedRows": 0
+}
+
+{
+ "ok": true,
+ "rows": [
+  {
+   "code": "AV-1A117FD79D7-2A96"
+  }
+ ],
+ "affectedRows": 0
+}
+
+{
+ "ok": true,
+ "rows": [
+  {
+   "code": "AV-1A117FD79DA-5DD2"
+  }
+ ],
+ "affectedRows": 0
+}
+
+{
+ "ok": true,
+ "rows": [
+  {
+   "code": "AV-1A117FD79DD-2079"
+  }
+ ],
+ "affectedRows": 0
+}
+
+{
+ "ok": true,
+ "rows": [
+  {
+   "code": "AV-1A117FD79DF-9231"
+  }
+ ],
+ "affectedRows": 0
+}
+
+{
+ "ok": true,
+ "rows": [
+  {
+   "code": "AV-1A117FD79E2-8470"
+  }
+ ],
+ "affectedRows": 0
+}
+
+{
+ "ok": true,
+ "rows": [
+  {
+   "code": "AV-1A117FD79E5-D38C"
+  }
+ ],
+ "affectedRows": 0
+}
+
+{
+ "ok": false,
+ "code": "53400",
+ "error": "Muitos pedidos em pouco tempo. Tente novamente mais tarde."
+}
+
+### T18 pedidos de visitante aceitos usando o e-mail da A
+9
+
+### T19 A (logada, dona do e-mail) tenta comprar depois disso (esperado: 53400, bloqueada por terceiros)
+{
+ "ok": false,
+ "code": "53400",
+ "error": "Muitos pedidos em pouco tempo. Tente novamente mais tarde."
+}
+
+### T20 newsletter: inscrições aceitas em sequência pelo anon (sem limite)
+{
+ "aceitas": 300,
+ "total_na_tabela": 300
+}
+
+### T21 storage: uploads aceitos do anon em sequência (limite só de tamanho por arquivo)
+50
+
+### T22 anon lista objetos do bucket (esperado: 0, sem política de select)
+{
+ "ok": true,
+ "rows": [
+  {
+   "count": 0
+  }
+ ],
+ "affectedRows": 0
+}
+
+### T23 anon sobe arquivo fora do padrão (esperado: erro RLS)
+{
+ "ok": false,
+ "code": "42501",
+ "error": "new row violates row-level security policy for table \"objects\""
+}
+
+### T24 get_order com código certo e e-mail errado (esperado: null)
+{
+ "ok": true,
+ "rows": [
+  {
+   "r": null
+  }
+ ],
+ "affectedRows": 0
+}
+
+### T24b get_order com código e e-mail certos (devolve sem endereço)
+{
+ "ok": true,
+ "rows": [
+  {
+   "r": {
+    "code": "AV-1A117FD79A3-3AAA",
+    "items": [
+     {
+      "qty": 1,
+      "base": "black",
+      "name": "Heavy · Eclipse",
+      "size": "M",
+      "unit_price_cents": 15990
+     }
+    ],
+    "status": "aguardando_pagamento",
+    "payment": "Pix",
+    "shipping": "standard",
+    "created_at": "2026-10-07T17:10:50.147-03:00",
+    "total_cents": 17480
+   }
+  }
+ ],
+ "affectedRows": 0
+}
+
+### T25 catálogo atual tem base brown e categoria simples: o banco aceita?
+{
+ "ok": false,
+ "code": "23514",
+ "error": "new row for relation \"products\" violates check constraint \"products_base_check\""
+}
+
+### T26 order_items aceita base brown?
+{
+ "ok": false,
+ "code": "23514",
+ "error": "new row for relation \"order_items\" violates check constraint \"order_items_base_check\""
+}
+
+### T27 quantos usuários são do RJ (profiles.state)
+[
+ {
+  "state": "RJ",
+  "count": 1
+ },
+ {
+  "state": "SP",
+  "count": 1
+ }
+]
+
+### T28 orders tem coluna de estado?
+{
+ "ok": false,
+ "code": "42703",
+ "error": "column \"state\" does not exist"
+}
+
+### T29 pedidos do RJ pela faixa de CEP (20000-000 a 28999-999)
+[
+ {
+  "pedidos_rj": 11,
+  "clientes_rj": 2
+ }
+]
+
+### T30 colunas de profiles e orders
+[
+ {
+  "table_name": "order_items",
+  "string_agg": "id:bigint, order_id:bigint, product_id:text, kind:text, name:text, base:text, size:text, qty:integer, unit_price_cents:integer, design:jsonb, preview_path:text, image_path:text"
+ },
+ {
+  "table_name": "orders",
+  "string_agg": "id:bigint, code:text, created_at:timestamp with time zone, status:text, payment:text, shipping:text, subtotal_cents:integer, delivery_cents:integer, total_cents:integer, customer_name:text, customer_email:text, cep:text, city:text, address:text, user_id:uuid"
+ },
+ {
+  "table_name": "profiles",
+  "string_agg": "id:uuid, name:text, cep:text, city:text, address:text, created_at:timestamp with time zone, updated_at:timestamp with time zone, phone:text, cpf:text, country:text, state:text, avatar:text"
+ }
+]

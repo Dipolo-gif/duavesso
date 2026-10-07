@@ -1,0 +1,5 @@
+FKs sem índice no esquema atual: [{"tabela":"order_items","coluna":"product_id"}]
+ATUAL     1 itens: order_items ins=1 upd=0, orders ins=1 upd=1 | 15.1 ms (PGlite/WASM, só referência)
+PROPOSTO  1 itens: order_events ins=1 upd=0, order_items ins=1 upd=0, orders ins=1 upd=0 | 11.7 ms (PGlite/WASM, só referência)
+ATUAL    30 itens: order_items ins=30 upd=0, orders ins=1 upd=1 | 15.4 ms (PGlite/WASM, só referência)
+PROPOSTO 30 itens: order_events ins=1 upd=0, order_items ins=30 upd=0, orders ins=1 upd=0 | 14.9 ms (PGlite/WASM, só referência)

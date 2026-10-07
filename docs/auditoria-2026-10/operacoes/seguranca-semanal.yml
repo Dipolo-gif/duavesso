@@ -1,0 +1,83 @@
+# RASCUNHO para .github/workflows/seguranca-semanal.yml (auditoria de 2026-10-07; nao aplicado)
+# Toda segunda abre uma issue "Relatorio de seguranca" (o GitHub manda e-mail) e fecha a da semana anterior.
+# Conteudo: npm audit, cabecalhos de seguranca em producao, validade do certificado e (opcional) OWASP ZAP baseline,
+# que e passivo (so navega e observa; nao ataca).
+name: Relatorio semanal de seguranca
+
+on:
+  schedule:
+    - cron: '0 11 * * 1'   # segunda, 08:00 em Brasilia
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  relatorio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SITE: https://loja-duavesso.vercel.app/
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: OWASP ZAP baseline (passivo, opcional)
+        id: zap
+        continue-on-error: true
+        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
+        with:
+          target: https://loja-duavesso.vercel.app/
+          allow_issue_writing: false
+          fail_action: false
+          artifact_name: zap-baseline
+      - name: Montar relatorio e abrir issue
+        run: |
+          set -u
+          r="$RUNNER_TEMP/relatorio.md"
+          echo "@${{ github.repository_owner }} relatorio automatico de $(date -u +%F)." > "$r"
+
+          echo -e "\n## Dependencias (npm audit, so le o package-lock)" >> "$r"
+          npm audit --json > "$RUNNER_TEMP/audit.json" 2>/dev/null || true
+          node -e '
+            const a=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));
+            const v=(a.metadata||{}).vulnerabilities||{};
+            console.log(`critica ${v.critical||0} | alta ${v.high||0} | media ${v.moderate||0} | baixa ${v.low||0}`);
+            for(const [n,x] of Object.entries(a.vulnerabilities||{}))
+              console.log(`- ${n} (${x.severity}): ${x.fixAvailable?"tem correcao (npm audit fix ou PR do Dependabot)":"sem correcao ainda"}`);
+          ' "$RUNNER_TEMP/audit.json" >> "$r"
+
+          echo -e "\n## Cabecalhos de seguranca em producao" >> "$r"
+          curl -sSI --max-time 20 "$SITE" > "$RUNNER_TEMP/cab" || true
+          for h in content-security-policy strict-transport-security x-frame-options x-content-type-options referrer-policy permissions-policy cross-origin-opener-policy; do
+            if grep -qi "^$h:" "$RUNNER_TEMP/cab"; then echo "- $h: ok" >> "$r"; else echo "- $h: **AUSENTE**" >> "$r"; fi
+          done
+
+          echo -e "\n## Certificado HTTPS" >> "$r"
+          fim=$(echo | openssl s_client -servername loja-duavesso.vercel.app -connect loja-duavesso.vercel.app:443 2>/dev/null | openssl x509 -noout -enddate | cut -d= -f2)
+          echo "- valido ate: ${fim:-nao foi possivel ler}" >> "$r"
+
+          echo -e "\n## OWASP ZAP baseline" >> "$r"
+          if [ -f report_md.md ]; then
+            grep -E '^\| (High|Medium|Low|Informational)' report_md.md >> "$r" || echo "- sem alertas resumidos" >> "$r"
+            echo "- relatorio completo no artefato zap-baseline da execucao" >> "$r"
+          else
+            echo "- nao rodou (${{ steps.zap.outcome }})" >> "$r"
+          fi
+
+          echo -e "\n## Onde olhar tambem" >> "$r"
+          echo "- Alertas do Dependabot, secret scanning e code scanning: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/security" >> "$r"
+          echo "- Execucao: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >> "$r"
+          cat "$r" >> "$GITHUB_STEP_SUMMARY"
+
+          gh label create seguranca --color 5319E7 --description "Relatorio semanal" --force >/dev/null 2>&1 || true
+          for n in $(gh issue list --label seguranca --state open --json number --jq '.[].number'); do
+            gh issue close "$n" --comment "Substituida pelo relatorio de $(date -u +%F)."
+          done
+          gh issue create --title "Relatorio de seguranca $(date -u +%F)" --label seguranca --body-file "$r"
