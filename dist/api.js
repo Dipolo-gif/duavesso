@@ -13,6 +13,9 @@ for(const suffix of ['session.v1','pkce.v1','cart.v1','orders.v1']){
 }
 const USER_ERRORS=new Set(['22023','53400']);
 export const online=()=>typeof fetch==='function'&&SUPABASE_URL.startsWith('https://');
+// Falha de rede (servidor fora do ar, sem internet): mensagem clara em vez de 'Failed to fetch'
+const OFFLINE='Não foi possível conectar com a loja agora. Verifique sua internet e tente de novo em instantes.';
+async function net(url,options){try{return await fetch(url,options);}catch{throw new Error(OFFLINE);}}
 const siteURL=()=>location.origin+location.pathname;
 
 // Sessão ------------------------------------------------------------------------
@@ -60,7 +63,7 @@ async function handle(response){
  throw new Error(message);
 }
 async function authFetch(path,body,method='POST',extra={}){
- const response=await fetch(`${SUPABASE_URL}/auth/v1/${path}`,{method,headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json',...extra},body:body===undefined?undefined:JSON.stringify(body)});
+ const response=await net(`${SUPABASE_URL}/auth/v1/${path}`,{method,headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json',...extra},body:body===undefined?undefined:JSON.stringify(body)});
  return handle(response);
 }
 
@@ -77,20 +80,20 @@ export async function signIn(email,password){
 export async function signOut(){
  const token=session?.access_token;
  setSession(null);
- if(token)try{await fetch(`${SUPABASE_URL}/auth/v1/logout`,{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${token}`}});}catch{}
+ if(token)try{await net(`${SUPABASE_URL}/auth/v1/logout`,{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${token}`}});}catch{}
 }
 export async function resetPassword(email){
  await authFetch('recover',{email},'POST',{});
 }
 export async function updatePassword(password){
  const headers=await authHeaders();
- const user=await handle(await fetch(`${SUPABASE_URL}/auth/v1/user`,{method:'PUT',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({password})}));
+ const user=await handle(await net(`${SUPABASE_URL}/auth/v1/user`,{method:'PUT',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({password})}));
  if(session)setSession({...session,user,expires_in:session.expires_at-Math.floor(Date.now()/1000)});
 }
 function randomString(length){const bytes=crypto.getRandomValues(new Uint8Array(length));return Array.from(bytes,b=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~'[b%66]).join('');}
 const base64url=buffer=>btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 export async function signInWithGoogle(){
- const settings=await handle(await fetch(`${SUPABASE_URL}/auth/v1/settings`,{headers:{apikey:SUPABASE_KEY}}));
+ const settings=await handle(await net(`${SUPABASE_URL}/auth/v1/settings`,{headers:{apikey:SUPABASE_KEY}}));
  if(!settings?.external?.google)throw new Error('Login com Google ainda não está ativado. Use e-mail e senha por enquanto.');
  const verifier=randomString(64);
  const challenge=base64url(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)));
@@ -110,7 +113,7 @@ export async function handleAuthRedirect(){
   catch(error){outcome={type:'error',message:error.message};}
  }else if(hash.get('access_token')){
   setSession({access_token:hash.get('access_token'),refresh_token:hash.get('refresh_token'),expires_in:Number(hash.get('expires_in'))||3600,user:null});
-  try{const user=await handle(await fetch(`${SUPABASE_URL}/auth/v1/user`,{headers:await authHeaders()}));setSession({...session,user,expires_in:session.expires_at-Math.floor(Date.now()/1000)});}catch{}
+  try{const user=await handle(await net(`${SUPABASE_URL}/auth/v1/user`,{headers:await authHeaders()}));setSession({...session,user,expires_in:session.expires_at-Math.floor(Date.now()/1000)});}catch{}
   outcome={type:hash.get('type')==='recovery'?'recovery':'signed_in'};
   url.hash='';
  }else if(hash.get('error_description')||url.searchParams.get('error_description')){
@@ -125,27 +128,27 @@ export const authRedirectURL=siteURL;
 // Dados ---------------------------------------------------------------------------
 export async function fetchProducts(){
  const fields='id,name,category,color,base,price_cents,tag,graphic,graphic_class,description,print,fabric,finish,fit,care';
- const rows=await handle(await fetch(`${SUPABASE_URL}/rest/v1/products?select=${fields}&active=eq.true&order=sort_order`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}}));
+ const rows=await handle(await net(`${SUPABASE_URL}/rest/v1/products?select=${fields}&active=eq.true&order=sort_order`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}}));
  return rows.map(p=>({id:p.id,name:p.name,category:p.category,color:p.color,base:p.base,price:p.price_cents,tag:p.tag,graphic:p.graphic,graphicClass:p.graphic_class,description:p.description,print:p.print,fabric:p.fabric,finish:p.finish,fit:p.fit,care:p.care}));
 }
 export async function rpc(name,args){
- return handle(await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`,{method:'POST',headers:{...await authHeaders(),'Content-Type':'application/json'},body:JSON.stringify(args)}));
+ return handle(await net(`${SUPABASE_URL}/rest/v1/rpc/${name}`,{method:'POST',headers:{...await authHeaders(),'Content-Type':'application/json'},body:JSON.stringify(args)}));
 }
 export async function uploadDesign(path,blob){
- await handle(await fetch(`${SUPABASE_URL}/storage/v1/object/designs/${path}`,{method:'POST',headers:{...await authHeaders(),'Content-Type':blob.type},body:blob}));
+ await handle(await net(`${SUPABASE_URL}/storage/v1/object/designs/${path}`,{method:'POST',headers:{...await authHeaders(),'Content-Type':blob.type},body:blob}));
  return path;
 }
 export async function fetchProfile(){
  if(!session)return null;
- const rows=await handle(await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=name,cep,city,address,phone,cpf,country,state,avatar&id=eq.${session.user.id}`,{headers:await authHeaders()}));
+ const rows=await handle(await net(`${SUPABASE_URL}/rest/v1/profiles?select=name,cep,city,address,phone,cpf,country,state,avatar&id=eq.${session.user.id}`,{headers:await authHeaders()}));
  return rows[0]||{name:'',cep:'',city:'',address:'',phone:'',cpf:'',country:'BR',state:'',avatar:''};
 }
 export async function updateProfile(profile){
  const headers=await authHeaders();
- await handle(await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}`,{method:'PATCH',headers:{...headers,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(profile)}));
+ await handle(await net(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}`,{method:'PATCH',headers:{...headers,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(profile)}));
 }
 export async function fetchMyOrders(){
- return handle(await fetch(`${SUPABASE_URL}/rest/v1/orders?select=code,status,created_at,total_cents,payment,shipping,order_items(name,base,size,qty,unit_price_cents)&order=created_at.desc&limit=20`,{headers:await authHeaders()}));
+ return handle(await net(`${SUPABASE_URL}/rest/v1/orders?select=code,status,created_at,total_cents,payment,shipping,order_items(name,base,size,qty,unit_price_cents)&order=created_at.desc&limit=20`,{headers:await authHeaders()}));
 }
 export function dataURLToBlob(dataURL){
  const [meta,base64]=dataURL.split(','),type=meta.slice(5,meta.indexOf(';')),binary=atob(base64),bytes=new Uint8Array(binary.length);
