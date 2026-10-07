@@ -233,3 +233,10 @@ input[type=range]:disabled{opacity:.4}
 .brand-prod-img.poses .pose.is-active{opacity:1}
 .brand-prod-img.poses .pose picture{display:block;width:100%;height:100%}
 .brand-prod-img.poses .pose img{width:100%;height:100%;object-fit:cover;object-position:center 20%}
+/* Enquadramento das fotos de modelo: cabeça sempre inteira (corta só um pouco dos pés) */
+.product-visual{aspect-ratio:3/4}
+.product-visual.poses .pose img{object-position:center top}
+.brand-prod-img.poses{aspect-ratio:3/4}
+.brand-prod-img.poses .pose img{object-position:center top}
+.detail-main img{object-position:center top}
+@media(max-width:700px){.product-tag{top:auto;bottom:8px;left:8px}.detail-main{height:min(64vh,130vw)}}
