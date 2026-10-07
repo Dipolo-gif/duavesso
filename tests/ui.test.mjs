@@ -7,10 +7,10 @@ const commerce=(await readFile(new URL('../dist/commerce.js',import.meta.url),'u
 const api=(await readFile(new URL('../dist/api.js',import.meta.url),'utf8')).replaceAll('export ','');
 const placement=(await readFile(new URL('../dist/studio-placement.js',import.meta.url),'utf8')).replaceAll('export ','');
 const app=(await readFile(new URL('../dist/app.js',import.meta.url),'utf8')).replace(/^import .*?;\r?\n/gm,'');
-async function setup(storage={},fetchStub){
+async function setup(storage={},fetchStub,{reducedMotion=true}={}){
  const dom=new JSDOM(html,{url:'http://localhost/',runScripts:'outside-only',pretendToBeVisual:true});
  const w=dom.window;
- w.scrollTo=()=>{};w.matchMedia=()=>({matches:true});w.HTMLElement.prototype.scrollIntoView=()=>{};
+ w.scrollTo=()=>{};w.matchMedia=()=>({matches:reducedMotion});w.HTMLElement.prototype.scrollIntoView=()=>{};
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
  w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
  Object.defineProperty(w.document,'fonts',{value:{ready:Promise.resolve()}});
@@ -359,4 +359,14 @@ test('sessions: one refresh at a time, other tabs stay in sync, sign out revokes
  const t=await setup({'duavesso.session.v1':stored({expires_at:now+3600,started_at:now-31*24*3600})},fetchStub);try{
   assert.match((await t.w.authHeaders()).Authorization,/^Bearer sb_publishable_/);assert.equal(t.w.localStorage.getItem('duavesso.session.v1'),null);
  }finally{t.close();}
+});
+test('card photos: only the first pose downloads; poses 2 and 3 load on first hover',async()=>{
+ const s=await setup({},undefined,{reducedMotion:false});try{
+ const card=s.doc.querySelector('[data-product="heavy-avesso"]'),imgs=[...card.querySelectorAll('.pose img')],sources=[...card.querySelectorAll('.pose source')];
+ assert.equal(imgs.length,3);
+ assert(imgs[0].getAttribute('src')&&sources[0].getAttribute('srcset'),'pose 1 baixa na hora');
+ for(const i of [1,2]){assert.equal(imgs[i].getAttribute('src'),null,'pose '+(i+1)+' sem src');assert.equal(sources[i].getAttribute('srcset'),null);assert(imgs[i].dataset.src.includes('-1024.jpg'));}
+ (card.querySelector('.product-image-button')||card).dispatchEvent(new s.w.MouseEvent('mouseenter'));
+ for(const i of [1,2]){assert(imgs[i].getAttribute('src').includes('tee-porta-'+(i+1)),'pose '+(i+1)+' carregada no hover');assert(sources[i].getAttribute('srcset').includes('.webp'));assert.equal(imgs[i].dataset.src,undefined);}
+ }finally{s.close();}
 });
