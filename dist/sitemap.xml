@@ -2,11 +2,62 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://loja-duavesso.vercel.app/</loc>
-    <lastmod>2026-09-11</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/editorial-1536.jpg</image:loc><image:title>duavesso — coleção essencial</image:title></image:image>
-    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/tee-white-1254.jpg</image:loc><image:title>Camiseta branca oversized</image:title></image:image>
-    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/tee-black-1254.jpg</image:loc><image:title>Camiseta preta oversized</image:title></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/editorial-1536.jpg</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/marcas</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/editorial-1536.jpg</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/marcas/geek</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/editorial-1536.jpg</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/marcas/try84</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/try84-hero.jpg</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/marcas/solfado</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/editorial-1536.jpg</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/estudio</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/editorial-1536.jpg</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/produto/heavy-avesso</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/tee-porta-1-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/tee-porta-2-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/tee-porta-3-1024.jpg</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/produto/heavy-faces</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/tee-faces-1-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/tee-faces-2-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/tee-faces-3-1024.jpg</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/produto/heavy-eclipse</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/tee-eclipse-1-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/tee-eclipse-2-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/tee-eclipse-3-1024.jpg</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/produto/simples</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/tee-simples-preto-1-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/tee-simples-preto-2-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/tee-simples-preto-3-1024.jpg</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/produto/geek-coracao</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-coracao-1-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-coracao-2-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-coracao-3-1024.jpg</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/produto/geek-carpa</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-carpa-1-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-carpa-2-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-carpa-3-1024.jpg</image:loc></image:image>
   </url>
 </urlset>

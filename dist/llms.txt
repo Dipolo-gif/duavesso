@@ -1,23 +1,33 @@
 # duavesso
 
-> Loja brasileira de camisetas oversized em algodão pesado (210 g/m²), com estúdio online de camiseta personalizada para criar a própria estampa (texto, imagem ou uma ideia descrita, que a marca desenha). Site em português, preços em reais, pré-lançamento.
+> Loja brasileira de camisetas oversized em suedine premium de 250 g/m² (algodão e poliamida), com estúdio online para criar a própria estampa (texto, imagem ou uma ideia descrita, que a marca desenha). Site em português, preços em reais, pré-lançamento.
 
-## O que a loja vende
+## Peças
 
-- Camisetas oversized em 100% algodão penteado, 210 g/m², lavagem enzimática. Bases branca e preta, tamanhos P a GG.
-- Coleção: Oversized Off Line (R$ 109,90), Oversized Sol a Sol (R$ 109,90), Essencial Preta (R$ 89,90), Essencial Branca (R$ 89,90).
-- Estúdio: criar a estampa na hora (R$ 129,90) ou descrever a ideia para a marca desenhar (R$ 149,90).
-- Frete grátis a partir de R$ 250; Pix ou cartão em até 3x; troca em 30 dias.
+- [Heavy · Do Avesso](https://loja-duavesso.vercel.app/produto/heavy-avesso) · R$ 159,90 · preto lavado: Nossa peça mais encorpada, suedine 250 g, com uma estampa para vestir do seu avesso. O modelo também vem liso em preto, off-white e marrom.
+- [Heavy · Dois Lados](https://loja-duavesso.vercel.app/produto/heavy-faces) · R$ 159,90 · marrom: Suedine premium 250 g num marrom terroso, com a estampa Dois Lados nas costas: duas faces do mesmo avesso. Oversized, caimento reto.
+- [Heavy · Eclipse](https://loja-duavesso.vercel.app/produto/heavy-eclipse) · R$ 159,90 · marrom: Suedine premium 250 g em marrom, com a estampa Eclipse no peito. Oversized, encorpada e com caimento reto.
+- [Oversized Simples](https://loja-duavesso.vercel.app/produto/simples) · R$ 119,90 · preto lavado, off white, marrom: A base oversized da duavesso: suedine premium 250 g, gola canelada e caimento reto. Sem estampa, só o dv na manga. Vem em preto, off-white e marrom.
+- [Coração Pixelado](https://loja-duavesso.vercel.app/produto/geek-coracao) · R$ 159,90 · preta · linha duavessogeek: Coração anatômico em pixel art que se desmancha em blocos, com PLAYER 01 no peito. Oversized preta em suedine 250 g.
+- [Carpa Japonesa](https://loja-duavesso.vercel.app/produto/geek-carpa) · R$ 159,90 · off white · linha duavessogeek: Carpa koi em nanquim com o sol laranja, entre a arte japonesa e o traço geek. Oversized off white em suedine 250 g.
+
+Tamanhos P, M, G e GG. Estúdio: criar a estampa na hora (R$ 129,90) ou descrever a ideia para a marca desenhar (R$ 149,90). Frete grátis a partir de R$ 250; Pix ou cartão em até 3x; troca em 30 dias.
+
+## Marcas
+
+- [duavessogeek](https://loja-duavesso.vercel.app/marcas/geek): Cultura geek no avesso: games, pixel, sci-fi e as referências que só quem é do meio pega, no caimento oversized da duavesso.
+- [TRY84](https://loja-duavesso.vercel.app/marcas/try84): Feita por jogadores. Rugby lifestyle em preto e branco, do treino ao terceiro tempo.
+- [SolFáDó](https://loja-duavesso.vercel.app/marcas/solfado): Música é a arte do som. Estampas inspiradas em hinos, para o 1º Encontro de Violeiros.
 
 ## Páginas
 
-- [Início e coleção](https://loja-duavesso.vercel.app/#colecao): catálogo com filtros e busca.
-- [Estúdio](https://loja-duavesso.vercel.app/#estudio): editor de estampas com prévia na camiseta.
-- [Sobre](https://loja-duavesso.vercel.app/#sobre): a marca.
+- [Loja e coleção](https://loja-duavesso.vercel.app/): catálogo com filtros e busca.
+- [Estúdio](https://loja-duavesso.vercel.app/estudio): editor de estampas com prévia em 3D.
+- [Marcas](https://loja-duavesso.vercel.app/marcas): as linhas da família duavesso.
 
 ## Como comprar
 
-Escolha o produto e o tamanho, adicione à sacola e finalize com nome, e-mail e endereço. Contas são opcionais: com login (e-mail e senha ou Google) o cliente acompanha os pedidos e guarda o endereço. O pedido recebe um código (AV-…) consultável com o e-mail em "Meus pedidos".
+Escolha a peça, a cor e o tamanho, adicione à sacola e finalize com nome, e-mail e endereço. Contas são opcionais: com login (e-mail e senha ou Google) o cliente acompanha os pedidos e guarda o endereço. O pedido recebe um código (AV-…) consultável com o e-mail em "Meus pedidos".
 
 ## Observações
 

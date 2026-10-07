@@ -6,9 +6,14 @@ const html=await readFile(new URL('../dist/index.html',import.meta.url),'utf8');
 const commerce=(await readFile(new URL('../dist/commerce.js',import.meta.url),'utf8')).replaceAll('export ','');
 const api=(await readFile(new URL('../dist/api.js',import.meta.url),'utf8')).replaceAll('export ','');
 const placement=(await readFile(new URL('../dist/studio-placement.js',import.meta.url),'utf8')).replaceAll('export ','');
+const brands=(await readFile(new URL('../dist/brands.js',import.meta.url),'utf8')).replaceAll('export ','');
+const pages=(await readFile(new URL('../dist/pages.js',import.meta.url),'utf8')).replace(/^import .*?;\r?\n/gm,'').replaceAll('export ','');
 const app=(await readFile(new URL('../dist/app.js',import.meta.url),'utf8')).replace(/^import .*?;\r?\n/gm,'');
-async function setup(storage={},fetchStub,{reducedMotion=true}={}){
- const dom=new JSDOM(html,{url:'http://localhost/',runScripts:'outside-only',pretendToBeVisual:true});
+// path: abre o site já nesse endereço, com a página gerada correspondente (ex.: /produto/simples).
+async function setup(storage={},fetchStub,{reducedMotion=true,path='/'}={}){
+ const file=path==='/'||path.startsWith('/#')||!/^\/[a-z]/.test(path)?null:new URL(`../dist${path.split('#')[0]}.html`,import.meta.url);
+ const page=file?await readFile(file,'utf8').catch(()=>readFile(new URL('../dist/404.html',import.meta.url),'utf8')):html;
+ const dom=new JSDOM(page,{url:'http://localhost'+path,runScripts:'outside-only',pretendToBeVisual:true});
  const w=dom.window;
  w.scrollTo=()=>{};w.matchMedia=()=>({matches:reducedMotion});w.HTMLElement.prototype.scrollIntoView=()=>{};
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
@@ -22,7 +27,7 @@ async function setup(storage={},fetchStub,{reducedMotion=true}={}){
  const registry=new Map();
  Object.defineProperty(w.document,'modelContext',{value:{registerTool(tool){registry.set(tool.name,tool);}}});
  if(fetchStub)w.fetch=fetchStub;
- w.eval(commerce+'\n'+api+'\n'+placement+'\nconst esc=escapeHTML;\n'+app);
+ w.eval(commerce+'\n'+api+'\n'+placement+'\n'+brands+'\n'+pages+'\nconst esc=escapeHTML;\n'+app);
  await new Promise(resolve=>setTimeout(resolve,10));
  return {dom,w,doc:w.document,registry,click(selector){const e=w.document.querySelector(selector);assert(e,`Missing ${selector}`);e.click();},close(){dom.window.close();}};
 }
@@ -220,12 +225,12 @@ test('several prints: free zones, 2D zone buttons, placeholders left out of the 
 });
 test('Marcas: hub lista as 3 linhas e cada uma abre sua página com tema próprio',async()=>{
  const s=await setup();try{
- assert(s.doc.querySelector('.desktop-nav a[href="#marcas"]'),'link Marcas no menu');
+ assert(s.doc.querySelector('.desktop-nav a[href="marcas"]'),'link Marcas no menu');
  s.w.location.hash='marcas';await new Promise(r=>setTimeout(r,10));
  assert.equal(s.doc.querySelector('#marcas-view').hidden,false,'tela Marcas visível');
  assert.equal(s.doc.querySelector('#shop-view').hidden,true,'loja escondida');
  assert.equal(s.doc.querySelectorAll('#marcas-view .brand-card').length,3,'3 marcas no hub');
- assert(s.doc.querySelector('.brand-card[href="#marca-solfado"][data-theme="music"]'),'card solfado com tema music');
+ assert(s.doc.querySelector('.brand-card[href="marcas/solfado"][data-theme="music"]'),'card solfado com tema music');
  s.w.location.hash='marca-try84';await new Promise(r=>setTimeout(r,10));
  assert(s.doc.querySelector('#marcas-view .brand[data-theme="rugby"]'),'página try84 com tema rugby');
  assert.equal(s.doc.querySelectorAll('#marcas-view .brand-prod').length,5,'5 produtos reais da TRY84');
@@ -393,5 +398,52 @@ test('profile: CPF goes through set_profile_cpf (falls back before migration 000
  await s.w.updateProfile({name:'C',cpf:'11144477735'},'52998224725');
  assert.deepEqual(patches(),[{name:'C'},{cpf:'11144477735'}],'banco sem a 0007: grava o CPF como antes');
  await assert.rejects(s.w.rpc('get_order',{p_code:'AV-1',p_email:'c@example.com'}),/informe ao suporte o código XX000-[0-9A-Z]{1,6}\./);
+ }finally{s.close();}
+});
+test('real addresses: product link opens over the shop, closing returns, history works and titles follow',async()=>{
+ const s=await setup({},undefined,{path:'/produto/heavy-avesso'});try{
+ const doc=s.doc,loc=()=>s.w.location.pathname+s.w.location.hash,wait=()=>new Promise(r=>setTimeout(r,30));
+ assert(doc.querySelector('#product-dialog').open,'link direto abre a ficha');
+ assert.equal(doc.querySelector('#shop-view').hidden,false,'a loja fica por trás');
+ assert.equal(doc.title,'Heavy · Do Avesso · camiseta oversized · duavesso');
+ assert.equal(doc.querySelector('link[rel="canonical"]').href,'https://loja-duavesso.vercel.app/produto/heavy-avesso');
+ doc.querySelector('#product-dialog').close();
+ assert.equal(loc(),'/','ao fechar, volta para a loja');assert.match(doc.title,/^duavesso · /);
+ s.click('button[data-product="heavy-faces"]');
+ assert.equal(loc(),'/produto/heavy-faces');assert(doc.querySelector('#product-dialog').open);
+ s.w.history.back();await wait();
+ assert.equal(loc(),'/');assert.equal(doc.querySelector('#product-dialog').open,false,'voltar no navegador fecha a ficha');
+ // Rodapé: link real para a marca; o produto da marca abre por cima da página da marca.
+ doc.querySelector('footer a[href="marcas/geek"]').click();
+ assert.equal(loc(),'/marcas/geek');assert.equal(doc.querySelector('#marcas-view').hidden,false);assert.match(doc.title,/^duavessogeek · /);
+ s.click('#marcas-view button[data-product="geek-coracao"]');
+ assert.equal(loc(),'/produto/geek-coracao');assert.equal(doc.querySelector('#marcas-view').hidden,false,'a marca continua por trás');
+ doc.querySelector('#product-dialog').close();await wait();
+ assert.equal(loc(),'/marcas/geek','fechar volta para a marca');
+ // Âncora da loja a partir de outra página
+ doc.querySelector('.desktop-nav a[href="#colecao"]').click();
+ assert.equal(loc(),'/#colecao');assert.equal(doc.querySelector('#shop-view').hidden,false);
+ doc.querySelector('.desktop-nav a[href="estudio"]').click();
+ assert.equal(loc(),'/estudio');assert.equal(doc.querySelector('#studio-view').hidden,false);assert.match(doc.title,/duavesso Studio/);
+ }finally{s.close();}
+});
+test('old # links become real addresses and unknown addresses fall back to the shop with a notice',async()=>{
+ for(const [from,to] of [['/#marca-try84','/marcas/try84'],['/#produto-simples','/produto/simples'],['/#estudio','/estudio'],['/#marcas','/marcas']]){
+  const s=await setup({},undefined,{path:from});try{assert.equal(s.w.location.pathname,to,from);}finally{s.close();}
+ }
+ for(const [path,msg] of [['/nao-existe','Essa página não existe'],['/produto/off-line','Essa peça não está mais à venda'],['/marcas/sumiu','Essa marca não está mais']]){
+  const s=await setup({},undefined,{path});try{
+   assert.equal(s.w.location.pathname,'/',path);assert.equal(s.doc.querySelector('#shop-view').hidden,false);
+   assert(s.doc.querySelector('#toast').textContent.includes(msg),path);
+  }finally{s.close();}
+ }
+});
+test('a product opened from history over a brand page closes back to that brand address and title',async()=>{
+ const s=await setup({},undefined,{path:'/marcas/geek'});try{
+ const doc=s.doc,loc=()=>s.w.location.pathname;
+ s.w.history.replaceState(null,'','/produto/geek-carpa');s.w.dispatchEvent(new s.w.PopStateEvent('popstate'));
+ assert(doc.querySelector('#product-dialog').open);assert.equal(doc.querySelector('#marcas-view').hidden,false);
+ doc.querySelector('#product-dialog').close();
+ assert.equal(loc(),'/marcas/geek');assert.match(doc.title,/^duavessogeek · /);
  }finally{s.close();}
 });

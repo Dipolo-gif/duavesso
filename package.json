@@ -8,7 +8,8 @@
     "test": "node --test tests/*.test.mjs",
     "validate": "node scripts/validate.mjs",
     "images": "node scripts/optimize-images.mjs",
-    "vendor": "esbuild scripts/vendor/motion-entry.js --bundle --format=esm --minify --target=es2022 --legal-comments=none --outfile=dist/vendor/motion.js && esbuild scripts/vendor/three-entry.js --bundle --format=esm --minify --target=es2022 --legal-comments=none --outfile=dist/vendor/three.js"
+    "vendor": "esbuild scripts/vendor/motion-entry.js --bundle --format=esm --minify --target=es2022 --legal-comments=none --outfile=dist/vendor/motion.js && esbuild scripts/vendor/three-entry.js --bundle --format=esm --minify --target=es2022 --legal-comments=none --outfile=dist/vendor/three.js",
+    "pages": "node scripts/build-pages.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
