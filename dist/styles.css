@@ -240,3 +240,53 @@ input[type=range]:disabled{opacity:.4}
 .brand-prod-img.poses .pose img{object-position:center top}
 .detail-main img{object-position:center top}
 @media(max-width:700px){.product-tag{top:auto;bottom:8px;left:8px}.detail-main{height:min(64vh,130vw)}}
+/* Tela de produto profissional: carrossel com deslize, preço ao lado do nome, botão fixo no celular, detalhes em seções */
+.detail-main{position:relative;overflow:hidden}
+.detail-track{display:flex;width:100%;height:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;outline:none}
+.detail-track::-webkit-scrollbar{display:none}
+.detail-track:focus-visible{box-shadow:inset 0 0 0 2px var(--blue)}
+.detail-slide{flex:0 0 100%;width:100%;height:100%;margin:0;scroll-snap-align:start;scroll-snap-stop:always;position:relative}
+.detail-slide picture{display:block;width:100%;height:100%}
+.detail-slide img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block}
+.detail-count{position:absolute;right:14px;bottom:14px;background:#111111cc;color:#fff;font:600 11px/1 var(--body);letter-spacing:.06em;padding:6px 9px;border-radius:999px;pointer-events:none}
+.detail-count:empty{display:none}
+.detail-dots{position:absolute;left:0;right:0;bottom:18px;display:flex;justify-content:center;gap:6px;pointer-events:none}
+.detail-dots i{width:6px;height:6px;border-radius:3px;background:#ffffffa6;box-shadow:0 0 0 1px #0000001f;transition:width .2s,background .2s}
+.detail-dots i.on{width:18px;background:#fff}
+.detail-head{display:flex;justify-content:space-between;align-items:baseline;gap:16px}
+.detail-head h2{margin:12px 0 2px}
+.detail-head .price{font-size:22px;font-weight:600;white-space:nowrap}
+.detail-copy .installments{margin:2px 0 18px}
+.size-head{display:flex;justify-content:space-between;align-items:center;margin-top:22px}
+.size-head .field-label{font-size:13px;font-weight:600}
+.size-head .size-guide-button{font-size:12px}
+.size-options{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0 0}
+.size-options button{width:auto;height:48px;font-size:14px;font-weight:600}
+.detail-cta{margin-top:18px}
+.detail-cta .button{width:100%;margin:0;justify-content:center;gap:10px;min-height:54px}
+.detail-cta .button:disabled{opacity:.6;cursor:not-allowed}
+.detail-copy .detail-desc{font-size:14px;line-height:1.6;color:var(--muted);margin:22px 0 6px}
+.detail-accs{border-top:1px solid var(--line);margin-top:16px}
+.detail-acc{border-bottom:1px solid var(--line)}
+.detail-acc summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:15px 0;font-size:14px;font-weight:600}
+.detail-acc summary::-webkit-details-marker{display:none}
+.detail-acc summary:after{content:"+";font-size:20px;font-weight:400;line-height:1;color:var(--muted);transition:transform .2s}
+.detail-acc[open] summary:after{transform:rotate(45deg)}
+.detail-acc p{margin:0 0 16px;font-size:13px;line-height:1.6;color:var(--muted)}
+.detail-acc .specs{border-top:0;margin:0 0 12px;padding-top:0}
+.detail-copy .helper{margin-top:18px}
+@keyframes pdp-in{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@media(min-width:701px){.detail-dots{display:none}}
+@media(max-width:700px){
+.product-dialog{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0;inset:0;box-shadow:none}
+.product-dialog[open]{animation:pdp-in .28s both}
+.product-dialog>.close-dialog{position:sticky;top:calc(10px + env(safe-area-inset-top));right:auto;display:grid;place-items:center;width:40px;height:40px;margin:10px 10px -50px auto;background:#ffffffeb;box-shadow:0 2px 12px #00000026;z-index:5}
+.detail-main{height:min(72dvh,133vw)}
+.detail-thumbs,.detail-count{display:none}
+.detail-copy{padding:18px 18px 0}
+.detail-head h2{font-size:26px;letter-spacing:-.6px}
+.detail-head .price{font-size:20px}
+.detail-cta{position:sticky;bottom:0;z-index:4;margin:18px -18px 0;padding:12px 18px calc(12px + env(safe-area-inset-bottom));background:var(--paper);border-top:1px solid var(--line);box-shadow:0 -10px 24px #0000000d}
+.detail-copy .helper{padding-bottom:28px}
+}
+@media(max-width:700px){.detail-copy{display:flex;flex-direction:column}.detail-copy>*{flex:none}.detail-copy .eyebrow{align-self:flex-start}.detail-cta{order:99;margin-top:8px}.detail-copy .helper{padding-bottom:6px}}

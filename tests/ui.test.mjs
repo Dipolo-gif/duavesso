@@ -125,7 +125,7 @@ test('produto de fotos: card com 3 poses e modal com galeria das 3',async()=>{
  assert.equal(s.doc.querySelectorAll('#detail-thumbs .detail-thumb').length,3,'3 miniaturas de pose');
  assert.equal(s.doc.querySelectorAll('#detail-thumbs .detail-thumb.active').length,1,'uma miniatura ativa');
  s.click('#detail-thumbs [data-pose="2"]');
- assert(s.doc.querySelector('#detail-main img').getAttribute('src').includes('tee-porta-3'),'clicar na miniatura troca a foto principal');
+ assert(s.doc.querySelector('#detail-main .detail-slide.active img').getAttribute('src').includes('tee-porta-3'),'clicar na miniatura leva o carrossel para a foto certa');assert.equal(s.doc.querySelectorAll('#detail-main .detail-slide').length,3,'carrossel com as 3 fotos');assert.equal(s.doc.querySelector('#detail-count').textContent,'3 / 3','contador acompanha a foto');
  assert(s.doc.querySelector('#product-detail [data-size="M"]'),'ainda dá pra escolher tamanho');
  }finally{s.close();}
 });
