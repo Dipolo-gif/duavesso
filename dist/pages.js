@@ -5,6 +5,7 @@
 //   /marcas                as marcas da família duavesso
 //   /marcas/<slug>         página de uma marca
 //   /estudio               estúdio para criar a estampa
+//   /checkout              finalizar compra (fora do Google)
 import {PRODUCTS,money,INSTALLMENTS,installment} from './commerce.js';
 import {BRANDS} from './brands.js';
 
@@ -25,6 +26,7 @@ export function parseRoute(pathname,hash=''){
  if((m=hash.match(/^#produto-([a-z0-9-]+)$/)))return {view:'shop',product:m[1],path:`/produto/${m[1]}`,legacy:true};
  if(p==='/')return {view:'shop',path:'/'+hash};
  if(p==='/estudio')return {view:'studio',path:'/estudio'};
+ if(p==='/checkout')return {view:'checkout',path:'/checkout'};
  if(p==='/marcas')return {view:'marcas',brand:null,path:'/marcas'};
  if((m=p.match(/^\/marcas\/([a-z0-9-]+)$/)))return {view:'marcas',brand:m[1],path:p};
  if((m=p.match(/^\/produto\/([a-z0-9-]+)$/)))return {view:'shop',product:m[1],path:p};
@@ -45,6 +47,7 @@ export function pageMeta(r){
    description:`${product.description} ${money(product.price)} ou ${INSTALLMENTS}x de ${money(installment(product.price))} sem juros. Frete grátis a partir de R$ 250.`,
    image:productImage(product),imageAlt:`${product.name}, camiseta oversized ${product.color.toLowerCase()}`,product,brand};
  }
+ if(r.view==='checkout')return {path:'/checkout',title:'Finalizar compra · duavesso',description:'Entrega, pagamento e resumo do seu pedido na duavesso.',noindex:true,...HOME_IMAGE};
  if(r.view==='studio')return {path:'/estudio',title:'Crie sua camiseta personalizada · duavesso Studio',
   description:'Monte sua camiseta oversized na hora: sua frase, sua imagem, até 4 estampas por peça em qualquer lugar da camiseta, com prévia em 3D. Ou só descreva a ideia, que a gente desenha.',...HOME_IMAGE};
  if(r.view==='marcas'){
@@ -57,7 +60,9 @@ export function pageMeta(r){
  return {path:'/',title:'duavesso · Camisetas oversized e estampas personalizadas',description:HOME_DESCRIPTION,...HOME_IMAGE};
 }
 
-// Todas as páginas que existem (para o gerador e o sitemap).
+// Páginas que existem mas não vão para o Google (sem sitemap, com noindex).
+export const privateRoutes=()=>[{view:'checkout'}];
+// Todas as páginas públicas (para o gerador e o sitemap).
 export function allRoutes(){
  return [{view:'shop'},{view:'marcas',brand:null},...BRANDS.map(b=>({view:'marcas',brand:b.slug})),{view:'studio'},...PRODUCTS.map(p=>({view:'shop',product:p.id}))];
 }

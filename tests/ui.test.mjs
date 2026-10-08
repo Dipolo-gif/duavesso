@@ -184,7 +184,7 @@ test('accounts: signup asks for confirmation, login updates header, account list
  s.click('[data-product="heavy-avesso"]');s.click('[data-size="M"]');s.click('#add-product');s.click('#begin-checkout');await new Promise(r=>setTimeout(r,20));
  const form=s.doc.querySelector('#checkout-form');assert.equal(form.elements.namedItem('email').value,'nova@example.com');assert(form.elements.namedItem('email').readOnly);assert.equal(form.elements.namedItem('address').value,'Rua Um');assert.equal(form.elements.namedItem('number').value,'10','o número salvo no perfil volta separado');
  const authed=calls.find(c=>c.url.includes('/rest/v1/orders'));assert.equal(authed.init.headers.Authorization,'Bearer tok');
- s.doc.querySelector('#checkout-dialog').close();s.click('#open-account');await new Promise(r=>setTimeout(r,30));s.click('#sign-out');await new Promise(r=>setTimeout(r,20));
+ s.click('#open-account');await new Promise(r=>setTimeout(r,30));s.click('#sign-out');await new Promise(r=>setTimeout(r,20));
  assert.equal(s.doc.querySelector('#open-auth').hidden,false);assert.equal(s.w.localStorage.getItem('duavesso.session.v1'),null);
  }finally{s.close();}
 });
@@ -499,7 +499,7 @@ test('checkout: payment on the left, order grouped by brand on the right, no emo
  assert(form.querySelectorAll('.co-pm svg').length===3,'ícones de traço, não emojis');
  assert.deepEqual([...form.querySelectorAll('.co-right .co-chip')].map(c=>c.textContent),['duavesso','duavessogeek'],'peças agrupadas por marca');
  assert.equal(form.querySelector('.co-group[data-theme="geek"] .co-item b').textContent,'Coração Pixelado');
- assert(!/\p{Extended_Pictographic}/u.test(s.doc.querySelector('#checkout-dialog').textContent.replace(/[✓›×]/g,'')),'nenhum emoji no checkout');
+ assert(!/\p{Extended_Pictographic}/u.test(s.doc.querySelector('#checkout-view').textContent.replace(/[✓›×]/g,'')),'nenhum emoji no checkout');
  }finally{s.close();}
 });
 
@@ -567,4 +567,21 @@ test('promotions from the database drive the "faltam R$ X" notices in the bag an
  assert.match(nb(s.doc.querySelector('#checkout-summary').textContent),/Promoção · peça mais barata grátis−R\$ 119,90/);
  assert.equal(s.doc.querySelector('#co-price-standard').textContent,'Grátis');
  }finally{s.close();}
+});
+test('checkout is its own page at /checkout: opens from the bag, works when loaded directly and survives changes from another tab',async()=>{
+ const s=await setup({'duavesso.cart.v1':[{id:'simples',base:'black',size:'M',qty:1}]});try{
+ const loc=()=>s.w.location.pathname;
+ s.click('#open-cart');s.click('#begin-checkout');
+ assert.equal(loc(),'/checkout');assert.equal(s.doc.querySelector('#checkout-view').hidden,false);assert.equal(s.doc.querySelector('#shop-view').hidden,true);
+ assert(s.doc.querySelector('#checkout-view #checkout-form'),'formulário dentro da página');assert.equal(s.doc.querySelector('#checkout-dialog'),null,'não existe mais a janela flutuante');
+ assert.equal(s.doc.title,'Finalizar compra · duavesso');
+ s.w.localStorage.setItem('duavesso.cart.v1',JSON.stringify([]));s.w.dispatchEvent(new s.w.StorageEvent('storage',{key:'duavesso.cart.v1'}));
+ assert.match(s.doc.querySelector('#checkout-content').textContent,/Sua sacola está vazia/,'sacola esvaziada em outra aba');
+ s.w.history.back();await new Promise(r=>setTimeout(r,30));
+ assert.equal(loc(),'/');assert.equal(s.doc.querySelector('#checkout-view').hidden,true);
+ }finally{s.close();}
+ const t=await setup({'duavesso.cart.v1':[{id:'simples',base:'black',size:'M',qty:1}]},undefined,{path:'/checkout'});try{
+  assert.equal(t.doc.querySelector('#checkout-view').hidden,false);assert(t.doc.querySelector('#checkout-form'));
+  assert.equal(t.doc.querySelector('meta[name="robots"]').content,'noindex','checkout fora do Google');
+ }finally{t.close();}
 });

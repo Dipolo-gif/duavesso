@@ -137,7 +137,7 @@ function renderCart(){
  if(!cart.length){$('#cart-content').innerHTML=`<div class="empty-state"><h3>Espaço para o seu próximo favorito.</h3><p>Sua sacola está vazia. Encontre uma peça ou crie a sua.</p><button class="button button-blue" id="continue-shopping">Explorar a coleção <span>↗</span></button></div>`;$('#continue-shopping').addEventListener('click',()=>{closeDialog($('#cart-dialog'));location.hash='colecao';});return;}
  const t=totals(cart);
  $('#cart-content').innerHTML=cart.map(item=>`<article class="cart-item">${itemThumb(item)}<div><h3>${esc(item.name)}</h3><p>${esc(item.color)} / ${esc(item.size)}</p>${item.id==='custom'?(customMode(item.design)==='brief'?`<p class="brief-excerpt">“${esc(item.design.brief)}”</p><p>Arte criada pela equipe · prévia para aprovação</p>`:`<p>${esc(printsSummary(item.design))}</p>`):''}<div class="cart-item-bottom"><div class="quantity"><button data-qty="-1" data-key="${esc(item.key)}" aria-label="Diminuir quantidade de ${esc(item.name)}">−</button><span>${item.qty}</span><button data-qty="1" data-key="${esc(item.key)}" aria-label="Aumentar quantidade de ${esc(item.name)}" ${item.qty>=10?'disabled':''}>+</button></div><strong class="price">${money(item.price*item.qty)}</strong></div><button class="remove-item" data-remove="${esc(item.key)}">Remover</button></div></article>`).join('')+`<div class="cart-summary"><div class="summary-row"><span>Subtotal</span><span>${money(t.subtotal)}</span></div>${t.promo?`<div class="summary-row summary-discount"><span>Promoção · peça mais barata grátis</span><span>−${money(t.promo)}</span></div>`:''}<div class="summary-row"><span>Entrega padrão</span><span>${t.delivery?money(t.delivery):'Grátis'}</span></div>${promoProgressHTML()}<div class="summary-row summary-total"><span>Total estimado</span><span>${money(t.total)}</span></div><button class="button button-blue" id="begin-checkout">Continuar para compra <span>→</span></button><button class="text-button" id="keep-shopping">Continuar comprando</button><p class="helper">Pré-lançamento: nenhum valor é cobrado por enquanto.</p></div>`;
- $('#begin-checkout').addEventListener('click',()=>{closeDialog($('#cart-dialog'));showCheckout();});
+ $('#begin-checkout').addEventListener('click',()=>{closeDialog($('#cart-dialog'));navigate('/checkout');});
  $('#keep-shopping').addEventListener('click',()=>{closeDialog($('#cart-dialog'));location.hash='colecao';});
  $('[data-suggest]',$('#cart-content'))?.addEventListener('click',e=>{closeDialog($('#cart-dialog'));openProduct(e.currentTarget.dataset.suggest);});
 }
@@ -146,7 +146,7 @@ const freeShippingLine=()=>{const m=freeShippingMin();return m===null?'Entrega p
 let promosLoaded=false;
 function loadPromos(){
  if(promosLoaded||!online())return;promosLoaded=true;
- fetchPromos().then(list=>{if(!list)return;setPromos(list);if($('#cart-dialog').open)renderCart();if($('#checkout-dialog').open)$('#checkout-form')?.dispatchEvent(new Event('change'));});
+ fetchPromos().then(list=>{if(!list)return;setPromos(list);if($('#cart-dialog').open)renderCart();if(shownView==='checkout')$('#checkout-form')?.dispatchEvent(new Event('change'));});
 }
 // Avisos "faltam R$ X para..." de cada promoção; na sacola, sugere uma peça que completa o frete grátis.
 function promoProgressHTML({coupon=0,suggest=true}={}){
@@ -185,8 +185,9 @@ function itemBrand(item){
 // "Rua X, 123 - Ap 4" (o que fica no perfil) volta separado em rua, número e complemento.
 function splitAddress(full){const m=String(full||'').match(/^(.*?),\s*([0-9]+[A-Za-z]?|s\/n)\s*(?:-\s*(.*))?$/i);return m?{address:m[1],number:m[2],complement:m[3]||''}:{address:full||'',number:'',complement:''};}
 const joinAddress=d=>[`${String(d.get('address')).trim()}, ${String(d.get('number')).trim()}`,String(d.get('complement')||'').trim()].filter(Boolean).join(' - ');
-function showCheckout(){
- if(!cart.length){showCart();return;}
+// Página /checkout (antes era uma janela por cima da loja).
+function renderCheckout(){
+ if(!cart.length){$('#checkout-content').innerHTML=`<div class="empty-state co-empty"><h3>Sua sacola está vazia.</h3><p>Escolha uma peça ou crie a sua para finalizar a compra.</p><a class="button button-blue" href="#colecao">Ver a coleção <span>↗</span></a></div>`;return;}
  loadPromos();
  const live=online(),state={coupon:null};
  $('#checkout-content').innerHTML=`<div class="co-steps"><span>Sacola</span><i aria-hidden="true">›</i><b>Entrega e pagamento</b><i aria-hidden="true">›</i><span>Confirmação</span><small class="co-safe">${CO_ICON.lock}Compra segura</small></div>
@@ -227,7 +228,9 @@ function showCheckout(){
  </aside>
 </form>`;
  const form=$('#checkout-form'),el=k=>form.elements.namedItem(k),user=getUser();
- if(matchMedia('(max-width: 700px)').matches)$('.co-summary',form).open=false;
+ // Resumo recolhido no celular e sempre aberto no computador, acompanhando o tamanho da tela.
+ const mq=matchMedia('(max-width: 700px)'),coSum=$('.co-summary',form),syncSum=()=>{coSum.open=!mq.matches;};
+ syncSum();mq.addEventListener?.('change',syncSum);
  if(user){el('email').value=user.email;el('email').readOnly=true;loadProfile().then(p=>{
   for(const k of ['name','cep','city'])if(p?.[k]&&!el(k).value)el(k).value=p[k];
   if(p?.address&&!el('address').value){const a=splitAddress(p.address);for(const k of ['address','number','complement'])el(k).value=a[k];}
@@ -283,9 +286,9 @@ function showCheckout(){
   cart=[];saveCart();profile=null;
   const inst=result.installments>1?` em ${result.installments}x de ${money(Math.ceil(order.total/result.installments))}`:'';
   $('#checkout-content').innerHTML=`<div class="success"><span class="success-mark">✓</span><p class="eyebrow">${live?'PEDIDO REGISTRADO':'SIMULAÇÃO CONCLUÍDA'}</p><h3>Seu pedido ganhou forma.</h3><p>Pedido <span class="order-id">${esc(order.id)}</span><br>${money(order.total)} · ${esc(pay)}${inst}${live?'':' simulado'}</p><div class="demo-note">${live?'Guarde o código do pedido. Nenhum valor foi cobrado: o pagamento ainda não está integrado e o pedido fica como “aguardando pagamento”.':'Nenhuma cobrança foi feita. Este pedido não será produzido nem enviado.'}</div><button class="button button-blue" id="finish-order">Voltar à coleção <span>↗</span></button><p class="helper" style="margin-top:20px">O resumo está em “Meus pedidos”, no rodapé.</p></div>`;
-  $('#finish-order').addEventListener('click',()=>{closeDialog($('#checkout-dialog'));location.hash='colecao';});
+  $('#finish-order').addEventListener('click',()=>navigate('/#colecao'));
+  window.scrollTo({top:0,behavior:'instant'});
  });
- openDialog('#checkout-dialog');
 }
 async function submitOrder(data,shipping,payment,extra){
  // Prévias e artes do estúdio sobem todas em paralelo; a cor (base) de cada peça vai junto para o banco.
@@ -536,11 +539,12 @@ function setMeta(r){
  $('link[rel="canonical"]')?.setAttribute('href',SITE+m.path.slice(1));
 }
 function showView(view,brand){
- const studio=view==='studio',marcas=view==='marcas';
- $('#shop-view').hidden=studio||marcas;$('#studio-view').hidden=!studio;$('#marcas-view').hidden=!marcas;document.documentElement.classList.toggle('studio',studio);
+ const studio=view==='studio',marcas=view==='marcas',checkout=view==='checkout';
+ $('#shop-view').hidden=studio||marcas||checkout;$('#studio-view').hidden=!studio;$('#marcas-view').hidden=!marcas;$('#checkout-view').hidden=!checkout;document.documentElement.classList.toggle('studio',studio);document.documentElement.classList.toggle('checkout-mode',checkout);
  if(marcas)renderMarcas(brand);
  if(studio)renderDesign();
- if(studio||marcas)window.scrollTo({top:0,behavior:'instant'});
+ if(checkout)renderCheckout();
+ if(studio||marcas||checkout)window.scrollTo({top:0,behavior:'instant'});
  shownView=view;shownBrand=brand;
 }
 function route(){
@@ -577,8 +581,9 @@ $('#product-dialog').addEventListener('close',()=>{
  if(history.state?.app){history.back();return;}
  const behind={view:shownView,brand:shownBrand};history.replaceState(null,'',pageMeta(behind).path);setMeta(behind);
 });
-window.addEventListener('storage',e=>{if(e.key===CART_KEY){cart=normalizeCart(readStored(CART_KEY,[]));updateCartCount();if($('#cart-dialog').open)renderCart();if($('#checkout-dialog').open){closeDialog($('#checkout-dialog'));toast('A sacola mudou em outra aba. Confira os itens antes de finalizar.');}}});
-updateCartCount();route();cookieBanner();
+window.addEventListener('storage',e=>{if(e.key===CART_KEY){cart=normalizeCart(readStored(CART_KEY,[]));updateCartCount();if($('#cart-dialog').open)renderCart();if(shownView==='checkout'){renderCheckout();toast('A sacola mudou em outra aba. Confira os itens antes de finalizar.');}}});
+// A primeira navegação espera o arquivo terminar de carregar (constantes do fim, como a lista de estados).
+updateCartCount();queueMicrotask(route);cookieBanner();
 
 // Contas ------------------------------------------------------------------------
 let profile=null;

@@ -10,7 +10,7 @@ import {readFileSync,writeFileSync,mkdirSync,readdirSync,rmSync,existsSync} from
 import {pathToFileURL} from 'node:url';
 import {PRODUCTS,money} from '../dist/commerce.js';
 import {BRANDS} from '../dist/brands.js';
-import {SITE,pageMeta,allRoutes,productPath,brandPath} from '../dist/pages.js';
+import {SITE,pageMeta,allRoutes,privateRoutes,productPath,brandPath} from '../dist/pages.js';
 
 const DIST=new URL('../dist/',import.meta.url);
 const abs=path=>SITE+String(path).replace(/^\//,'');
@@ -48,6 +48,7 @@ function jsonLD(r,m,template){
   return [productLD(m.product),crumbs([['Início','/'],...(brand?[['Marcas','/marcas'],[brand.name,brandPath(brand.slug)]]:[['Coleção','/#colecao']]),[m.product.name,m.path]])];
  }
  if(r.view==='studio')return [webPage('WebPage',m),crumbs([['Início','/'],['Estúdio','/estudio']])];
+ if(r.view==='checkout')return [webPage('WebPage',m)];
  if(r.view==='marcas'&&m.brand){
   const own=PRODUCTS.filter(p=>p.brand===m.brand.slug);
   return [webPage('CollectionPage',m,{about:{'@type':'Brand',name:m.brand.name,description:m.brand.lead,...(m.brand.site?{url:m.brand.site}:{})},
@@ -145,6 +146,10 @@ export function buildPages(){
  for(const r of allRoutes()){
   if(r.view==='shop'&&!r.product)continue;
   files[pageMeta(r).path.slice(1)+'.html']=render(files['index.html'],r);
+ }
+ for(const r of privateRoutes()){
+  const m=pageMeta(r);
+  files[m.path.slice(1)+'.html']=render(files['index.html'],r).replace(/<meta name="robots" content="[^"]*">/,'<meta name="robots" content="noindex">');
  }
  files['404.html']=notFoundPage(files['index.html']);
  files['sitemap.xml']=sitemap();
