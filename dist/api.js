@@ -224,6 +224,10 @@ export const adminCreateBrand=(email,slug,name)=>rpc('admin_create_brand',{p_ema
 export const adminSetBrandStatus=(slug,status)=>rpc('admin_set_brand_status',{p_slug:slug,p_status:status});
 export const adminSetBrandPlan=(slug,plan,note)=>rpc('admin_set_brand_plan',{p_slug:slug,p_plan:plan,p_note:note||null});
 export const adminRemoveOwner=(slug,email)=>rpc('admin_remove_owner',{p_slug:slug,p_email:email});
+// Pedidos de quem quer ter marca na duavesso (migração 0010): qualquer pessoa envia; só a duavesso lê
+export const applyBrand=({name,email,brand,instagram,about})=>rpc('apply_brand',{p_name:name,p_email:email,p_brand:brand,p_instagram:instagram||null,p_about:about});
+export const adminListApplications=()=>rpc('admin_list_applications',{});
+export const adminSetApplicationStatus=(id,status)=>rpc('admin_set_application_status',{p_id:id,p_status:status});
 export async function rpc(name,args){
  return handle(await net(`${SUPABASE_URL}/rest/v1/rpc/${name}`,{method:'POST',headers:{...await authHeaders(),'Content-Type':'application/json'},body:JSON.stringify(args)}));
 }

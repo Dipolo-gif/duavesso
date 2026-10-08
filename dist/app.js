@@ -1,6 +1,6 @@
 import {PRODUCTS,SIZES,CUSTOM,freeShippingMin,setPromos,promoGoals,INSTALLMENTS,installment,customMode,shippingSuggestion,money,escapeHTML as esc,totals,addItem,changeQuantity,normalizeCart,validImageURL,garmentLabel,PRINT_ZONES,PRINT_ZONE_AT,isZone,MAX_PRINTS,printsSummary} from './commerce.js';
 import {CHEST_Y,UNIT} from './studio-placement.js';
-import {online,rpc,uploadDesign,dataURLToBlob,getUser,signIn,signUp,signOut,resetPassword,updatePassword,signInWithGoogle,handleAuthRedirect,fetchProfile,updateProfile,fetchMyOrders,fetchPromos,checkCoupon,fetchBrands,fetchBrand,myBrands,updateBrand,uploadBrandAsset,brandAssetURL,isAdmin,adminListBrands,adminCreateBrand,adminSetBrandStatus,adminSetBrandPlan,adminRemoveOwner} from './api.js';
+import {online,rpc,uploadDesign,dataURLToBlob,getUser,signIn,signUp,signOut,resetPassword,updatePassword,signInWithGoogle,handleAuthRedirect,fetchProfile,updateProfile,fetchMyOrders,fetchPromos,checkCoupon,fetchBrands,fetchBrand,myBrands,updateBrand,uploadBrandAsset,brandAssetURL,isAdmin,adminListBrands,adminCreateBrand,adminSetBrandStatus,adminSetBrandPlan,adminRemoveOwner,applyBrand,adminListApplications,adminSetApplicationStatus} from './api.js';
 import {BRANDS,brandFromRow} from './brands.js';
 import {SITE,parseRoute,isAppPath,pageMeta,productPath,brandList,findBrand,setBrandList,upsertBrandRow} from './pages.js';
 import {themeCSS,themeStyle,normalizeTheme,DEFAULT_THEME} from './brand-theme.js';
@@ -116,6 +116,7 @@ function subscribeForm(sel,demo,ok){const form=$(sel);if(form)form.addEventListe
 subscribeForm('#newsletter','Cadastro demonstrativo: nenhum e-mail foi enviado ou guardado.','Pronto! Você está na lista. Sem spam, só novidades.');
 $('#marcas-view').addEventListener('submit',e=>{const form=e.target.closest('.brand-notify');if(form){e.preventDefault();submitSubscribe(form,'Anotado! Te avisamos quando a linha lançar (demonstração).','Pronto! Te avisamos quando a linha lançar.');}});
 $('#marcas-view').addEventListener('click',e=>{const b=e.target.closest('button[data-product]');if(b)openProduct(b.dataset.product);});
+$('#marcas-view').addEventListener('click',e=>{if(e.target.closest('[data-join]'))openJoinForm();});
 function showInfo(title,html){$('#info-title').textContent=title;$('#info-content').innerHTML=html;openDialog('#info-dialog');}
 /* Politica de Privacidade e Cookies (LGPD) */
 const PRIVACY_HTML=`<p><strong>Última atualização:</strong> 22 de setembro de 2026.</p><p>A sua privacidade importa para a duavesso. Esta política explica quais dados a gente coleta, por que coleta, com quem compartilha e quais são os seus direitos, segundo a Lei Geral de Proteção de Dados (Lei nº 13.709/2018, a LGPD).</p><p class="privacy-note"><strong>Pré-lançamento:</strong> a loja está em demonstração e ainda não cobra nem processa pagamentos. Alguns canais (atendimento, e-mail e rastreio) são ilustrativos e os termos finais serão revisados antes do início das vendas.</p><h3>Quais dados a gente coleta</h3><ul><li><strong>Conta:</strong> nome, e-mail e senha quando você cria uma conta. A senha fica guardada de forma criptografada pelo provedor de autenticação, então a gente nunca vê a sua senha.</li><li><strong>Login com Google:</strong> se você entrar com o Google, recebemos o nome e o e-mail dessa conta para criar ou acessar o seu perfil.</li><li><strong>Novidades:</strong> o seu e-mail, quando você pede para receber os lançamentos.</li><li><strong>Pedidos:</strong> nome, endereço de entrega e itens do pedido. Nesta versão de demonstração, o histórico fica apenas no seu navegador e nenhum pagamento é processado.</li><li><strong>Estúdio de estampas:</strong> os textos, as descrições e as imagens que você envia para criar a sua estampa.</li><li><strong>Dados técnicos:</strong> informações básicas de acesso (navegador, dispositivo e registros de segurança) geradas pela hospedagem para manter o site no ar e protegido.</li></ul><h3>Para que a gente usa</h3><ul><li>Criar e manter a sua conta e o seu login.</li><li>Organizar e, no futuro, entregar os seus pedidos.</li><li>Desenhar a arte que você pede no estúdio e enviar a prévia para aprovação.</li><li>Enviar novidades e lançamentos, quando você autoriza.</li><li>Responder ao seu contato e dar suporte.</li><li>Manter a loja segura e melhorar a experiência.</li></ul><h3>Bases legais</h3><p>Tratamos os seus dados com base na execução de contrato e nos procedimentos ligados ao pedido, no seu consentimento (novidades e dados opcionais de navegação), no legítimo interesse (segurança e melhoria da loja) e no cumprimento de obrigações legais, quando for o caso.</p><h3>Cookies e armazenamento no navegador</h3><p>A duavesso <strong>não usa cookies de publicidade nem rastreadores de terceiros</strong>. Para a loja funcionar, guardamos algumas informações no armazenamento local do seu próprio navegador (localStorage), e não em cookies de rastreio:</p><ul><li><strong>Essenciais (sempre ativos):</strong> a sua sacola, a sua sessão de login, a verificação de segurança do login social e a sua preferência de privacidade. Sem eles a loja não funciona.</li><li><strong>Opcionais (só com a sua permissão):</strong> dados de navegação para entender o uso e melhorar a loja. Hoje não há nenhuma ferramenta de análise ativa. Se um dia passarmos a usar, ela só carrega depois do seu aceite.</li></ul><p>Você decide no aviso que aparece na primeira visita e pode limpar esses dados quando quiser, nas configurações do navegador.</p><h3>Com quem a gente compartilha</h3><p>A gente <strong>não vende os seus dados</strong>. Compartilhamos apenas com prestadores que ajudam a loja a funcionar:</p><ul><li><strong>Supabase:</strong> login e banco de dados.</li><li><strong>Google:</strong> só quando você escolhe entrar com a conta Google.</li><li><strong>ViaCEP e IBGE:</strong> consulta pública de endereço a partir do CEP no checkout. Enviamos só o CEP, nunca os seus dados pessoais.</li><li><strong>Vercel:</strong> hospedagem do site.</li></ul><p>Também podemos compartilhar dados quando a lei ou uma autoridade competente exigir.</p><h3>Transferência internacional</h3><p>Alguns desses prestadores podem processar dados em servidores fora do Brasil. Nesses casos, escolhemos fornecedores reconhecidos, com salvaguardas de proteção compatíveis com a LGPD.</p><h3>Por quanto tempo a gente guarda</h3><p>Guardamos os seus dados enquanto a sua conta existir ou pelo tempo necessário para as finalidades acima e para cumprir a lei. Você pode pedir a exclusão a qualquer momento. Os dados que ficam só no navegador somem quando você limpa o navegador.</p><h3>Segurança</h3><p>Usamos conexão criptografada (HTTPS), senhas guardadas de forma criptografada e regras de acesso no banco de dados. Nenhum sistema é infalível, mas a gente trabalha para proteger as suas informações.</p><h3>Os seus direitos</h3><p>Pela LGPD, você pode a qualquer momento confirmar se tratamos os seus dados, acessar esses dados, corrigir informações incompletas ou desatualizadas, pedir a anonimização ou a exclusão, pedir a portabilidade, saber com quem compartilhamos e revogar o consentimento. Para exercer qualquer um desses direitos, fale com a gente pelo canal abaixo.</p><h3>Crianças e adolescentes</h3><p>A loja é destinada a maiores de 18 anos e a gente não coleta dados de crianças de forma intencional. Se isso acontecer, entre em contato para removermos.</p><h3>Mudanças nesta política</h3><p>Esta política pode mudar. Quando houver alteração relevante, a data no topo muda e, se necessário, avisamos na loja.</p><h3>Fale sobre privacidade</h3><p>Dúvidas e pedidos sobre os seus dados podem ir para <strong>privacidade@duavesso.com.br</strong> (canal ilustrativo nesta fase). O encarregado pelos dados (DPO) será indicado antes do início das vendas.</p>`;
@@ -575,8 +576,43 @@ function brandNotifyHTML(b){
 }
 // Fechamento: quem assina a produção e as mesmas garantias da página inicial
 const brandDNA=()=>{const min=freeShippingMin();return `<section class="b2-dna" aria-label="Produzida e entregue pela duavesso"><div class="b2-dna-sign"><img src="assets/logo-duavesso.png" alt="duavesso" width="800" height="138" loading="lazy"><p><strong>Produzida e entregue pela duavesso.</strong> A marca cria; a duavesso produz, embala e entrega.</p></div><ul class="b2-trust"><li><strong>Algodão pesado</strong><span>210 g/m², lavagem enzimática</span></li><li><strong>Troca fácil</strong><span>30 dias para trocar ou devolver</span></li><li><strong>${min===null?'Entrega':'Frete grátis'}</strong><span>${min===null?'para todo o Brasil':`em pedidos a partir de ${money(min)}`}</span></li><li><strong>Pix ou cartão</strong><span>em até ${INSTALLMENTS}x sem juros</span></li></ul></section>`;};
+// "Sobre a marca": o texto longo do dono, em parágrafos, com foto vertical opcional ao lado
+function brandAboutHTML(b){
+ const paras=(b.about||'').split(/\n+/).map(t=>t.trim()).filter(Boolean);if(!paras.length)return '';
+ return `<section class="b2-about${b.aboutPhoto?' has-photo':''}" aria-labelledby="b2-about-title"><div class="b2-about-text"><p class="eyebrow">SOBRE A MARCA</p><h2 id="b2-about-title">${esc(b.name)}</h2>${paras.map(t=>`<p>${esc(t)}</p>`).join('')}</div>${b.aboutPhoto?`<div class="b2-about-photo"><img src="${brandImg(b.aboutPhoto)}" alt="" width="1200" height="1500" loading="lazy"></div>`:''}</section>`;
+}
+// Convite para quem quer ter a própria marca na duavesso (fim de cada loja e da página de marcas)
+const brandJoinHTML=()=>`<section class="b2-join" aria-labelledby="b2-join-title"><div><p class="eyebrow">TEM UMA MARCA?</p><h2 id="b2-join-title">Sua marca também pode morar aqui.</h2><p>Você cria as estampas e a identidade; a duavesso produz sob demanda, embala e entrega. Loja própria com as suas cores, sem estoque e com plano grátis para começar.</p></div><button type="button" class="button" data-join>Quero minha marca na duavesso <span aria-hidden="true">→</span></button></section>`;
+// Formulário do convite: o pedido vai para a fila do painel da duavesso (migração 0010)
+function openJoinForm(){
+ const u=getUser(),d=document.createElement('dialog');d.className='join-dialog';d.setAttribute('aria-labelledby','join-title');
+ d.innerHTML=`<div class="dialog-heading"><h2 id="join-title">Quero minha marca na duavesso</h2><button type="button" class="icon-button" data-close aria-label="Fechar">×</button></div>
+<form class="join-form"><p class="helper">Conte um pouco da sua marca. A equipe da duavesso lê cada pedido e responde no seu e-mail.</p>
+<div class="field-row"><label>Seu nome<input name="name" required minlength="2" maxlength="80" autocomplete="name" value="${esc(u?.name||'')}"></label><label>E-mail<input type="email" name="email" required maxlength="120" autocomplete="email" value="${esc(u?.email||'')}"></label></div>
+<div class="field-row"><label>Nome da marca<input name="brand" required minlength="2" maxlength="60"></label><label>Instagram da marca (opcional)<input name="instagram" maxlength="300" placeholder="Link do perfil ou @usuario" autocomplete="off"></label></div>
+<label>Sobre a marca<textarea name="about" required minlength="10" maxlength="800" rows="4" placeholder="O que vocês criam, para quem, e o que já existe (estampas prontas, seguidores, loja)."></textarea></label>
+<input type="text" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+<button type="submit" class="button button-blue">Enviar pedido</button></form>`;
+ document.body.append(d);d.showModal();
+ const close=()=>d.remove(),form=$('.join-form',d),field=n=>form.elements.namedItem(n),val=n=>field(n).value.trim();
+ d.addEventListener('click',e=>{if(e.target.closest('[data-close]'))close();});
+ d.addEventListener('cancel',e=>{e.preventDefault();close();});
+ form.addEventListener('submit',async e=>{
+  e.preventDefault();if(!form.reportValidity())return;
+  if(val('website')){close();return;}
+  if(val('about').length<10){toast('Conte um pouco mais sobre a marca (pelo menos 10 caracteres).');field('about').focus();return;}
+  const ig=instagramHandle(val('instagram'));
+  if(ig&&!/^[A-Za-z0-9._]{1,30}$/.test(ig)){toast('Instagram: cole o link do perfil (instagram.com/suamarca) ou o @usuario.');field('instagram').focus();return;}
+  const btn=$('button[type=submit]',form);btn.disabled=true;btn.textContent='Enviando…';
+  try{
+   if(online())await applyBrand({name:val('name'),email:val('email'),brand:val('brand'),instagram:ig,about:val('about')});
+   form.outerHTML=`<div class="join-done" role="status"><h3>Pedido recebido!</h3><p>${online()?'A equipe da duavesso vai ler e responder no seu e-mail.':'Demonstração: nada foi enviado.'}</p><button type="button" class="button button-blue" data-close>Fechar</button></div>`;
+  }catch(error){toast(error.message);btn.disabled=false;btn.textContent='Enviar pedido';}
+ });
+ field(u?'brand':'name').focus();
+}
 function brandArticleHTML(b,{preview=false}={}){
- return `<article class="b2${preview?' b2-preview':''}" data-brand="${esc(b.slug)}"${b.static?.theme?` data-theme="${b.static.theme}"`:''} style="${themeCSS(b.theme)}">${brandHeaderHTML(b)}${brandFeaturedHTML(b)}<div class="b2-body">${brandCollection(b)}${preview?'':brandNotifyHTML(b)}</div>${brandDNA()}</article>`;
+ return `<article class="b2${preview?' b2-preview':''}" data-brand="${esc(b.slug)}"${b.static?.theme?` data-theme="${b.static.theme}"`:''} style="${themeCSS(b.theme)}">${brandHeaderHTML(b)}${brandFeaturedHTML(b)}<div class="b2-body">${brandCollection(b)}${preview?'':brandNotifyHTML(b)}${brandAboutHTML(b)}</div>${brandDNA()}</article>`;
 }
 // Marcas do banco: carregadas uma vez, quando a pessoa entra em /marcas (a página inicial não chama o banco)
 // brandsVersion sobe a cada lista nova: a página só se redesenha se a lista mudou desde o último desenho.
@@ -590,7 +626,7 @@ let countdownTimer=0;
 function renderMarcas(slug){
  const view=$('#marcas-view');clearInterval(countdownTimer);
  if(!slug){
-  view.innerHTML=`<div class="editor-heading"><a href="#inicio" class="text-link">← Voltar</a><span class="eyebrow">MARCAS · A FAMÍLIA DUAVESSO</span></div><div class="marcas-intro"><h1>As linhas da duavesso.</h1><p>Marcas com identidade própria e a mesma pegada: produzidas e entregues pela duavesso, na base oversized que você já conhece. Cada uma tem a sua loja.</p></div><div class="marcas-grid">${brandList().map(b=>`<a class="brand-card b2-card" href="marcas/${esc(b.slug)}"${b.static?.theme?` data-theme="${b.static.theme}"`:''} style="${themeCSS(b.theme)}"><span class="b2-card-logo">${brandLogoHTML(b)}</span><span class="brand-kicker">${esc(b.tagline)}</span><span class="b2-card-name">${esc(b.name)}</span><p>${esc(b.bio)}</p><span class="brand-ver">Ver a loja <span aria-hidden="true">↗</span></span></a>`).join('')}</div>`;
+  view.innerHTML=`<div class="editor-heading"><a href="#inicio" class="text-link">← Voltar</a><span class="eyebrow">MARCAS · A FAMÍLIA DUAVESSO</span></div><div class="marcas-intro"><h1>As linhas da duavesso.</h1><p>Marcas com identidade própria e a mesma pegada: produzidas e entregues pela duavesso, na base oversized que você já conhece. Cada uma tem a sua loja.</p></div><div class="marcas-grid">${brandList().map(b=>`<a class="brand-card b2-card" href="marcas/${esc(b.slug)}"${b.static?.theme?` data-theme="${b.static.theme}"`:''} style="${themeCSS(b.theme)}"><span class="b2-card-logo">${brandLogoHTML(b)}</span><span class="brand-kicker">${esc(b.tagline)}</span><span class="b2-card-name">${esc(b.name)}</span><p>${esc(b.bio)}</p><span class="brand-ver">Ver a loja <span aria-hidden="true">↗</span></span></a>`).join('')}</div>${brandJoinHTML()}`;
   const seen=brandsVersion;loadBrandsFromDB().then(()=>{if(brandsVersion!==seen&&shownView==='marcas'&&!shownBrand)renderMarcas(null);});
   return;
  }
@@ -604,7 +640,7 @@ function renderMarcas(slug){
   });
   return;
  }
- view.innerHTML=`<div class="editor-heading"><a href="marcas" class="text-link">← Todas as marcas</a><span class="eyebrow">MARCAS · ${esc(b.name)}</span></div>${brandArticleHTML(b)}`;
+ view.innerHTML=`<div class="editor-heading"><a href="marcas" class="text-link">← Todas as marcas</a><span class="eyebrow">MARCAS · ${esc(b.name)}</span></div>${brandArticleHTML(b)}${brandJoinHTML()}`;
  wirePoseHovers();
  if($('.b2-count',view))countdownTimer=setInterval(()=>{$$('.b2-count[data-until]',view).forEach(c=>{c.textContent=countdownText(c.dataset.until)||'encerrado';});},60000);
  const seen=brandsVersion;loadBrandsFromDB().then(()=>{if(brandsVersion!==seen&&shownView==='marcas'&&shownBrand===slug)renderMarcas(slug);});
@@ -613,11 +649,11 @@ function renderMarcas(slug){
 // O editor serve ao dono da marca e à dona do site (que edita qualquer marca a partir do painel).
 // Tudo o que é gravado passa pelas regras do banco (migração 0009): o dono só muda o conteúdo da
 // própria marca; situação, plano e donos só mudam pelo painel.
-const LIMITS={name:60,tagline:80,bio:160,badge:24};
+const LIMITS={name:60,tagline:80,bio:160,about:1500,badge:24};
 let colorPicker=null;
 const picker=()=>colorPicker??=createColorPicker();
 // Medidas das imagens da marca. A capa aparece inteira (3:1) em qualquer tela; o logo, num círculo.
-const BRAND_IMG={logo:{width:512,height:512},cover:{width:1800,height:600}};
+const BRAND_IMG={logo:{width:512,height:512},cover:{width:1800,height:600},about:{width:1200,height:1500}};
 // Lê a imagem escolhida como data: (igual ao estúdio): a CSP do site não libera imagens blob:
 async function readBrandImage(file){
  if(!/^image\/(png|jpeg|webp)$/.test(file.type))throw new Error('Envie PNG, JPG ou WebP.');
@@ -641,9 +677,9 @@ function cropBrandImage(img,src,kind){
  let z=1,cx=iw/2,cy=ih/2;
  const box=cls=>`<div class="${cls}"><img src="${src}" alt="" draggable="false">${kind==='cover'&&cls.startsWith('crop-prev')?'<span class="crop-logo" aria-hidden="true"></span>':''}</div>`;
  const d=document.createElement('dialog');d.className='crop-dialog';d.setAttribute('aria-labelledby','crop-title');
- d.innerHTML=`<div class="dialog-heading"><h2 id="crop-title">${kind==='logo'?'Ajuste o logo':'Ajuste a faixa de capa'}</h2></div>
-<div class="crop-body"><p class="helper crop-tip">Arraste a imagem para escolher o que aparece. Use o zoom para aproximar.${kind==='cover'?' A faixa é igual em todas as telas; no celular o logo cobre mais o canto de baixo à esquerda.':' O logo aparece dentro do círculo.'}</p>
-${box(`crop-stage${kind==='logo'?' crop-round':''}`).replace('<div class="crop-stage','<div tabindex="0" role="group" aria-label="Enquadramento: arraste, ou use as setas para mover e + ou - para o zoom" class="crop-stage')}
+ d.innerHTML=`<div class="dialog-heading"><h2 id="crop-title">${{logo:'Ajuste o logo',cover:'Ajuste a faixa de capa',about:'Ajuste a foto do Sobre'}[kind]}</h2></div>
+<div class="crop-body"><p class="helper crop-tip">Arraste a imagem para escolher o que aparece. Use o zoom para aproximar.${{cover:' A faixa é igual em todas as telas; no celular o logo cobre mais o canto de baixo à esquerda.',logo:' O logo aparece dentro do círculo.',about:' A foto aparece ao lado do texto Sobre a marca.'}[kind]}</p>
+${box(`crop-stage${{logo:' crop-round',about:' crop-portrait'}[kind]||''}`).replace('<div class="crop-stage','<div tabindex="0" role="group" aria-label="Enquadramento: arraste, ou use as setas para mover e + ou - para o zoom" class="crop-stage')}
 <label class="crop-zoom"><span>Zoom</span><input type="range" min="1" max="4" step="0.01" value="1" aria-label="Zoom"></label>
 ${kind==='cover'?`<div class="crop-previews"><figure><figcaption>Computador</figcaption>${box('crop-prev crop-prev-desk')}</figure><figure><figcaption>Celular</figcaption>${box('crop-prev crop-prev-phone')}</figure></div>`:''}
 <p class="helper crop-note" aria-live="polite"></p>
@@ -693,6 +729,13 @@ function paletteFromImage(src){
  });
 }
 const toLocalInput=iso=>{if(!iso)return '';const d=new Date(iso);if(isNaN(d))return '';const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;};
+// Pedidos de marca no painel: novos primeiro, com os contatos e as ações
+const APP_STATUS={new:['Novo','paid'],contacted:['Respondido','off'],approved:['Aprovado','ok'],declined:['Recusado','off']};
+function adminAppsHTML(apps){
+ if(!apps.length)return '';
+ const fresh=apps.filter(a=>a.status==='new').length;
+ return `<section class="ad-apps" aria-labelledby="ad-apps-title"><h2 id="ad-apps-title">Pedidos de marca${fresh?` <small>${fresh} ${fresh===1?'novo':'novos'}</small>`:''}</h2>${apps.map(a=>{const [label,cls]=APP_STATUS[a.status]||APP_STATUS.new;return `<article class="ad-app${a.status==='new'?' is-new':''}" data-app="${a.id}"><div class="ad-app-main"><b>${esc(a.brand_name)}</b><small>${esc(a.name)} · <a href="mailto:${esc(a.email)}">${esc(a.email)}</a>${a.instagram?` · <a href="https://instagram.com/${encodeURIComponent(a.instagram)}" target="_blank" rel="noopener">@${esc(a.instagram)}</a>`:''} · ${new Date(a.created_at).toLocaleDateString('pt-BR')}</small><p>${esc(a.about)}</p></div><div class="ad-app-acts"><span class="pill ${cls}">${label}</span>${a.status==='approved'?'':`<button type="button" class="button me-ghost" data-app-act="create">Criar marca</button>`}${a.status==='new'?`<button type="button" class="button me-ghost" data-app-act="contacted">Respondido</button><button type="button" class="button me-ghost ad-danger" data-app-act="declined">Recusar</button>`:''}</div></article>`;}).join('')}</section>`;
+}
 const STATUS_PILL=b=>`<span class="pill ${b.status==='active'?'ok':'off'}">${b.status==='active'?'Publicada':'Suspensa'}</span> <span class="pill ${b.plan==='paid'?'paid':'off'}">${b.plan==='paid'?'Plano pago':'Plano grátis'}</span>`;
 function colorRowHTML(key,label,hex){return `<div class="me-color" data-key="${key}"><span class="me-clab">${label}</span><button type="button" class="me-swatch" style="--sw:${hex}" aria-label="Escolher a cor: ${label}" aria-expanded="false"></button><input class="me-hex" value="${hex.toUpperCase()}" maxlength="7" spellcheck="false" aria-label="Código da cor: ${label}"><button type="button" class="me-drop" title="Conta-gotas: pegar uma cor da tela" aria-label="Conta-gotas">${eyedropperIcon}</button></div>`;}
 
@@ -708,8 +751,13 @@ function renderBrandEditor(container,row,{admin=false}={}){
    <div class="me-up"><span class="me-up-prev me-up-logo" id="me-logo-prev"></span><div><b>Logo</b><small>Quadrado, 512 × 512 px ou maior · PNG, JPG ou WebP</small><small>Aparece num círculo. Ao enviar, você ajusta o enquadramento.</small><div class="me-up-actions"><label class="text-button">Enviar<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-up="logo"></label><button type="button" class="text-button" data-rm="logo_path">Remover</button></div></div></div>
    <div class="me-up"><span class="me-up-prev me-up-cover" id="me-cover-prev"></span><div><b>Faixa de capa</b><small>1800 × 600 px (3 por 1) · PNG, JPG ou WebP</small><small>Aparece inteira em qualquer tela. Ao enviar, você arrasta a imagem e vê como fica no computador e no celular.</small><div class="me-up-actions"><label class="text-button">Enviar<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-up="cover"></label><button type="button" class="text-button" data-rm="cover_path">Remover</button></div></div></div>
   </div>
-  <p class="helper" id="me-up-status" aria-live="polite"></p>
+  <p class="helper me-up-status" id="me-up-status" aria-live="polite"></p>
   <div class="field-row"><label>Instagram<input name="instagram" maxlength="300" value="${draft.links.instagram?'@'+esc(draft.links.instagram):''}" placeholder="Cole o link do perfil ou @usuario" autocomplete="off"></label><label>Site (opcional)<input name="site" maxlength="130" value="${esc(draft.links.site||'')}" placeholder="suamarca.com.br" inputmode="url" autocomplete="off"></label></div>
+ </section>
+ <section class="me-card"><h2>Sobre a marca</h2><p class="me-hint">A história da marca, numa seção própria da loja, depois das peças. Separe os parágrafos com uma linha.</p>
+  <label>Texto <small class="me-count" data-for="about"></small><textarea name="about" maxlength="${LIMITS.about}" rows="6" placeholder="Como a marca começou, o que inspira as estampas, para quem ela é.">${esc(draft.about||'')}</textarea></label>
+  <div class="me-up"><span class="me-up-prev me-up-about" id="me-about-prev"></span><div><b>Foto (opcional)</b><small>Vertical, 1200 × 1500 px (4 por 5) · PNG, JPG ou WebP</small><small>Aparece ao lado do texto. Ao enviar, você ajusta o enquadramento.</small><div class="me-up-actions"><label class="text-button">Enviar<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-up="about"></label><button type="button" class="text-button" data-rm="about_path">Remover</button></div></div></div>
+  <p class="helper me-up-status" aria-live="polite"></p>
  </section>
  <section class="me-card"><h2>Cores</h2><p class="me-hint">Qualquer cor, sólida ou em degradê. Clique no quadradinho para abrir a roda de cores, use o conta-gotas ou digite o código.</p>
   <div class="me-sug" id="me-sug" hidden><small>Sugestões do seu logo</small></div>
@@ -737,6 +785,8 @@ function renderBrandEditor(container,row,{admin=false}={}){
   $('#me-logo-prev',container).innerHTML=draft.logo_path?`<img src="${esc(brandAssetURL(draft.logo_path))}" alt="">`:`<span>${esc(draft.name.slice(0,10))}</span>`;
   $('#me-cover-prev',container).innerHTML=draft.cover_path?`<img src="${esc(brandAssetURL(draft.cover_path))}" alt="">`:'';
   const bio=el('bio');$('.me-count[data-for="bio"]',container).textContent=`${bio.value.length}/${LIMITS.bio}`;
+  $('#me-about-prev',container).innerHTML=draft.about_path?`<img src="${esc(brandAssetURL(draft.about_path))}" alt="">`:'';
+  $('.me-count[data-for="about"]',container).textContent=`${el('about').value.length}/${LIMITS.about}`;
  };
  const setColor=(k,hex)=>{draft.theme={...draft.theme,[k]:hex.toLowerCase()};if(k==='c1'&&draft.theme.mode==='solid')draft.theme.c2=draft.theme.c1;preview();};
  form.addEventListener('change',e=>{
@@ -745,7 +795,7 @@ function renderBrandEditor(container,row,{admin=false}={}){
  });
  form.addEventListener('input',e=>{
   const n=e.target.name;
-  if(['name','tagline','bio','featured_badge'].includes(n))draft[n]=e.target.value;
+  if(['name','tagline','bio','about','featured_badge'].includes(n))draft[n]=e.target.value;
   if(n==='instagram'||n==='site'){const v=n==='instagram'?instagramHandle(e.target.value):brandSiteURL(e.target.value);if(v)draft.links[n]=v;else delete draft.links[n];}
   if(n==='featured_product_id')draft.featured_product_id=e.target.value||null;
   if(n==='featured_until')draft.featured_until=e.target.value?new Date(e.target.value).toISOString():null;
@@ -763,14 +813,13 @@ function renderBrandEditor(container,row,{admin=false}={}){
  const sug=async()=>{const box=$('#me-sug',container);if(!draft.logo_path){box.hidden=true;return;}const cols=await paletteFromImage(brandAssetURL(draft.logo_path));box.hidden=!cols.length;box.innerHTML=`<small>Sugestões do seu logo</small>${cols.map(c=>`<button type="button" style="background:${c}" data-c="${c}" title="${c.toUpperCase()}" aria-label="Usar ${c.toUpperCase()} no fundo"></button>`).join('')}`;};
  $('#me-sug',container).addEventListener('click',e=>{const b=e.target.closest('[data-c]');if(b)setColor('c1',b.dataset.c);});
  // Envio de imagens: converte, sobe para a pasta da marca e atualiza a prévia (grava só ao publicar)
- const upStatus=$('#me-up-status',container);
  $$('input[data-up]',container).forEach(inp=>inp.addEventListener('change',async()=>{
-  const file=inp.files?.[0];inp.value='';if(!file)return;const kind=inp.dataset.up;
+  const file=inp.files?.[0];inp.value='';if(!file)return;const kind=inp.dataset.up,upStatus=inp.closest('.me-card').querySelector('.me-up-status');
   upStatus.textContent='Abrindo a imagem…';
   try{const {img,src}=await readBrandImage(file);upStatus.textContent='';
    const crop=await cropBrandImage(img,src,kind);if(!crop)return;
    upStatus.textContent='Enviando…';const blob=await cropToBlob(img,crop,BRAND_IMG[kind]);
-   draft[kind==='logo'?'logo_path':'cover_path']=await uploadBrandAsset(row.slug,kind,blob);upStatus.textContent='Imagem pronta. Publique para aparecer na loja.';preview();if(kind==='logo')sug();}
+   draft[`${kind}_path`]=await uploadBrandAsset(row.slug,kind,blob);upStatus.textContent='Imagem pronta. Publique para aparecer na loja.';preview();if(kind==='logo')sug();}
   catch(error){upStatus.textContent=error.message;}
  }));
  $$('[data-rm]',container).forEach(b=>b.addEventListener('click',()=>{draft[b.dataset.rm]=null;preview();if(b.dataset.rm==='logo_path')sug();}));
@@ -782,7 +831,7 @@ function renderBrandEditor(container,row,{admin=false}={}){
   if(draft.links.instagram&&!/^[A-Za-z0-9._]{1,30}$/.test(draft.links.instagram)){toast('Instagram: cole o link do perfil (instagram.com/suamarca) ou o @usuario.');el('instagram').focus();return;}
   const btn=$('#me-save',container);btn.disabled=true;btn.textContent='Publicando…';
   try{
-   const saved=await updateBrand(row.slug,{name,tagline:(draft.tagline||'').trim(),bio:(draft.bio||'').trim(),theme:draft.theme,logo_path:draft.logo_path||null,cover_path:draft.cover_path||null,links:draft.links,featured_product_id:draft.featured_product_id||null,featured_badge:(draft.featured_badge||'').trim(),featured_until:draft.featured_until||null});
+   const saved=await updateBrand(row.slug,{name,tagline:(draft.tagline||'').trim(),bio:(draft.bio||'').trim(),theme:draft.theme,logo_path:draft.logo_path||null,cover_path:draft.cover_path||null,about:(draft.about||'').trim(),about_path:draft.about_path||null,links:draft.links,featured_product_id:draft.featured_product_id||null,featured_badge:(draft.featured_badge||'').trim(),featured_until:draft.featured_until||null});
    Object.assign(row,saved);upsertBrandRow(saved);toast('Página publicada. Ela já está no ar.');$('.me-title',container).textContent=saved.name;
   }catch(error){toast(error.message);}
   finally{btn.disabled=false;btn.textContent='Publicar alterações';}
@@ -813,13 +862,13 @@ async function renderAdminPage(){
  if(!user){view.innerHTML=`<div class="me-gate"><h1>Painel da duavesso</h1><p>Entre com a conta da duavesso.</p><button type="button" class="button button-blue" id="ad-login">Entrar</button></div>`;$('#ad-login').addEventListener('click',()=>openAuth('login'));return;}
  view.innerHTML='<p class="helper me-gate">Carregando o painel…</p>';
  if(!await isAdmin()){if(shownView==='admin')view.innerHTML='<div class="me-gate"><h1>Área restrita</h1><p>Este painel é só da conta dona da duavesso.</p></div>';return;}
- let brands=[];
- try{brands=await adminListBrands();}catch(error){view.innerHTML=`<div class="me-gate"><h1>Painel da duavesso</h1><p>${esc(error.message)}</p></div>`;return;}
+ let brands=[],apps=[];
+ try{[brands,apps]=await Promise.all([adminListBrands(),adminListApplications().then(r=>Array.isArray(r)?r:[],()=>[])]);}catch(error){view.innerHTML=`<div class="me-gate"><h1>Painel da duavesso</h1><p>${esc(error.message)}</p></div>`;return;}
  if(shownView!=='admin')return;
  const owners=b=>b.owners?.length?b.owners.map(o=>`<span class="ad-owner">${esc(o.name||o.email)}<small>${esc(o.email)}</small><button type="button" class="ad-x" data-act="rm-owner" data-email="${esc(o.email)}" aria-label="Tirar ${esc(o.email)} da marca">×</button></span>`).join(''):'<small class="ad-none">Sem dono ainda</small>';
  view.innerHTML=`<div class="ad-head"><div><p class="eyebrow">PAINEL DA DUAVESSO</p><h1 class="me-title">Marcas parceiras</h1><p class="me-sub">${brands.filter(b=>b.status==='active').length} publicadas · ${brands.filter(b=>b.status!=='active').length} suspensas</p></div></div>
 <form class="ad-add" id="ad-add"><label>E-mail da conta<input type="email" name="email" required maxlength="120" placeholder="dono@marca.com.br"></label><label>Nome da marca<input name="name" required maxlength="60" placeholder="Nome que aparece na loja"></label><label>Endereço<input name="slug" required maxlength="40" pattern="[a-z0-9-]{2,40}" placeholder="nome-da-marca"></label><button type="submit" class="button button-blue">Tornar Marca Parceira</button><p class="helper">A pessoa precisa ter criado a conta na loja. Se o endereço já existe (como as marcas antigas), a conta vira dona dessa marca.</p><p class="helper ad-twin" id="ad-twin" role="status" hidden></p></form>
-<div class="ad-list">${brands.map(b=>`<article class="ad-row" data-slug="${esc(b.slug)}"><span class="ad-logo" style="${themeCSS(b.theme)}">${b.logo_path?`<img src="${esc(brandAssetURL(b.logo_path))}" alt="">`:esc(b.name.slice(0,4))}</span><div class="ad-main"><b>${esc(b.name)}</b><small>/marcas/${esc(b.slug)} · ${b.products} ${b.products===1?'peça':'peças'}</small><div class="ad-owners">${owners(b)}</div></div><div class="ad-state">${STATUS_PILL(b)}${b.plan==='paid'&&b.paid_at?`<small>Pago em ${new Date(b.paid_at).toLocaleDateString('pt-BR')}${b.paid_note?` · ${esc(b.paid_note)}`:''}</small>`:''}</div><div class="ad-acts"><a class="button me-ghost" href="/marcas/${esc(b.slug)}" target="_blank" rel="noopener">Ver loja</a><a class="button me-ghost" href="minha-marca?marca=${esc(b.slug)}">Editar página</a><button type="button" class="button me-ghost" data-act="add-owner">Adicionar dono</button><button type="button" class="button me-ghost" data-act="plan">${b.plan==='paid'?'Voltar ao grátis':'Marcar plano pago (R$ 400)'}</button><button type="button" class="button me-ghost ${b.status==='active'?'ad-danger':''}" data-act="status">${b.status==='active'?'Suspender':'Reativar'}</button></div></article>`).join('')}</div>`;
+${adminAppsHTML(apps)}<div class="ad-list">${brands.map(b=>`<article class="ad-row" data-slug="${esc(b.slug)}"><span class="ad-logo" style="${themeCSS(b.theme)}">${b.logo_path?`<img src="${esc(brandAssetURL(b.logo_path))}" alt="">`:esc(b.name.slice(0,4))}</span><div class="ad-main"><b>${esc(b.name)}</b><small>/marcas/${esc(b.slug)} · ${b.products} ${b.products===1?'peça':'peças'}</small><div class="ad-owners">${owners(b)}</div></div><div class="ad-state">${STATUS_PILL(b)}${b.plan==='paid'&&b.paid_at?`<small>Pago em ${new Date(b.paid_at).toLocaleDateString('pt-BR')}${b.paid_note?` · ${esc(b.paid_note)}`:''}</small>`:''}</div><div class="ad-acts"><a class="button me-ghost" href="/marcas/${esc(b.slug)}" target="_blank" rel="noopener">Ver loja</a><a class="button me-ghost" href="minha-marca?marca=${esc(b.slug)}">Editar página</a><button type="button" class="button me-ghost" data-act="add-owner">Adicionar dono</button><button type="button" class="button me-ghost" data-act="plan">${b.plan==='paid'?'Voltar ao grátis':'Marcar plano pago (R$ 400)'}</button><button type="button" class="button me-ghost ${b.status==='active'?'ad-danger':''}" data-act="status">${b.status==='active'?'Suspender':'Reativar'}</button></div></article>`).join('')}</div>`;
  const slugify=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40),flat=s=>slugify(s).replace(/-/g,'');
  $('#ad-add').addEventListener('input',e=>{const slugEl=e.target.form.elements.namedItem('slug');if(e.target.name==='name'&&!slugEl.dataset.touched)slugEl.value=slugify(e.target.value);if(e.target.name==='slug')e.target.dataset.touched='1';
   // Nome ou endereço igual ao de uma marca que já existe: avisa antes de criar uma cópia vazia
@@ -829,7 +878,20 @@ async function renderAdminPage(){
    :`Parece a <b>${esc(twin.name)}</b>, que já existe em /marcas/${esc(twin.slug)}. Para dar um dono a ela, use <b>Adicionar dono</b> na linha dela.`;});
  $('#ad-add').addEventListener('submit',async e=>{e.preventDefault();const f=e.target;if(!f.reportValidity())return;
   const val=n=>f.elements.namedItem(n).value.trim();
-  try{await adminCreateBrand(val('email'),val('slug'),val('name'));toast('Pronto: a conta agora é Marca Parceira e já vê a aba Minha Marca.');renderAdminPage();}catch(error){toast(error.message);}});
+  try{await adminCreateBrand(val('email'),val('slug'),val('name'));
+   // Pedido de marca com o mesmo e-mail vira aprovado
+   for(const a of apps.filter(x=>x.email===val('email').toLowerCase()&&x.status!=='approved'))await adminSetApplicationStatus(a.id,'approved').catch(()=>{});
+   toast('Pronto: a conta agora é Marca Parceira e já vê a aba Minha Marca.');renderAdminPage();}catch(error){toast(error.message);}});
+ $$('.ad-app').forEach(r=>r.addEventListener('click',async e=>{
+  const a=apps.find(x=>String(x.id)===r.dataset.app),act=e.target.closest('[data-app-act]')?.dataset.appAct;if(!a||!act)return;
+  if(act==='create'){
+   const f=$('#ad-add'),fe=n=>f.elements.namedItem(n);fe('email').value=a.email;fe('name').value=a.brand_name;delete fe('slug').dataset.touched;
+   fe('name').dispatchEvent(new Event('input',{bubbles:true}));f.scrollIntoView({block:'center'});fe('slug').focus();
+   toast('Confira o endereço e clique em Tornar Marca Parceira. A pessoa precisa ter conta na loja.');return;
+  }
+  if(act==='declined'&&!confirm(`Recusar o pedido da ${a.brand_name}?`))return;
+  try{await adminSetApplicationStatus(a.id,act);toast('Pedido atualizado.');renderAdminPage();}catch(error){toast(error.message);}
+ }));
  $$('.ad-row').forEach(r=>r.addEventListener('click',async e=>{
   const b=brands.find(x=>x.slug===r.dataset.slug),act=e.target.closest('[data-act]')?.dataset.act;if(!b||!act)return;
   let done='Atualizado.';

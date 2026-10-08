@@ -608,3 +608,46 @@ input[type=range]:disabled{opacity:.4}
 .crop-actions{display:flex;justify-content:flex-end;gap:10px}
 @media(max-width:700px){.crop-body{padding:16px}.crop-previews{grid-template-columns:1fr}.crop-prev-phone{width:62%}.crop-actions .button{flex:1;justify-content:center}}
 @media(max-width:900px){.b2-dna{grid-template-columns:1fr;gap:20px}.b2-trust{grid-template-columns:1fr 1fr;gap:16px}}
+/* Sobre a marca */
+.b2-about{display:grid;gap:40px;align-items:center;margin-top:56px;padding-top:44px;border-top:1px solid var(--line)}
+.b2-about.has-photo{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr)}
+.b2-about-text{max-width:660px}
+.b2-about-text h2{font-family:var(--display);font-weight:700;font-size:clamp(36px,4.2vw,58px);line-height:.95;text-transform:uppercase;margin:12px 0 20px}
+.b2-about-text p:not(.eyebrow){font-size:15.5px;line-height:1.75;color:#3d4048;margin-bottom:14px}
+.b2-about-photo{border-radius:14px;overflow:hidden;aspect-ratio:4/5;background:var(--surface)}
+.b2-about-photo img{width:100%;height:100%;object-fit:cover}
+@media(max-width:800px){.b2-about{gap:24px;margin-top:40px;padding-top:32px}.b2-about.has-photo{grid-template-columns:1fr}.b2-about-photo{max-width:420px}}
+/* Convite para marcas */
+.b2-join{margin:28px 0 0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:28px;align-items:center;padding:36px 40px;border-radius:18px;background:linear-gradient(120deg,#0f2894,var(--blue) 55%,#3a5bff);color:#fff}
+.marcas-grid+.b2-join{margin-top:44px}
+.b2-join .eyebrow{color:#c9d3ff}
+.b2-join h2{font-family:var(--display);font-weight:700;font-size:clamp(32px,3.6vw,50px);line-height:.98;margin:10px 0 12px}
+.b2-join p:not(.eyebrow){max-width:620px;font-size:14.5px;line-height:1.65;color:#e4e8ff}
+.b2-join .button{background:#fff;color:var(--blue);white-space:nowrap;gap:14px}
+.b2-join .button:hover{background:#e8ecfb}
+@media(max-width:800px){.b2-join{grid-template-columns:1fr;gap:20px;padding:26px 20px}.b2-join .button{justify-content:center;white-space:normal}}
+.join-dialog{width:580px;max-width:94vw}
+.join-form{padding:20px 28px 28px;display:grid;gap:14px}
+.join-form .helper{margin:0}
+.join-form label{display:grid;gap:5px;font-size:13px}
+.join-form input,.join-form textarea{width:100%;margin:0}
+.join-form .field-row{margin:0}
+.join-form .button{justify-content:center}
+.join-done{padding:36px 28px;text-align:center;display:grid;gap:10px;justify-items:center}
+.join-done h3{font-size:24px;letter-spacing:-.5px}
+.join-done p{color:var(--muted);font-size:14px;margin-bottom:8px}
+@media(max-width:700px){.join-form{padding:16px}.join-form .field-row{grid-template-columns:1fr}}
+/* Editor: foto do Sobre e enquadramento vertical */
+.me-up-about{width:52px;height:65px;border-radius:8px}
+.crop-portrait{width:min(100%,320px);aspect-ratio:4/5;justify-self:center}
+/* Painel: pedidos de marca */
+.ad-apps{max-width:1240px;margin:0 auto 24px;display:grid;gap:10px}
+.ad-apps h2{font-size:18px;display:flex;align-items:baseline;gap:10px}
+.ad-apps h2 small{font-size:12px;color:var(--blue);font-weight:700}
+.ad-app{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:start;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.ad-app.is-new{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue)}
+.ad-app-main small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.ad-app-main small a{text-decoration:underline}
+.ad-app-main p{font-size:13.5px;margin-top:8px;white-space:pre-line}
+.ad-app-acts{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;align-items:center}
+@media(max-width:800px){.ad-app{grid-template-columns:1fr}.ad-app-acts{justify-content:flex-start}}

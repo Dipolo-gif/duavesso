@@ -30,8 +30,8 @@ async function order(items,{shipping='standard',cust=customer}={}){
 }
 const rejects=(items,re,opts)=>assert.rejects(order(items,opts),re);
 
-test('all migrations apply in order and 0006, 0007 and 0008 can be applied twice',async()=>{
- for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
+test('all migrations apply in order and 0006 to 0010 can be applied twice',async()=>{
+ for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
 });
 
 test('active catalog in the database matches dist/commerce.js field by field',async()=>{
@@ -361,5 +361,46 @@ test('marcas: imagens só na pasta da própria marca e com nome no padrão',asyn
   await db.query(`insert into storage.objects (bucket_id,name) values ('brand-assets','try84/logo-a1b2c3d4.webp')`);
   for(const name of ['geek/logo-a1b2c3d4.webp','try84/script-a1b2c3d4.webp','try84/sub/logo-a1b2c3d4.webp'])
    await db.query('savepoint s').then(()=>assert.rejects(db.query(`insert into storage.objects (bucket_id,name) values ('brand-assets',$1)`,[name]),/row-level security/,name)).then(()=>db.query('rollback to savepoint s'));
+ }finally{await db.exec('rollback');}
+});
+
+test('marcas: o dono escreve o "Sobre a marca" e envia a foto dele; o banco confere tamanho e caminho',async()=>{
+ await brandUsers();
+ await db.exec('begin');
+ try{
+  await db.query(`insert into public.brand_members (brand_slug,user_id) values ('geek',$1)`,[OWNER]);
+  await db.query("select set_config('request.jwt.claim.sub',$1,true)",[OWNER]);await db.exec('set local role authenticated');
+  const up=await db.query(`update public.brands set about=$1, about_path='geek/about-a1b2c3d4.webp' where slug='geek' returning about`,['Nasceu numa lan house, entre um campeonato e outro.']);
+  assert.equal(up.rows[0].about,'Nasceu numa lan house, entre um campeonato e outro.');
+  await db.query(`insert into storage.objects (bucket_id,name) values ('brand-assets','geek/about-a1b2c3d4.webp')`);
+  for(const [set,why] of [[`about=repeat('x',1501)`,'texto longo demais'],[`about_path='try84/about-a1b2c3d4.webp'`,'foto na pasta de outra marca'],[`about_path='geek/about.png'`,'nome fora do padrão']])
+   await db.query('savepoint s').then(()=>assert.rejects(db.query(`update public.brands set ${set} where slug='geek'`),/check|violates/,why)).then(()=>db.query('rollback to savepoint s'));
+ }finally{await db.exec('rollback');}
+});
+
+test('pedidos de marca: qualquer pessoa envia, só a duavesso lê e responde, com limite por IP e por e-mail',async()=>{
+ await brandUsers();
+ const apply=(email,brand='Estúdio Mar')=>db.query('select public.apply_brand($1,$2,$3,$4,$5)',['Ana Souza',email,brand,'@estudiomar','Estampas de surf feitas em Niterói.']);
+ await asApi(async()=>{
+  for(let i=0;i<3;i++)await apply(`ana${i}@exemplo.com`);
+  await assert.rejects(apply('ana3@exemplo.com'),/Muitas tentativas/,'3 por IP por hora');
+ },{ip:'5.5.5.5'});
+ await asApi(async()=>{
+  for(let i=0;i<3;i++)await apply('mesma@exemplo.com');
+  await assert.rejects(apply('mesma@exemplo.com'),/Muitas tentativas/,'3 por e-mail por dia');
+ });
+ await asApi(()=>assert.rejects(apply('curto@exemplo.com','A'),/check|violates/,'nome da marca curto demais'),{ip:'6.6.6.6'});
+ await asApi(()=>assert.rejects(db.query('select * from public.brand_applications'),/permission denied/,'visitante não lê a fila'));
+ await asApi(()=>assert.rejects(db.query(`insert into public.brand_applications (name,email,brand_name,about) values ('Ana','a@exemplo.com','Mar','Estampas de surf.')`),/permission denied/,'nem grava direto'));
+ await db.exec('begin');
+ try{
+  await db.exec('set local role anon');await apply('Pedido@Exemplo.com');await db.exec('reset role');
+  await db.query("select set_config('request.jwt.claim.sub',$1,true)",[OWNER]);await db.exec('set local role authenticated');
+  await db.query('savepoint s');await assert.rejects(db.query('select * from public.admin_list_applications()'),/Área restrita/,'dono de marca não vê a fila');await db.query('rollback to savepoint s');
+  await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,true)",[ADMIN]);await db.exec('set local role authenticated');
+  const list=(await db.query('select id,email,instagram,status from public.admin_list_applications()')).rows;
+  assert.deepEqual(list.map(r=>[r.email,r.instagram,r.status]),[['pedido@exemplo.com','estudiomar','new']]);
+  await db.query('select public.admin_set_application_status($1,$2)',[list[0].id,'contacted']);
+  assert.equal((await db.query('select status from public.admin_list_applications()')).rows[0].status,'contacted');
  }finally{await db.exec('rollback');}
 });

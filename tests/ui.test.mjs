@@ -600,10 +600,11 @@ function brandRow(o){return {slug:'x',name:'X',tagline:'',bio:'',status:'active'
 function brandsBackend({admin=false,mine=['estudio-mar']}={}){
  const now=Date.now();
  const rows=[
-  brandRow({slug:'geek',name:'duavessogeek',tagline:'games · pixel · sci-fi',bio:'Cultura geek no avesso.',theme:{mode:'solid',c1:'#141519',c2:'#141519',angle:135,accent:'#3a5bff'},featured_product_id:'geek-coracao',featured_badge:'Drop 01',featured_until:new Date(now+3*864e5-60e3).toISOString()}),
+  brandRow({slug:'geek',name:'duavessogeek',tagline:'games · pixel · sci-fi',bio:'Cultura geek no avesso.',about:'Nasceu numa lan house.\n\nCada estampa é uma fase zerada.',about_path:'geek/about-a1b2c3d4e5f6a.webp',theme:{mode:'solid',c1:'#141519',c2:'#141519',angle:135,accent:'#3a5bff'},featured_product_id:'geek-coracao',featured_badge:'Drop 01',featured_until:new Date(now+3*864e5-60e3).toISOString()}),
   brandRow({slug:'try84',name:'TRY84',tagline:'rugby lifestyle',bio:'Feita por jogadores.',theme:{mode:'solid',c1:'#1c1d1f',c2:'#1c1d1f',angle:135,accent:'#ffffff'},cover_path:'assets/try84-hero.jpg',external_url:'https://try84.com.br'}),
   brandRow({slug:'estudio-mar',name:'Estúdio Mar',tagline:'surf · Niterói',bio:'Estampas de quem vive no mar.',theme:{mode:'gradient',c1:'#0b3d91',c2:'#00a6a6',angle:120,accent:'#ffd166'},links:{instagram:'estudiomar'}})
  ];
+ const apps=[{id:7,created_at:new Date(now).toISOString(),name:'Ana Souza',email:'ana@estudiomar.com',brand_name:'Estúdio Mar Kids',instagram:'estudiomarkids',about:'Estampas de surf para crianças.',status:'new'}];
  const calls=[];
  const fetchStub=async(url,init={})=>{
   url=String(url);calls.push({url,init});
@@ -613,6 +614,7 @@ function brandsBackend({admin=false,mine=['estudio-mar']}={}){
   if(url.includes('/rest/v1/brands'))return json(slug?rows.filter(b=>b.slug===slug):rows.filter(b=>b.status==='active'));
   if(url.includes('/rpc/my_brands'))return json(rows.filter(b=>mine.includes(b.slug)));
   if(url.includes('/rpc/is_admin'))return json(admin);
+  if(url.includes('/rpc/admin_list_applications'))return admin?json(apps):json({code:'42501',message:'Área restrita à duavesso.'},403);
   if(url.includes('/rpc/admin_list_brands'))return admin?json(rows.map(b=>({...b,owners:mine.includes(b.slug)?[{email:'dono@exemplo.com',name:'Dono'}]:[],products:b.slug==='geek'?2:0}))):json({code:'42501',message:'Área restrita à duavesso.'},403);
   if(url.includes('/rpc/admin_'))return json(url.includes('create')?{slug:JSON.parse(init.body).p_slug}:null,url.includes('create')?200:204);
   if(url.includes('/storage/v1/object/brand-assets/'))return json({Key:'ok'});
@@ -624,7 +626,7 @@ const sessionFor=email=>({'duavesso.session.v1':{access_token:'tok',refresh_toke
 const tick=(ms=30)=>new Promise(r=>setTimeout(r,ms));
 
 test('brand pages come from the database: colors, gradient, featured piece with countdown, and brands created after the build',async()=>{
- const {fetchStub}=brandsBackend();
+ const {calls,fetchStub}=brandsBackend();
  const s=await setup({},fetchStub,{path:'/marcas/geek'});try{
  await tick(40);
  const art=s.doc.querySelector('#marcas-view .b2');
@@ -632,6 +634,19 @@ test('brand pages come from the database: colors, gradient, featured piece with 
  assert.equal(s.doc.querySelector('.b2-feat .b2-badge').textContent,'Drop 01');
  assert.match(s.doc.querySelector('.b2-feat .b2-count').textContent,/^acaba em 2d 23h$/);
  assert.equal(s.doc.querySelector('.b2-feat').dataset.product,'geek-coracao');
+ const about=s.doc.querySelector('#marcas-view .b2-about');assert(about,'seção Sobre a marca');
+ assert.equal(about.querySelector('h2').textContent,'duavessogeek');
+ assert.deepEqual([...about.querySelectorAll('.b2-about-text p:not(.eyebrow)')].map(p=>p.textContent),['Nasceu numa lan house.','Cada estampa é uma fase zerada.'],'parágrafos separados por linha');
+ assert.match(about.querySelector('.b2-about-photo img').getAttribute('src'),/\/brand-assets\/geek\/about-/,'foto do Sobre');
+ // Convite para quem quer ter marca: formulário vai para a fila do painel
+ s.click('#marcas-view .b2-join [data-join]');
+ const join=s.doc.querySelector('.join-dialog');assert(join?.open,'formulário do convite abre');
+ const jf=join.querySelector('.join-form'),jv=(n,v)=>{jf.elements.namedItem(n).value=v;};
+ jv('name','Ana Souza');jv('email','ana@estudiomar.com');jv('brand','Estúdio Mar Kids');jv('instagram','https://www.instagram.com/estudiomarkids/?igsh=abc');jv('about','Estampas de surf para crianças.');
+ jf.dispatchEvent(new s.w.Event('submit',{bubbles:true,cancelable:true}));await tick(40);
+ assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/apply_brand')).init.body),{p_name:'Ana Souza',p_email:'ana@estudiomar.com',p_brand:'Estúdio Mar Kids',p_instagram:'estudiomarkids',p_about:'Estampas de surf para crianças.'});
+ assert.match(join.querySelector('.join-done').textContent,/Pedido recebido!/);
+ join.querySelector('.join-done [data-close]').click();assert.equal(s.doc.querySelector('.join-dialog'),null,'fecha');
  s.click('.b2-feat');assert.equal(s.w.location.pathname,'/produto/geek-coracao','destaque abre a peça');
  }finally{s.close();}
  const t=await setup({},fetchStub,{path:'/marcas/estudio-mar'});try{
@@ -718,12 +733,17 @@ test('Minha Marca: the owner gets the tab, edits identity and free colors (gradi
  const igLink=art().querySelector('.b2-links a[aria-label^="Instagram"]');
  assert.equal(igLink.textContent,'@estudio.mar_surf','a página mostra só o @usuario');
  assert.equal(igLink.getAttribute('href'),'https://instagram.com/estudio.mar_surf','o clique abre o perfil, sem o código de rastreio');
+ assert.equal(art().querySelector('.b2-about'),null,'sem texto, sem seção Sobre');
+ const aboutField=form.elements.namedItem('about');aboutField.value='Nasceu no Arpoador.\n\nCada estampa é uma onda.';aboutField.dispatchEvent(new s.w.Event('input',{bubbles:true}));
+ assert.deepEqual([...art().querySelectorAll('.b2-about-text p:not(.eyebrow)')].map(p=>p.textContent),['Nasceu no Arpoador.','Cada estampa é uma onda.'],'Sobre a marca na prévia ao vivo');
+ assert.equal(v.querySelector('.me-count[data-for="about"]').textContent,'45/1500');
  site.value='estudiomar.com.br';site.dispatchEvent(new s.w.Event('input',{bubbles:true}));site.dispatchEvent(new s.w.Event('change',{bubbles:true}));
  assert.equal(site.value,'https://estudiomar.com.br','site sem https:// é completado');
  v.querySelector('#me-save').click();await tick(40);
  const patch=calls.find(c=>c.init.method==='PATCH');assert(patch,'publicou');
  const body=JSON.parse(patch.init.body);
- assert.deepEqual(Object.keys(body).sort(),['bio','cover_path','featured_badge','featured_product_id','featured_until','links','logo_path','name','tagline','theme'],'só o conteúdo editável');
+ assert.deepEqual(Object.keys(body).sort(),['about','about_path','bio','cover_path','featured_badge','featured_product_id','featured_until','links','logo_path','name','tagline','theme'],'só o conteúdo editável');
+ assert.equal(body.about,'Nasceu no Arpoador.\n\nCada estampa é uma onda.');
  assert.equal(body.name,'Estúdio Mar Surf');assert.deepEqual(body.theme,{mode:'gradient',c1:'#0b3d91',c2:'#ff7a00',angle:120,accent:'#001d48'});
  assert.match(body.logo_path,/^estudio-mar\/logo-[0-9a-z-]+\.webp$/);
  assert.deepEqual(body.links,{instagram:'estudio.mar_surf',site:'https://estudiomar.com.br'},'banco recebe só o nome de usuário e o site com https');
@@ -761,6 +781,14 @@ test('Painel da duavesso: only the admin gets in, creates a partner brand from a
   t.w.prompt=()=>' parceiro@geek.com ';t.doc.querySelector('.ad-row[data-slug="geek"] [data-act="add-owner"]').click();await tick(40);
   assert.deepEqual(JSON.parse(calls.filter(c=>c.url.includes('/rpc/admin_create_brand')).at(-1).init.body),{p_email:'parceiro@geek.com',p_slug:'geek',p_name:'duavessogeek'},'Adicionar dono liga a conta à marca que já existe');
   assert.match(t.doc.querySelector('#toast').textContent,/vê a aba Minha Marca/);
+  const app=t.doc.querySelector('.ad-app[data-app="7"]');assert(app,'pedido de marca na fila');
+  assert.match(t.doc.querySelector('#ad-apps-title').textContent,/Pedidos de marca 1 novo/);
+  assert.match(app.textContent,/Estúdio Mar Kids.*Ana Souza.*ana@estudiomar\.com.*@estudiomarkids/);
+  app.querySelector('[data-app-act="create"]').click();
+  const add=t.doc.querySelector('#ad-add'),ae=n=>add.elements.namedItem(n);
+  assert.deepEqual([ae('email').value,ae('name').value,ae('slug').value],['ana@estudiomar.com','Estúdio Mar Kids','estudio-mar-kids'],'Criar marca preenche o formulário');
+  t.doc.querySelector('.ad-app[data-app="7"] [data-app-act="contacted"]').click();await tick(40);
+  assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/admin_set_application_status')).init.body),{p_id:7,p_status:'contacted'});
   t.click('#open-account');await tick(40);assert(t.doc.querySelector('.account-admin[href="painel"]'),'atalho do painel na conta da dona');
  }finally{t.close();}
 });

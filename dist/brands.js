@@ -14,11 +14,11 @@ const FALLBACK={
 };
 // Formato único de marca usado pelo site (venha do banco ou desta lista de reserva)
 export function brandFromStatic(b){
- return {slug:b.slug,name:b.name,tagline:b.kicker||'',bio:b.lead||'',theme:FALLBACK[b.slug]?.theme||null,logo:null,
+ return {slug:b.slug,name:b.name,tagline:b.kicker||'',bio:b.lead||'',about:'',aboutPhoto:null,theme:FALLBACK[b.slug]?.theme||null,logo:null,
   cover:b.hero?`assets/${b.hero}.jpg`:null,links:{},external:b.site||null,featured:null,plan:'free',status:'active',static:b};
 }
 export function brandFromRow(r){
- return {slug:r.slug,name:r.name,tagline:r.tagline||'',bio:r.bio||'',theme:r.theme||null,logo:r.logo_path||null,cover:r.cover_path||null,
+ return {slug:r.slug,name:r.name,tagline:r.tagline||'',bio:r.bio||'',about:r.about||'',aboutPhoto:r.about_path||null,theme:r.theme||null,logo:r.logo_path||null,cover:r.cover_path||null,
   links:r.links&&typeof r.links==='object'?r.links:{},external:r.external_url||null,
   featured:r.featured_product_id?{id:r.featured_product_id,badge:r.featured_badge||'',until:r.featured_until||null}:null,
   plan:r.plan||'free',status:r.status||'active',updated:r.updated_at||null,static:BRANDS.find(b=>b.slug===r.slug)||null};
