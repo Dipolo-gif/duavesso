@@ -233,9 +233,9 @@ test('Marcas: sem o banco, o hub mostra só as marcas no ar e a geek abre sua p�
  assert.equal(s.doc.querySelector('#shop-view').hidden,true,'loja escondida');
  assert.deepEqual([...s.doc.querySelectorAll('#marcas-view .brand-card')].map(a=>a.getAttribute('href')),['marcas/geek'],'só a geek: TRY84 e SolFáDó saíram da loja');
  s.w.location.hash='marca-geek';await new Promise(r=>setTimeout(r,10));
- assert.equal(s.doc.querySelectorAll('#marcas-view .brand-prod').length,2,'geek: 2 produtos');
- assert(s.doc.querySelector('#marcas-view .brand-prod-img.poses .pose'),'geek: card com poses (Frente/Costas/Lado)');
- assert(s.doc.querySelector('#marcas-view .brand-prod-price').textContent.includes('159,90'),'geek: card com preço padrão');
+ assert.equal(s.doc.querySelectorAll('#marcas-view .product-grid .product-card').length,2,'geek: 2 peças com o cartão da página inicial');
+ assert(s.doc.querySelector('#marcas-view .product-card .product-visual.poses .pose'),'geek: card com poses (Frente/Costas/Lado)');assert(s.doc.querySelector('#marcas-view .product-card .product-add'),'botão de adicionar como na página inicial');
+ assert(s.doc.querySelector('#marcas-view .product-card .price').textContent.includes('159,90'),'geek: card com preço padrão');assert.match(s.doc.querySelector('#marcas-view .brand-collection .collection-count').textContent,/^2 peças$/);
  assert.equal(s.doc.querySelector('.brand-notify'),null,'geek com coleção: sem form de aviso');
  s.click('#marcas-view [data-product="geek-coracao"]');
  assert(s.doc.querySelector('#product-dialog').open,'clique abre o PDP de compra');
