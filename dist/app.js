@@ -581,7 +581,7 @@ function brandAboutHTML(b){
  const paras=(b.about||'').split(/\n+/).map(t=>t.trim()).filter(Boolean);if(!paras.length)return '';
  return `<section class="b2-about${b.aboutPhoto?' has-photo':''}" aria-labelledby="b2-about-title"><div class="b2-about-text"><p class="eyebrow">SOBRE A MARCA</p><h2 id="b2-about-title">${esc(b.name)}</h2>${paras.map(t=>`<p>${esc(t)}</p>`).join('')}</div>${b.aboutPhoto?`<div class="b2-about-photo"><img src="${brandImg(b.aboutPhoto)}" alt="" width="1200" height="1500" loading="lazy"></div>`:''}</section>`;
 }
-// Convite para quem quer ter a própria marca na duavesso (fim de cada loja e da página de marcas)
+// Convite para quem quer ter a própria marca na duavesso (só na página geral de marcas; a loja de cada marca é do dono)
 const brandJoinHTML=()=>`<section class="b2-join" aria-labelledby="b2-join-title"><div><p class="eyebrow">TEM UMA MARCA?</p><h2 id="b2-join-title">Sua marca também pode morar aqui.</h2><p>Você cria as estampas e a identidade; a duavesso produz sob demanda, embala e entrega. Loja própria com as suas cores, sem estoque e com plano grátis para começar.</p></div><button type="button" class="button" data-join>Quero minha marca na duavesso <span aria-hidden="true">→</span></button></section>`;
 // Formulário do convite: o pedido vai para a fila do painel da duavesso (migração 0010)
 function openJoinForm(){
@@ -640,7 +640,7 @@ function renderMarcas(slug){
   });
   return;
  }
- view.innerHTML=`<div class="editor-heading"><a href="marcas" class="text-link">← Todas as marcas</a><span class="eyebrow">MARCAS · ${esc(b.name)}</span></div>${brandArticleHTML(b)}${brandJoinHTML()}`;
+ view.innerHTML=`<div class="editor-heading"><a href="marcas" class="text-link">← Todas as marcas</a><span class="eyebrow">MARCAS · ${esc(b.name)}</span></div>${brandArticleHTML(b)}`;
  wirePoseHovers();
  if($('.b2-count',view))countdownTimer=setInterval(()=>{$$('.b2-count[data-until]',view).forEach(c=>{c.textContent=countdownText(c.dataset.until)||'encerrado';});},60000);
  const seen=brandsVersion;loadBrandsFromDB().then(()=>{if(brandsVersion!==seen&&shownView==='marcas'&&shownBrand===slug)renderMarcas(slug);});

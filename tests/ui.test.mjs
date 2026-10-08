@@ -638,15 +638,7 @@ test('brand pages come from the database: colors, gradient, featured piece with 
  assert.equal(about.querySelector('h2').textContent,'duavessogeek');
  assert.deepEqual([...about.querySelectorAll('.b2-about-text p:not(.eyebrow)')].map(p=>p.textContent),['Nasceu numa lan house.','Cada estampa é uma fase zerada.'],'parágrafos separados por linha');
  assert.match(about.querySelector('.b2-about-photo img').getAttribute('src'),/\/brand-assets\/geek\/about-/,'foto do Sobre');
- // Convite para quem quer ter marca: formulário vai para a fila do painel
- s.click('#marcas-view .b2-join [data-join]');
- const join=s.doc.querySelector('.join-dialog');assert(join?.open,'formulário do convite abre');
- const jf=join.querySelector('.join-form'),jv=(n,v)=>{jf.elements.namedItem(n).value=v;};
- jv('name','Ana Souza');jv('email','ana@estudiomar.com');jv('brand','Estúdio Mar Kids');jv('instagram','https://www.instagram.com/estudiomarkids/?igsh=abc');jv('about','Estampas de surf para crianças.');
- jf.dispatchEvent(new s.w.Event('submit',{bubbles:true,cancelable:true}));await tick(40);
- assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/apply_brand')).init.body),{p_name:'Ana Souza',p_email:'ana@estudiomar.com',p_brand:'Estúdio Mar Kids',p_instagram:'estudiomarkids',p_about:'Estampas de surf para crianças.'});
- assert.match(join.querySelector('.join-done').textContent,/Pedido recebido!/);
- join.querySelector('.join-done [data-close]').click();assert.equal(s.doc.querySelector('.join-dialog'),null,'fecha');
+ assert.equal(s.doc.querySelector('#marcas-view .b2-join'),null,'a loja de uma marca não mostra o convite para outras marcas');
  s.click('.b2-feat');assert.equal(s.w.location.pathname,'/produto/geek-coracao','destaque abre a peça');
  }finally{s.close();}
  const t=await setup({},fetchStub,{path:'/marcas/estudio-mar'});try{
@@ -658,6 +650,15 @@ test('brand pages come from the database: colors, gradient, featured piece with 
   assert.match(t.doc.title,/^Estúdio Mar · surf · Niterói · duavesso$/);
   t.doc.querySelector('.editor-heading a[href="marcas"]').click();await tick(40);
   assert.deepEqual([...t.doc.querySelectorAll('#marcas-view .b2-card .b2-card-name')].map(n=>n.textContent),['duavessogeek','TRY84','Estúdio Mar'],'página de marcas lista as do banco');
+  // Convite para quem quer ter marca: só na página geral de marcas; o formulário vai para a fila do painel
+  t.click('#marcas-view .b2-join [data-join]');
+  const join=t.doc.querySelector('.join-dialog');assert(join?.open,'formulário do convite abre');
+  const jf=join.querySelector('.join-form'),jv=(n,v)=>{jf.elements.namedItem(n).value=v;};
+  jv('name','Ana Souza');jv('email','ana@estudiomar.com');jv('brand','Estúdio Mar Kids');jv('instagram','https://www.instagram.com/estudiomarkids/?igsh=abc');jv('about','Estampas de surf para crianças.');
+  jf.dispatchEvent(new t.w.Event('submit',{bubbles:true,cancelable:true}));await tick(40);
+  assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/apply_brand')).init.body),{p_name:'Ana Souza',p_email:'ana@estudiomar.com',p_brand:'Estúdio Mar Kids',p_instagram:'estudiomarkids',p_about:'Estampas de surf para crianças.'});
+  assert.match(join.querySelector('.join-done').textContent,/Pedido recebido!/);
+  join.querySelector('.join-done [data-close]').click();assert.equal(t.doc.querySelector('.join-dialog'),null,'fecha');
  }finally{t.close();}
  const u=await setup({},fetchStub,{path:'/marcas/sumiu'});try{
   await tick(40);
