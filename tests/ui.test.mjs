@@ -104,7 +104,7 @@ test('the catalog stays local (stale server products ignored) and online checkou
  s.click('[data-product="heavy-eclipse"]');s.click('[data-size="M"]');s.click('#add-product');s.click('#begin-checkout');
  assert.equal(s.doc.querySelector('#fill-demo'),null);
  const form=s.doc.querySelector('#checkout-form');
- for(const [k,v] of Object.entries({name:'Cliente Real',email:'cliente@example.com',cep:'60000-000',city:'Fortaleza',address:'Rua Um, 10'}))form.elements.namedItem(k).value=v;
+ for(const [k,v] of Object.entries({name:'Cliente Real',email:'cliente@example.com',cep:'60000-000',uf:'CE',city:'Fortaleza',address:'Rua Um, 10'}))form.elements.namedItem(k).value=v;
  form.dispatchEvent(new s.w.Event('submit',{bubbles:true,cancelable:true}));await new Promise(r=>setTimeout(r,30));
  const order=calls.find(c=>c.url.includes('place_order'));assert(order);const body=JSON.parse(order.init.body);
  assert.deepEqual(body.p_items,[{kind:'catalog',product_id:'heavy-eclipse',base:'brown',size:'M',qty:1}]);assert.equal(body.p_customer.email,'cliente@example.com');
@@ -160,7 +160,7 @@ test('accounts: signup asks for confirmation, login updates header, account list
   if(url.includes('/rest/v1/products'))return json([]);
   if(url.includes('/auth/v1/signup'))return json({id:'u1',email:'nova@example.com',user_metadata:{name:'Nova'}});
   if(url.includes('/auth/v1/token?grant_type=password')){const body=JSON.parse(init.body);if(body.password!=='senha1234')return json({error_code:'invalid_credentials',msg:'Invalid login credentials'},400);return json({access_token:'tok',refresh_token:'ref',expires_in:3600,user:{id:'u1',email:'nova@example.com',user_metadata:{name:'Nova Cliente'},app_metadata:{provider:'email'}}});}
-  if(url.includes('/rest/v1/profiles'))return init.method==='PATCH'?json(null,204):json([{name:'Nova Cliente',cep:'60000-000',city:'Fortaleza',address:'Rua Um, 10'}]);
+  if(url.includes('/rest/v1/profiles'))return init.method==='PATCH'?json(null,204):json([{name:'Nova Cliente',cep:'60000-000',uf:'CE',city:'Fortaleza',address:'Rua Um, 10'}]);
   if(url.includes('/rest/v1/orders'))return json([{code:'AV-DB-1',status:'em_producao',created_at:'2026-09-11T00:00:00Z',total_cents:12480,payment:'Pix',shipping:'standard',order_items:[{name:'Essencial Preta',base:'black',size:'M',qty:1,unit_price_cents:8990}]}]);
   if(url.includes('/auth/v1/logout'))return json(null,204);
   return json({message:'nope'},404);
@@ -302,7 +302,7 @@ test('checkout sends the chosen color and uploads every studio image in parallel
  const s=await setup({'duavesso.cart.v1':cart},fetchStub);try{
  s.click('#open-cart');s.click('#begin-checkout');
  const form=s.doc.querySelector('#checkout-form');
- for(const [k,v] of Object.entries({name:'Cliente Real',email:'cliente@example.com',cep:'60000-000',city:'Fortaleza',address:'Rua Um, 10'}))form.elements.namedItem(k).value=v;
+ for(const [k,v] of Object.entries({name:'Cliente Real',email:'cliente@example.com',cep:'60000-000',uf:'CE',city:'Fortaleza',address:'Rua Um, 10'}))form.elements.namedItem(k).value=v;
  form.dispatchEvent(new s.w.Event('submit',{bubbles:true,cancelable:true}));await new Promise(r=>setTimeout(r,80));
  const uploads=calls.filter(c=>c.url.includes('/storage/v1/object/designs/'));
  assert.equal(uploads.length,3,'1 prévia + 2 artes (a estampa só de texto não sobe nada)');
@@ -445,5 +445,27 @@ test('a product opened from history over a brand page closes back to that brand 
  assert(doc.querySelector('#product-dialog').open);assert.equal(doc.querySelector('#marcas-view').hidden,false);
  doc.querySelector('#product-dialog').close();
  assert.equal(loc(),'/marcas/geek');assert.match(doc.title,/^duavessogeek · /);
+ }finally{s.close();}
+});
+test('checkout: the CEP fills state, city and street, and the state (UF) goes with the order',async()=>{
+ const calls=[];
+ const fetchStub=async(url,init={})=>{
+  url=String(url);calls.push({url,init});
+  const json=(body,status=200)=>({ok:status<400,status,json:async()=>body});
+  if(url.startsWith('https://viacep.com.br/ws/20040002/json/'))return json({uf:'RJ',localidade:'Rio de Janeiro',logradouro:'Avenida Rio Branco'});
+  if(url.includes('/rpc/place_order'))return json({code:'AV-UF-1',status:'aguardando_pagamento',count:1,subtotal_cents:11990,delivery_cents:1490,total_cents:13480});
+  return json([]);
+ };
+ const s=await setup({'duavesso.cart.v1':[{id:'simples',base:'black',size:'M',qty:1}]},fetchStub);try{
+ s.click('#open-cart');s.click('#begin-checkout');
+ const form=s.doc.querySelector('#checkout-form'),el=k=>form.elements.namedItem(k);
+ assert.equal(el('uf').required,true);
+ el('cep').value='20040002';el('cep').dispatchEvent(new s.w.Event('input',{bubbles:true}));await new Promise(r=>setTimeout(r,30));
+ assert.equal(el('cep').value,'20040-002');assert.equal(el('uf').value,'RJ');assert.equal(el('city').value,'Rio de Janeiro');assert.equal(el('address').value,'Avenida Rio Branco');
+ assert.match(s.doc.querySelector('#checkout-cep-status').textContent,/preenchido pelo CEP/);
+ el('name').value='Cliente RJ';el('email').value='rj@example.com';el('address').value='Avenida Rio Branco, 1';
+ form.dispatchEvent(new s.w.Event('submit',{bubbles:true,cancelable:true}));await new Promise(r=>setTimeout(r,40));
+ const body=JSON.parse(calls.find(c=>c.url.includes('place_order')).init.body);
+ assert.equal(body.p_customer.uf,'RJ');
  }finally{s.close();}
 });
