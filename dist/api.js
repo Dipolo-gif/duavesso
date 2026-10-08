@@ -188,6 +188,42 @@ export async function checkCoupon(code,subtotal){
  if(res.status===404)return {ok:false,message:'Cupons ainda não estão disponíveis.'};
  return handle(res);
 }
+// Marcas parceiras (migração 0009) ---------------------------------------------------------
+const BRAND_FIELDS='slug,name,tagline,bio,status,plan,theme,logo_path,cover_path,links,featured_product_id,featured_badge,featured_until,external_url,updated_at';
+// Lista pública (só marcas ativas); null se o banco ainda não tem a tabela ou está fora do ar
+export async function fetchBrands(){
+ try{const res=await fetch(`${SUPABASE_URL}/rest/v1/brands?select=${BRAND_FIELDS}&status=eq.active&order=name`,{headers:await authHeaders()});return res.ok?await res.json():null;}catch{return null;}
+}
+// Uma marca; o dono vê a própria mesmo suspensa. undefined = não deu para consultar; null = não existe
+export async function fetchBrand(slug){
+ try{const res=await fetch(`${SUPABASE_URL}/rest/v1/brands?select=${BRAND_FIELDS}&slug=eq.${encodeURIComponent(slug)}`,{headers:await authHeaders()});if(!res.ok)return undefined;return (await res.json())[0]||null;}catch{return undefined;}
+}
+// Marcas que a pessoa logada edita (vazio antes da 0009 ou sem login)
+export async function myBrands(){
+ if(!session)return [];
+ try{const res=await net(`${SUPABASE_URL}/rest/v1/rpc/my_brands`,{method:'POST',headers:{...await authHeaders(),'Content-Type':'application/json'},body:'{}'});return res.ok?await res.json():[];}catch{return [];}
+}
+export async function updateBrand(slug,patch){
+ const rows=await handle(await net(`${SUPABASE_URL}/rest/v1/brands?slug=eq.${encodeURIComponent(slug)}`,{method:'PATCH',headers:{...await authHeaders(),'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(patch)}));
+ if(!rows?.length)throw new Error('Você não tem permissão para editar esta marca.');
+ return rows[0];
+}
+// Logo ou faixa de capa, já convertida para WebP no navegador; devolve o caminho a gravar na marca
+export async function uploadBrandAsset(slug,kind,blob){
+ const path=`${slug}/${kind}-${crypto.randomUUID().slice(0,13)}.webp`;
+ await handle(await net(`${SUPABASE_URL}/storage/v1/object/brand-assets/${path}`,{method:'POST',headers:{...await authHeaders(),'Content-Type':'image/webp'},body:blob}));
+ return path;
+}
+export const brandAssetURL=path=>!path?'':path.startsWith('assets/')?path:`${SUPABASE_URL}/storage/v1/object/public/brand-assets/${path}`;
+export async function isAdmin(){
+ if(!session)return false;
+ try{const res=await net(`${SUPABASE_URL}/rest/v1/rpc/is_admin`,{method:'POST',headers:{...await authHeaders(),'Content-Type':'application/json'},body:'{}'});return res.ok?(await res.json())===true:false;}catch{return false;}
+}
+export const adminListBrands=()=>rpc('admin_list_brands',{});
+export const adminCreateBrand=(email,slug,name)=>rpc('admin_create_brand',{p_email:email,p_slug:slug,p_name:name});
+export const adminSetBrandStatus=(slug,status)=>rpc('admin_set_brand_status',{p_slug:slug,p_status:status});
+export const adminSetBrandPlan=(slug,plan,note)=>rpc('admin_set_brand_plan',{p_slug:slug,p_plan:plan,p_note:note||null});
+export const adminRemoveOwner=(slug,email)=>rpc('admin_remove_owner',{p_slug:slug,p_email:email});
 export async function rpc(name,args){
  return handle(await net(`${SUPABASE_URL}/rest/v1/rpc/${name}`,{method:'POST',headers:{...await authHeaders(),'Content-Type':'application/json'},body:JSON.stringify(args)}));
 }

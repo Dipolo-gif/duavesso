@@ -6,8 +6,18 @@
 //   /marcas/<slug>         página de uma marca
 //   /estudio               estúdio para criar a estampa
 //   /checkout              finalizar compra (fora do Google)
+//   /minha-marca           editor da loja da marca (dono da marca; fora do Google)
+//   /painel                painel da dona do site (fora do Google)
 import {PRODUCTS,money,INSTALLMENTS,installment} from './commerce.js';
-import {BRANDS} from './brands.js';
+import {BRANDS,brandFromStatic,brandFromRow} from './brands.js';
+
+// Marcas: começa com a lista de reserva (dist/brands.js) e passa a usar a do banco quando ela chega
+// (o app chama setBrandList com as marcas ativas; o gerador de páginas usa dist/marcas.json).
+let BRAND_LIST=BRANDS.map(brandFromStatic);
+export const brandList=()=>BRAND_LIST;
+export const findBrand=slug=>BRAND_LIST.find(b=>b.slug===slug)||null;
+export function setBrandList(rows){if(Array.isArray(rows))BRAND_LIST=rows.filter(r=>r&&r.status!=='suspended').map(brandFromRow);}
+export function upsertBrandRow(row){const b=brandFromRow(row);BRAND_LIST=[...BRAND_LIST.filter(x=>x.slug!==b.slug),b];}
 
 export const SITE='https://loja-duavesso.vercel.app/';
 const SECTIONS=['#inicio','#colecao','#sobre'];
@@ -27,6 +37,8 @@ export function parseRoute(pathname,hash=''){
  if(p==='/')return {view:'shop',path:'/'+hash};
  if(p==='/estudio')return {view:'studio',path:'/estudio'};
  if(p==='/checkout')return {view:'checkout',path:'/checkout'};
+ if(p==='/minha-marca')return {view:'editor',path:'/minha-marca'};
+ if(p==='/painel')return {view:'admin',path:'/painel'};
  if(p==='/marcas')return {view:'marcas',brand:null,path:'/marcas'};
  if((m=p.match(/^\/marcas\/([a-z0-9-]+)$/)))return {view:'marcas',brand:m[1],path:p};
  if((m=p.match(/^\/produto\/([a-z0-9-]+)$/)))return {view:'shop',product:m[1],path:p};
@@ -42,27 +54,29 @@ export const brandPath=slug=>`/marcas/${slug}`;
 export function pageMeta(r){
  const product=r.product&&PRODUCTS.find(p=>p.id===r.product);
  if(product){
-  const brand=product.brand&&BRANDS.find(b=>b.slug===product.brand);
+  const brand=product.brand&&findBrand(product.brand);
   return {path:productPath(product.id),title:`${product.name} · camiseta oversized · ${brand?brand.name:'duavesso'}`,
    description:`${product.description} ${money(product.price)} ou ${INSTALLMENTS}x de ${money(installment(product.price))} sem juros. Frete grátis a partir de R$ 250.`,
    image:productImage(product),imageAlt:`${product.name}, camiseta oversized ${product.color.toLowerCase()}`,product,brand};
  }
+ if(r.view==='editor')return {path:'/minha-marca',title:'Minha Marca · duavesso',description:'Edite a loja da sua marca na duavesso.',noindex:true,...HOME_IMAGE};
+ if(r.view==='admin')return {path:'/painel',title:'Painel da duavesso',description:'Painel da duavesso.',noindex:true,...HOME_IMAGE};
  if(r.view==='checkout')return {path:'/checkout',title:'Finalizar compra · duavesso',description:'Entrega, pagamento e resumo do seu pedido na duavesso.',noindex:true,...HOME_IMAGE};
  if(r.view==='studio')return {path:'/estudio',title:'Crie sua camiseta personalizada · duavesso Studio',
   description:'Monte sua camiseta oversized na hora: sua frase, sua imagem, até 4 estampas por peça em qualquer lugar da camiseta, com prévia em 3D. Ou só descreva a ideia, que a gente desenha.',...HOME_IMAGE};
  if(r.view==='marcas'){
-  const brand=r.brand&&BRANDS.find(b=>b.slug===r.brand);
-  if(brand)return {path:brandPath(brand.slug),title:`${brand.name} · ${brand.kicker} · duavesso`,description:brand.lead,
-   image:brand.hero?`assets/${brand.hero}.jpg`:HOME_IMAGE.image,imageAlt:`${brand.name} · ${brand.kicker}`,brand};
+  const brand=r.brand&&findBrand(r.brand);
+  if(brand)return {path:brandPath(brand.slug),title:`${brand.name}${brand.tagline?` · ${brand.tagline}`:''} · duavesso`,description:brand.bio||`Loja da ${brand.name} na duavesso.`,
+   image:brand.cover&&brand.cover.startsWith('assets/')?brand.cover:HOME_IMAGE.image,imageAlt:`${brand.name}${brand.tagline?` · ${brand.tagline}`:''}`,brand};
   return {path:'/marcas',title:'Marcas · a família duavesso',
-   description:`As linhas com identidade própria da duavesso: ${BRANDS.map(b=>b.name).join(', ')}. Cada uma com a sua página e a mesma base oversized.`,...HOME_IMAGE};
+   description:`As linhas com identidade própria da duavesso: ${BRAND_LIST.map(b=>b.name).join(', ')}. Cada uma com a sua página e a mesma base oversized.`,...HOME_IMAGE};
  }
  return {path:'/',title:'duavesso · Camisetas oversized e estampas personalizadas',description:HOME_DESCRIPTION,...HOME_IMAGE};
 }
 
 // Páginas que existem mas não vão para o Google (sem sitemap, com noindex).
-export const privateRoutes=()=>[{view:'checkout'}];
+export const privateRoutes=()=>[{view:'checkout'},{view:'editor'},{view:'admin'}];
 // Todas as páginas públicas (para o gerador e o sitemap).
 export function allRoutes(){
- return [{view:'shop'},{view:'marcas',brand:null},...BRANDS.map(b=>({view:'marcas',brand:b.slug})),{view:'studio'},...PRODUCTS.map(p=>({view:'shop',product:p.id}))];
+ return [{view:'shop'},{view:'marcas',brand:null},...BRAND_LIST.map(b=>({view:'marcas',brand:b.slug})),{view:'studio'},...PRODUCTS.map(p=>({view:'shop',product:p.id}))];
 }

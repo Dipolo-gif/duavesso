@@ -7,6 +7,8 @@ const commerce=(await readFile(new URL('../dist/commerce.js',import.meta.url),'u
 const api=(await readFile(new URL('../dist/api.js',import.meta.url),'utf8')).replaceAll('export ','');
 const placement=(await readFile(new URL('../dist/studio-placement.js',import.meta.url),'utf8')).replaceAll('export ','');
 const brands=(await readFile(new URL('../dist/brands.js',import.meta.url),'utf8')).replaceAll('export ','');
+const theme=(await readFile(new URL('../dist/brand-theme.js',import.meta.url),'utf8')).replaceAll('export ','');
+const picker=(await readFile(new URL('../dist/color-picker.js',import.meta.url),'utf8')).replaceAll('export ','');
 const pages=(await readFile(new URL('../dist/pages.js',import.meta.url),'utf8')).replace(/^import .*?;\r?\n/gm,'').replaceAll('export ','');
 const app=(await readFile(new URL('../dist/app.js',import.meta.url),'utf8')).replace(/^import .*?;\r?\n/gm,'');
 // path: abre o site já nesse endereço, com a página gerada correspondente (ex.: /produto/simples).
@@ -27,7 +29,7 @@ async function setup(storage={},fetchStub,{reducedMotion=true,path='/'}={}){
  const registry=new Map();
  Object.defineProperty(w.document,'modelContext',{value:{registerTool(tool){registry.set(tool.name,tool);}}});
  if(fetchStub)w.fetch=fetchStub;
- w.eval(commerce+'\n'+api+'\n'+placement+'\n'+brands+'\n'+pages+'\nconst esc=escapeHTML;\n'+app);
+ w.eval(commerce+'\n'+api+'\n'+placement+'\n'+brands+'\n'+theme+'\n'+picker+'\n'+pages+'\nconst esc=escapeHTML;\n'+app);
  await new Promise(resolve=>setTimeout(resolve,10));
  return {dom,w,doc:w.document,registry,click(selector){const e=w.document.querySelector(selector);assert(e,`Missing ${selector}`);e.click();},close(){dom.window.close();}};
 }
@@ -232,11 +234,11 @@ test('Marcas: hub lista as 3 linhas e cada uma abre sua página com tema própri
  assert.equal(s.doc.querySelectorAll('#marcas-view .brand-card').length,3,'3 marcas no hub');
  assert(s.doc.querySelector('.brand-card[href="marcas/solfado"][data-theme="music"]'),'card solfado com tema music');
  s.w.location.hash='marca-try84';await new Promise(r=>setTimeout(r,10));
- assert(s.doc.querySelector('#marcas-view .brand[data-theme="rugby"]'),'página try84 com tema rugby');
+ assert(s.doc.querySelector('#marcas-view .b2[data-theme="rugby"]'),'página try84 com tema rugby');assert.match(s.doc.querySelector('#marcas-view .b2').getAttribute('style'),/--brand-paint:#1c1d1f/,'cores da marca');
  assert.equal(s.doc.querySelectorAll('#marcas-view .brand-prod').length,5,'5 produtos reais da TRY84');
  assert(s.doc.querySelector('.brand-prod-img img[src*="try84-"]'),'foto de produto hospedada local');
  assert(s.doc.querySelector('.brand-prod[href^="https://try84.com.br/"]'),'produto linka pro site da marca');
- assert(s.doc.querySelector('.brand-banner img[src*="try84-hero"]'),'banner oficial no hero da try84');
+ assert(s.doc.querySelector('.b2-cover img[src*="try84-hero"]'),'capa oficial da try84');
  assert(s.doc.querySelector('#marcas-view a[href="https://try84.com.br"]'),'link para o site da marca');
  assert.equal(s.doc.querySelector('.brand-notify'),null,'marca com coleção não mostra form de aviso');
  s.w.location.hash='marca-solfado';await new Promise(r=>setTimeout(r,10));
@@ -583,5 +585,128 @@ test('checkout is its own page at /checkout: opens from the bag, works when load
  const t=await setup({'duavesso.cart.v1':[{id:'simples',base:'black',size:'M',qty:1}]},undefined,{path:'/checkout'});try{
   assert.equal(t.doc.querySelector('#checkout-view').hidden,false);assert(t.doc.querySelector('#checkout-form'));
   assert.equal(t.doc.querySelector('meta[name="robots"]').content,'noindex','checkout fora do Google');
+ }finally{t.close();}
+});
+
+// Marcas parceiras (banco, Minha Marca e painel) -------------------------------------------------------
+function brandRow(o){return {slug:'x',name:'X',tagline:'',bio:'',status:'active',plan:'free',theme:{mode:'solid',c1:'#161719',c2:'#161719',angle:135,accent:'#1737bc'},logo_path:null,cover_path:null,links:{},featured_product_id:null,featured_badge:'',featured_until:null,external_url:null,updated_at:'2026-10-08T10:00:00Z',...o};}
+function brandsBackend({admin=false,mine=['estudio-mar']}={}){
+ const now=Date.now();
+ const rows=[
+  brandRow({slug:'geek',name:'duavessogeek',tagline:'games · pixel · sci-fi',bio:'Cultura geek no avesso.',theme:{mode:'solid',c1:'#141519',c2:'#141519',angle:135,accent:'#3a5bff'},featured_product_id:'geek-coracao',featured_badge:'Drop 01',featured_until:new Date(now+3*864e5-60e3).toISOString()}),
+  brandRow({slug:'try84',name:'TRY84',tagline:'rugby lifestyle',bio:'Feita por jogadores.',theme:{mode:'solid',c1:'#1c1d1f',c2:'#1c1d1f',angle:135,accent:'#ffffff'},cover_path:'assets/try84-hero.jpg',external_url:'https://try84.com.br'}),
+  brandRow({slug:'estudio-mar',name:'Estúdio Mar',tagline:'surf · Niterói',bio:'Estampas de quem vive no mar.',theme:{mode:'gradient',c1:'#0b3d91',c2:'#00a6a6',angle:120,accent:'#ffd166'},links:{instagram:'estudiomar'}})
+ ];
+ const calls=[];
+ const fetchStub=async(url,init={})=>{
+  url=String(url);calls.push({url,init});
+  const json=(body,status=200)=>({ok:status<400,status,json:async()=>body});
+  const slug=decodeURIComponent((url.match(/slug=eq\.([^&]+)/)||[])[1]||'');
+  if(url.includes('/rest/v1/brands')&&init.method==='PATCH'){const r=rows.find(b=>b.slug===slug);Object.assign(r,JSON.parse(init.body),{updated_at:new Date().toISOString()});return json([r]);}
+  if(url.includes('/rest/v1/brands'))return json(slug?rows.filter(b=>b.slug===slug):rows.filter(b=>b.status==='active'));
+  if(url.includes('/rpc/my_brands'))return json(rows.filter(b=>mine.includes(b.slug)));
+  if(url.includes('/rpc/is_admin'))return json(admin);
+  if(url.includes('/rpc/admin_list_brands'))return admin?json(rows.map(b=>({...b,owners:mine.includes(b.slug)?[{email:'dono@exemplo.com',name:'Dono'}]:[],products:b.slug==='geek'?2:0}))):json({code:'42501',message:'Área restrita à duavesso.'},403);
+  if(url.includes('/rpc/admin_'))return json(url.includes('create')?{slug:JSON.parse(init.body).p_slug}:null,url.includes('create')?200:204);
+  if(url.includes('/storage/v1/object/brand-assets/'))return json({Key:'ok'});
+  return json([]);
+ };
+ return {rows,calls,fetchStub};
+}
+const sessionFor=email=>({'duavesso.session.v1':{access_token:'tok',refresh_token:'ref',expires_at:Math.floor(Date.now()/1000)+3600,started_at:Math.floor(Date.now()/1000),user:{id:'u-dono',email,name:'Dono',provider:'email'}}});
+const tick=(ms=30)=>new Promise(r=>setTimeout(r,ms));
+
+test('brand pages come from the database: colors, gradient, featured piece with countdown, and brands created after the build',async()=>{
+ const {fetchStub}=brandsBackend();
+ const s=await setup({},fetchStub,{path:'/marcas/geek'});try{
+ await tick(40);
+ const art=s.doc.querySelector('#marcas-view .b2');
+ assert(art,'loja da geek');assert.match(art.getAttribute('style'),/--brand-paint:#141519/);
+ assert.equal(s.doc.querySelector('.b2-feat .b2-badge').textContent,'Drop 01');
+ assert.match(s.doc.querySelector('.b2-feat .b2-count').textContent,/^acaba em 2d 23h$/);
+ assert.equal(s.doc.querySelector('.b2-feat').dataset.product,'geek-coracao');
+ s.click('.b2-feat');assert.equal(s.w.location.pathname,'/produto/geek-coracao','destaque abre a peça');
+ }finally{s.close();}
+ const t=await setup({},fetchStub,{path:'/marcas/estudio-mar'});try{
+  await tick(40);
+  assert.equal(t.w.location.pathname,'/marcas/estudio-mar','marca nova (sem página pré-gerada) carrega do banco');
+  assert.equal(t.doc.querySelector('.b2-name').textContent,'Estúdio Mar');
+  assert.match(t.doc.querySelector('#marcas-view .b2').getAttribute('style'),/linear-gradient\(120deg,#0b3d91,#00a6a6\)/);
+  assert(t.doc.querySelector('.b2-links a[href="https://instagram.com/estudiomar"]'));
+  assert.match(t.doc.title,/^Estúdio Mar · surf · Niterói · duavesso$/);
+  t.doc.querySelector('.editor-heading a[href="marcas"]').click();await tick(40);
+  assert.deepEqual([...t.doc.querySelectorAll('#marcas-view .b2-card .b2-card-name')].map(n=>n.textContent),['duavessogeek','TRY84','Estúdio Mar'],'página de marcas lista as do banco');
+ }finally{t.close();}
+ const u=await setup({},fetchStub,{path:'/marcas/sumiu'});try{
+  await tick(40);
+  assert.equal(u.w.location.pathname,'/marcas');assert.match(u.doc.querySelector('#toast').textContent,/não está mais na duavesso/);
+ }finally{u.close();}
+});
+
+test('Minha Marca: the owner gets the tab, edits identity and free colors (gradient, HEX, color wheel, logo) with a live preview and publishes only content',async()=>{
+ const {rows,calls,fetchStub}=brandsBackend();
+ const s=await setup(sessionFor('dono@exemplo.com'),fetchStub);try{
+ s.w.URL.createObjectURL=()=>'blob:logo';s.w.URL.revokeObjectURL=()=>{};
+ s.click('#open-account');await tick(40);
+ const tab=s.doc.querySelector('.account-tab[data-acc-tab="brand"]');assert(tab,'aba Minha Marca na conta');
+ tab.click();const link=s.doc.querySelector('.acc-brand a[href="minha-marca?marca=estudio-mar"]');assert(link);
+ link.click();await tick(40);
+ assert.equal(s.w.location.pathname,'/minha-marca');assert.equal(s.doc.querySelector('#account-dialog').open,false,'a janela da conta fecha');
+ const v=s.doc.querySelector('#editor-view'),form=v.querySelector('#me-form'),art=()=>v.querySelector('#me-screen .b2');
+ assert.equal(v.querySelector('.me-title').textContent,'Estúdio Mar');
+ assert.match(art().getAttribute('style'),/linear-gradient\(120deg,#0b3d91,#00a6a6\)/,'prévia com o degradê salvo');
+ const name=form.elements.namedItem('name');name.value='Estúdio Mar Surf';name.dispatchEvent(new s.w.Event('input',{bubbles:true}));
+ assert.equal(art().querySelector('.b2-name').textContent,'Estúdio Mar Surf','prévia ao vivo');
+ v.querySelector('.me-seg [data-mode="solid"]').click();
+ assert.match(art().getAttribute('style'),/--brand-paint:#0b3d91;/,'sólido');
+ v.querySelector('.me-seg [data-mode="gradient"]').click();
+ const hex2=v.querySelector('.me-color[data-key="c2"] .me-hex');hex2.value='ff7a00';hex2.dispatchEvent(new s.w.Event('input',{bubbles:true}));
+ assert.match(art().getAttribute('style'),/linear-gradient\(120deg,#0b3d91,#ff7a00\)/,'código digitado sem #');
+ v.querySelector('.me-color[data-key="accent"] .me-swatch').click();
+ const cpk=v.querySelector('.cpk');assert(cpk&&!cpk.hidden,'roda de cores abre embaixo do destaque');
+ assert.equal(cpk.querySelectorAll('.cpk-fixed button').length,16);assert(cpk.querySelector('.cpk-ring')&&cpk.querySelector('.cpk-sv'),'roda e quadrado');
+ cpk.querySelector('.cpk-fixed [data-c="#e11d48"]').click();
+ assert.equal(cpk.querySelector('.cpk-hex').value,'#E11D48');assert.equal(v.querySelector('.me-color[data-key="accent"] .me-hex').value,'#E11D48');
+ cpk.querySelector('.cpk-tabs [data-tab="rgb"]').click();
+ const r=cpk.querySelector('.cpk-sl input[data-i="0"]');r.value='0';r.dispatchEvent(new s.w.Event('input',{bubbles:true}));
+ assert.equal(cpk.querySelector('.cpk-hex').value,'#001D48','barra R muda a cor');
+ cpk.querySelector('.cpk-ok').click();assert.equal(cpk.hidden,true);
+ assert.deepEqual(JSON.parse(s.w.localStorage.getItem('duavesso.cores-recentes')),['#001d48'],'cor usada fica guardada');
+ const file=new s.w.File(['x'],'logo.png',{type:'image/png'}),up=v.querySelector('input[data-up="logo"]');
+ Object.defineProperty(up,'files',{value:[file]});up.dispatchEvent(new s.w.Event('change',{bubbles:true}));await tick(40);
+ const upload=calls.find(c=>c.url.includes('/storage/v1/object/brand-assets/estudio-mar/logo-'));assert(upload,'logo enviado para a pasta da marca');
+ assert(art().querySelector('.b2-logo img').getAttribute('src').includes('/storage/v1/object/public/brand-assets/estudio-mar/logo-'),'prévia com o logo novo');
+ v.querySelector('#me-save').click();await tick(40);
+ const patch=calls.find(c=>c.init.method==='PATCH');assert(patch,'publicou');
+ const body=JSON.parse(patch.init.body);
+ assert.deepEqual(Object.keys(body).sort(),['bio','cover_path','featured_badge','featured_product_id','featured_until','links','logo_path','name','tagline','theme'],'só o conteúdo editável');
+ assert.equal(body.name,'Estúdio Mar Surf');assert.deepEqual(body.theme,{mode:'gradient',c1:'#0b3d91',c2:'#ff7a00',angle:120,accent:'#001d48'});
+ assert.match(body.logo_path,/^estudio-mar\/logo-[0-9a-z-]+\.webp$/);
+ assert.match(s.doc.querySelector('#toast').textContent,/publicada/);
+ assert.equal(rows.find(b=>b.slug==='estudio-mar').name,'Estúdio Mar Surf');
+ }finally{s.close();}
+});
+
+test('Painel da duavesso: only the admin gets in, creates a partner brand from an e-mail, suspends and marks the R$ 400 plan',async()=>{
+ const notAdmin=brandsBackend();
+ const s=await setup(sessionFor('dono@exemplo.com'),notAdmin.fetchStub,{path:'/painel'});try{
+  await tick(40);assert.match(s.doc.querySelector('#admin-view').textContent,/Área restrita/);
+ }finally{s.close();}
+ const {calls,fetchStub}=brandsBackend({admin:true});
+ const t=await setup(sessionFor('duavesso.co@gmail.com'),fetchStub,{path:'/painel'});try{
+  await tick(40);
+  t.w.confirm=()=>true;t.w.prompt=()=>'Pix recebido em 08/10';
+  const v=t.doc.querySelector('#admin-view');
+  assert.equal(v.querySelectorAll('.ad-row').length,3);
+  assert(v.querySelector('.ad-row[data-slug="geek"] a[href="minha-marca?marca=geek"]'),'editar a página de qualquer marca');
+  const f=v.querySelector('#ad-add'),fe=n=>f.elements.namedItem(n);fe('email').value='nova@marca.com';fe('name').value='Ação & Reação';fe('name').dispatchEvent(new t.w.Event('input',{bubbles:true}));
+  assert.equal(fe('slug').value,'acao-reacao','endereço sugerido a partir do nome');
+  f.dispatchEvent(new t.w.Event('submit',{bubbles:true,cancelable:true}));await tick(40);
+  const create=calls.find(c=>c.url.includes('/rpc/admin_create_brand'));assert.deepEqual(JSON.parse(create.init.body),{p_email:'nova@marca.com',p_slug:'acao-reacao',p_name:'Ação & Reação'});
+  t.doc.querySelector('.ad-row[data-slug="try84"] [data-act="status"]').click();await tick(40);
+  assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/admin_set_brand_status')).init.body),{p_slug:'try84',p_status:'suspended'});
+  t.doc.querySelector('.ad-row[data-slug="try84"] [data-act="plan"]').click();await tick(40);
+  assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/admin_set_brand_plan')).init.body),{p_slug:'try84',p_plan:'paid',p_note:'Pix recebido em 08/10'});
+  t.click('#open-account');await tick(40);assert(t.doc.querySelector('.account-admin[href="painel"]'),'atalho do painel na conta da dona');
  }finally{t.close();}
 });

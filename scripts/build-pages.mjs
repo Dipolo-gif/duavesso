@@ -9,10 +9,20 @@
 import {readFileSync,writeFileSync,mkdirSync,readdirSync,rmSync,existsSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {PRODUCTS,money} from '../dist/commerce.js';
-import {BRANDS} from '../dist/brands.js';
-import {SITE,pageMeta,allRoutes,privateRoutes,productPath,brandPath} from '../dist/pages.js';
+import {SITE,pageMeta,allRoutes,privateRoutes,productPath,brandPath,brandList,findBrand,setBrandList} from '../dist/pages.js';
 
 const DIST=new URL('../dist/',import.meta.url);
+// Marcas: retrato das marcas ativas do banco em dist/marcas.json (a rotina diária atualiza com --live).
+// Sem o arquivo, vale a lista de reserva de dist/brands.js.
+const SNAPSHOT=new URL('marcas.json',DIST);
+const BRAND_FIELDS='slug,name,tagline,bio,status,plan,theme,logo_path,cover_path,links,featured_product_id,featured_badge,featured_until,external_url';
+export function loadBrandSnapshot(){if(existsSync(SNAPSHOT))setBrandList(JSON.parse(readFileSync(SNAPSHOT,'utf8')));}
+export async function fetchLiveBrands(){
+ const api=readFileSync(new URL('api.js',DIST),'utf8'),url=api.match(/SUPABASE_URL='([^']+)'/)[1],key=api.match(/SUPABASE_KEY='(sb_publishable_[\w-]+)'/)[1];
+ const res=await fetch(`${url}/rest/v1/brands?select=${BRAND_FIELDS}&status=eq.active&order=slug`,{headers:{apikey:key,Authorization:`Bearer ${key}`}});
+ if(!res.ok)throw new Error(`Não consegui ler as marcas do banco (HTTP ${res.status}).`);
+ return res.json();
+}
 const abs=path=>SITE+String(path).replace(/^\//,'');
 const attr=v=>String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 const text=v=>String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;');
@@ -30,7 +40,7 @@ function imageSize(rel){
  throw new Error(`não consegui ler o tamanho de ${rel}`);
 }
 
-const brandOf=p=>p.brand&&BRANDS.find(b=>b.slug===p.brand);
+const brandOf=p=>p.brand&&findBrand(p.brand);
 const photosOf=p=>p.photos||p.variants?.[0]?.photos||[];
 function productLD(p){
  const url=abs(productPath(p.id));
@@ -48,21 +58,21 @@ function jsonLD(r,m,template){
   return [productLD(m.product),crumbs([['Início','/'],...(brand?[['Marcas','/marcas'],[brand.name,brandPath(brand.slug)]]:[['Coleção','/#colecao']]),[m.product.name,m.path]])];
  }
  if(r.view==='studio')return [webPage('WebPage',m),crumbs([['Início','/'],['Estúdio','/estudio']])];
- if(r.view==='checkout')return [webPage('WebPage',m)];
+ if(['checkout','editor','admin'].includes(r.view))return [webPage('WebPage',m)];
  if(r.view==='marcas'&&m.brand){
   const own=PRODUCTS.filter(p=>p.brand===m.brand.slug);
-  return [webPage('CollectionPage',m,{about:{'@type':'Brand',name:m.brand.name,description:m.brand.lead,...(m.brand.site?{url:m.brand.site}:{})},
+  return [webPage('CollectionPage',m,{about:{'@type':'Brand',name:m.brand.name,description:m.brand.bio,...(m.brand.external?{url:m.brand.external}:{})},
    ...(own.length?{mainEntity:{'@type':'ItemList',itemListElement:own.map((p,i)=>({'@type':'ListItem',position:i+1,url:abs(productPath(p.id))}))}}:{})}),
    crumbs([['Início','/'],['Marcas','/marcas'],[m.brand.name,m.path]])];
  }
- if(r.view==='marcas')return [webPage('CollectionPage',m,{mainEntity:{'@type':'ItemList',itemListElement:BRANDS.map((b,i)=>({'@type':'ListItem',position:i+1,name:b.name,url:abs(brandPath(b.slug))}))}}),crumbs([['Início','/'],['Marcas','/marcas']])];
+ if(r.view==='marcas')return [webPage('CollectionPage',m,{mainEntity:{'@type':'ItemList',itemListElement:brandList().map((b,i)=>({'@type':'ListItem',position:i+1,name:b.name,url:abs(brandPath(b.slug))}))}}),crumbs([['Início','/'],['Marcas','/marcas']])];
  // Loja: mantém OnlineStore e WebSite do molde e refaz a lista de produtos a partir do catálogo.
  const graph=template['@graph'].filter(x=>x['@type']!=='ItemList').map(x=>x['@type']==='OnlineStore'?{...x,description:m.description}:x);
  return [...graph,{'@type':'ItemList',name:'Coleção duavesso',itemListElement:PRODUCTS.map((p,i)=>({'@type':'ListItem',position:i+1,item:productLD(p)}))}];
 }
 
 const FOOTER_START='<!--gerado:rodape-->',FOOTER_END='<!--/gerado:rodape-->';
-const footerLinks=()=>`${FOOTER_START}<div><span class="footer-heading">Peças</span>${PRODUCTS.map(p=>`<a href="${productPath(p.id).slice(1)}">${text(p.name)}</a>`).join('')}</div><div><span class="footer-heading">Marcas</span>${BRANDS.map(b=>`<a href="${brandPath(b.slug).slice(1)}">${text(b.name)}</a>`).join('')}</div>${FOOTER_END}`;
+const footerLinks=()=>`${FOOTER_START}<div><span class="footer-heading">Peças</span>${PRODUCTS.map(p=>`<a href="${productPath(p.id).slice(1)}">${text(p.name)}</a>`).join('')}</div><div><span class="footer-heading">Marcas</span>${brandList().map(b=>`<a href="${brandPath(b.slug).slice(1)}">${text(b.name)}</a>`).join('')}</div>${FOOTER_END}`;
 
 function render(template,r){
  const m=pageMeta(r),url=abs(m.path),[w,h]=imageSize(m.image),ld=JSON.parse(template.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)[1]);
@@ -120,7 +130,7 @@ Tamanhos P, M, G e GG. Estúdio: criar a estampa na hora (R$ 129,90) ou descreve
 
 ## Marcas
 
-${BRANDS.map(b=>`- [${b.name}](${abs(brandPath(b.slug))}): ${b.lead}`).join('\n')}
+${brandList().map(b=>`- [${b.name}](${abs(brandPath(b.slug))}): ${b.bio}`).join('\n')}
 
 ## Páginas
 
@@ -141,6 +151,7 @@ Escolha a peça, a cor e o tamanho, adicione à sacola e finalize com nome, e-ma
 
 // Arquivos gerados, como {caminho relativo a dist/: conteúdo}
 export function buildPages(){
+ loadBrandSnapshot();
  const template=readFileSync(new URL('index.html',DIST),'utf8');
  const files={'index.html':render(template,{view:'shop'})};
  for(const r of allRoutes()){
@@ -158,6 +169,7 @@ export function buildPages(){
 }
 
 if(import.meta.url===pathToFileURL(process.argv[1]).href){
+ if(process.argv.includes('--live'))writeFileSync(SNAPSHOT,JSON.stringify(await fetchLiveBrands(),null,1)+'\n');
  const files=buildPages();
  // Remove páginas de produtos e marcas que saíram do catálogo
  for(const dir of ['produto','marcas']){

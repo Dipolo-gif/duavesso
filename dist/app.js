@@ -1,8 +1,10 @@
 import {PRODUCTS,SIZES,CUSTOM,freeShippingMin,setPromos,promoGoals,INSTALLMENTS,installment,customMode,shippingSuggestion,money,escapeHTML as esc,totals,addItem,changeQuantity,normalizeCart,validImageURL,garmentLabel,PRINT_ZONES,PRINT_ZONE_AT,isZone,MAX_PRINTS,printsSummary} from './commerce.js';
 import {CHEST_Y,UNIT} from './studio-placement.js';
-import {online,rpc,uploadDesign,dataURLToBlob,getUser,signIn,signUp,signOut,resetPassword,updatePassword,signInWithGoogle,handleAuthRedirect,fetchProfile,updateProfile,fetchMyOrders,fetchPromos,checkCoupon} from './api.js';
-import {BRANDS} from './brands.js';
-import {SITE,parseRoute,isAppPath,pageMeta,productPath} from './pages.js';
+import {online,rpc,uploadDesign,dataURLToBlob,getUser,signIn,signUp,signOut,resetPassword,updatePassword,signInWithGoogle,handleAuthRedirect,fetchProfile,updateProfile,fetchMyOrders,fetchPromos,checkCoupon,fetchBrands,fetchBrand,myBrands,updateBrand,uploadBrandAsset,brandAssetURL,isAdmin,adminListBrands,adminCreateBrand,adminSetBrandStatus,adminSetBrandPlan,adminRemoveOwner} from './api.js';
+import {BRANDS,brandFromRow} from './brands.js';
+import {SITE,parseRoute,isAppPath,pageMeta,productPath,brandList,findBrand,setBrandList,upsertBrandRow} from './pages.js';
+import {themeCSS,themeStyle,normalizeTheme,DEFAULT_THEME} from './brand-theme.js';
+import {createColorPicker,eyedropperIcon,pickFromScreen} from './color-picker.js';
 const $=(selector,root=document)=>root.querySelector(selector);
 const $$=(selector,root=document)=>[...root.querySelectorAll(selector)];
 let filter='all';
@@ -179,8 +181,8 @@ const PAY_PANEL={
 // Marca de cada peça, para agrupar o resumo com a etiqueta de cada uma.
 function itemBrand(item){
  if(item.id==='custom')return {slug:'estudio',name:'Estúdio duavesso',theme:'duavesso'};
- const p=PRODUCTS.find(x=>x.id===item.id),b=p?.brand&&BRANDS.find(x=>x.slug===p.brand);
- return b?{slug:b.slug,name:b.name,theme:b.theme}:{slug:'duavesso',name:'duavesso',theme:'duavesso'};
+ const p=PRODUCTS.find(x=>x.id===item.id),b=p?.brand&&findBrand(p.brand);
+ return b?{slug:b.slug,name:b.name,theme:b.static?.theme||'marca'}:{slug:'duavesso',name:'duavesso',theme:'duavesso'};
 }
 // "Rua X, 123 - Ap 4" (o que fica no perfil) volta separado em rua, número e complemento.
 function splitAddress(full){const m=String(full||'').match(/^(.*?),\s*([0-9]+[A-Za-z]?|s\/n)\s*(?:-\s*(.*))?$/i);return m?{address:m[1],number:m[2],complement:m[3]||''}:{address:full||'',number:'',complement:''};}
@@ -510,25 +512,265 @@ $('#design-form').addEventListener('submit',async e=>{
  try{cart=addItem(cart,item);saveCart();showCart();}catch(error){toast(error.message);}
 });
 
-function brandCollection(brand){
- const own=PRODUCTS.filter(p=>p.brand===brand.slug);
+// Lojas das marcas -------------------------------------------------------------------------------
+// Visual aprovado: topo na cor da marca (cores livres, legibilidade garantida por brand-theme.js), destaque
+// grande com selo e contagem regressiva, peças e a faixa da duavesso. Os dados vêm do banco; sem banco,
+// da lista de reserva. O mesmo desenho alimenta a prévia ao vivo da aba "Minha Marca".
+const brandImg=path=>esc(brandAssetURL(path));
+function brandLogoHTML(b){
+ if(b.logo)return `<img src="${brandImg(b.logo)}" alt="" width="112" height="112">`;
+ if(b.static?.logo)return `<span class="b2-logo-text">${b.static.logo}</span>`;
+ return `<span class="b2-logo-text">${esc(b.name.slice(0,14))}</span>`;
+}
+function countdownText(until){
+ const ms=new Date(until)-Date.now();if(!(ms>0))return '';
+ const d=Math.floor(ms/864e5),h=Math.floor(ms%864e5/36e5),m=Math.floor(ms%36e5/6e4);
+ return d?`acaba em ${d}d ${h}h`:h?`acaba em ${h}h ${m}min`:`acaba em ${Math.max(1,m)}min`;
+}
+function brandLinksHTML(b){
+ const l=[];
+ if(b.links?.instagram)l.push(`<a href="https://instagram.com/${encodeURIComponent(b.links.instagram)}" target="_blank" rel="noopener">Instagram @${esc(b.links.instagram)}</a>`);
+ const site=b.links?.site||b.external;
+ if(site)l.push(`<a href="${esc(site)}" target="_blank" rel="noopener">${esc(site.replace(/^https:\/\//,'').replace(/\/$/,''))} <span aria-hidden="true">↗</span></a>`);
+ return l.length?`<div class="b2-links">${l.join('')}</div>`:'';
+}
+function brandHeaderHTML(b){
+ return `<header class="b2-head"><div class="b2-cover">${b.cover?`<img src="${brandImg(b.cover)}" alt="" width="1800" height="600" fetchpriority="high">`:''}</div>
+<div class="b2-id"><span class="b2-logo">${brandLogoHTML(b)}</span><div class="b2-titles"><h1 class="b2-name">${esc(b.name)}</h1><span class="b2-seal">✓ marca duavesso</span></div></div>
+${b.tagline?`<p class="b2-tag">${esc(b.tagline)}</p>`:''}${b.bio?`<p class="b2-bio">${esc(b.bio)}</p>`:''}${brandLinksHTML(b)}</header>`;
+}
+function brandFeaturedHTML(b){
+ const f=b.featured,p=f&&PRODUCTS.find(x=>x.id===f.id);if(!p)return '';
+ const ph=photosOf(p),cd=f.until?countdownText(f.until):'',badge=f.badge||'Lançamento';
+ return `<button type="button" class="b2-feat" data-product="${p.id}"><span class="b2-feat-img">${ph?photoPicture(ph[0],esc(p.name),'(max-width:700px) 92vw, 46vw'):teePicture(p.base,esc(p.name),'46vw')}<span class="b2-badge">${esc(badge)}</span>${cd?`<span class="b2-count" data-until="${esc(f.until)}">${cd}</span>`:''}</span><span class="b2-feat-info"><span class="b2-feat-kicker">${esc(b.name)} · em destaque</span><span class="b2-feat-name">${esc(p.name)}</span><span class="b2-feat-price">${money(p.price)}<small>ou ${INSTALLMENTS}x de ${money(installment(p.price))} sem juros</small></span><span class="b2-cta">Ver a peça <span aria-hidden="true">→</span></span></span></button>`;
+}
+function brandCollection(b){
+ const own=PRODUCTS.filter(p=>p.brand===b.slug),s=b.static;
  if(own.length){
   const cards=own.map(p=>`<button type="button" class="brand-prod brand-prod-gallery" data-product="${p.id}"><div class="brand-prod-img poses">${p.photos.map((n,i)=>`<div class="pose${i?'':' is-active'}">${photoPicture(n,`${esc(p.name)}, foto ${i+1}`,'(max-width:700px) 45vw, 22vw','loading="lazy"',i>0)}</div>`).join('')}</div><div class="brand-prod-meta"><span class="brand-prod-name">${esc(p.name)}</span><span class="brand-prod-type">${esc(p.color)}</span><span class="brand-prod-price">${money(p.price)}</span></div></button>`).join('');
-  return `<div class="brand-drops"><div class="section-heading"><h2>${brand.collection||'Coleção'}</h2></div><div class="brand-prods">${cards}</div></div>`;
+  return `<div class="brand-drops"><div class="section-heading"><h2>${esc(s?.collection||'Peças')}</h2><span class="brand-kicker">${own.length} ${own.length===1?'peça':'peças'}</span></div><div class="brand-prods">${cards}</div></div>`;
  }
- if(!brand.products)return `<div class="brand-drops"><div class="section-heading"><h2>Primeiros drops</h2><span class="brand-kicker">em produção</span></div><div class="brand-grid">${brand.drops.map(d=>`<div class="brand-drop"><span class="brand-drop-art">${d[0]}</span><span class="brand-drop-name">${d[1]}</span><span class="brand-drop-soon">EM BREVE</span></div>`).join('')}</div></div>`;
- const cards=brand.products.map(p=>`<a class="brand-prod"${p.href?` href="${p.href}"`:brand.site?` href="${brand.site}"`:''} target="_blank" rel="noopener">${p.img?`<div class="brand-prod-img"><picture><source type="image/webp" srcset="assets/${p.img}.webp"><img src="assets/${p.img}.jpg" alt="${esc(p.name)}" width="800" height="800" loading="lazy"></picture></div>`:`<div class="brand-prod-tile"><span>${esc(p.name)}</span></div>`}<div class="brand-prod-meta"><span class="brand-prod-name">${esc(p.name)}</span>${p.type?`<span class="brand-prod-type">${p.type}</span>`:''}${p.price?`<span class="brand-prod-price">${p.price}</span>`:''}</div></a>`).join('');
- return `<div class="brand-drops"><div class="section-heading"><h2>${brand.collection}</h2>${brand.collectionNote?`<span class="brand-kicker">${brand.collectionNote}</span>`:''}</div><div class="brand-prods">${cards}</div>${brand.site?`<a class="button button-blue brand-fullcol" href="${brand.site}" target="_blank" rel="noopener">Ver a coleção completa em ${brand.site.replace('https://','')} <span>↗</span></a>`:''}</div>`;
+ if(s?.products){
+  const cards=s.products.map(p=>`<a class="brand-prod"${p.href?` href="${p.href}"`:s.site?` href="${s.site}"`:''} target="_blank" rel="noopener">${p.img?`<div class="brand-prod-img"><picture><source type="image/webp" srcset="assets/${p.img}.webp"><img src="assets/${p.img}.jpg" alt="${esc(p.name)}" width="800" height="800" loading="lazy"></picture></div>`:`<div class="brand-prod-tile"><span>${esc(p.name)}</span></div>`}<div class="brand-prod-meta"><span class="brand-prod-name">${esc(p.name)}</span>${p.type?`<span class="brand-prod-type">${p.type}</span>`:''}${p.price?`<span class="brand-prod-price">${p.price}</span>`:''}</div></a>`).join('');
+  return `<div class="brand-drops"><div class="section-heading"><h2>${s.collection}</h2>${s.collectionNote?`<span class="brand-kicker">${s.collectionNote}</span>`:''}</div><div class="brand-prods">${cards}</div>${s.site?`<a class="button button-blue brand-fullcol" href="${s.site}" target="_blank" rel="noopener">Ver a coleção completa em ${s.site.replace('https://','')} <span>↗</span></a>`:''}</div>`;
+ }
+ if(s?.drops)return `<div class="brand-drops"><div class="section-heading"><h2>Primeiros drops</h2><span class="brand-kicker">em produção</span></div><div class="brand-grid">${s.drops.map(d=>`<div class="brand-drop"><span class="brand-drop-art">${d[0]}</span><span class="brand-drop-name">${d[1]}</span><span class="brand-drop-soon">EM BREVE</span></div>`).join('')}</div></div>`;
+ return `<div class="brand-drops b2-soon"><h2>As primeiras peças estão chegando.</h2><p>Deixe seu e-mail e a gente avisa quando a ${esc(b.name)} lançar.</p></div>`;
 }
+function brandNotifyHTML(b){
+ if(PRODUCTS.some(p=>p.brand===b.slug)||b.static?.products)return '';
+ return `<form class="brand-notify"><label>Avise-me quando a ${esc(b.name)} lançar.</label><div class="brand-notify-row"><input type="text" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="email" name="email" placeholder="seu@email.com" required maxlength="120" autocomplete="off"><button type="submit" class="button button-blue">Quero</button></div></form>`;
+}
+const brandDNA=()=>`<aside class="b2-dna"><img src="assets/logo-duavesso.png" alt="duavesso" width="800" height="138" loading="lazy"><p><strong>Produzida e entregue pela duavesso.</strong> ${freeShippingLine()} · troca fácil em 30 dias · Pix ou cartão em até ${INSTALLMENTS}x.</p></aside>`;
+function brandArticleHTML(b,{preview=false}={}){
+ return `<article class="b2${preview?' b2-preview':''}" data-brand="${esc(b.slug)}"${b.static?.theme?` data-theme="${b.static.theme}"`:''} style="${themeCSS(b.theme)}">${brandHeaderHTML(b)}${brandFeaturedHTML(b)}<div class="b2-body">${brandCollection(b)}${preview?'':brandNotifyHTML(b)}</div>${brandDNA()}</article>`;
+}
+// Marcas do banco: carregadas uma vez, quando a pessoa entra em /marcas (a página inicial não chama o banco)
+// brandsVersion sobe a cada lista nova: a página só se redesenha se a lista mudou desde o último desenho.
+let brandsLoaded=null,brandsVersion=0;
+function loadBrandsFromDB(){
+ if(!online())return Promise.resolve();
+ brandsLoaded??=fetchBrands().then(rows=>{if(Array.isArray(rows)&&rows.length){setBrandList(rows);brandsVersion++;}});
+ return brandsLoaded;
+}
+let countdownTimer=0;
 function renderMarcas(slug){
- const view=$('#marcas-view'),brand=BRANDS.find(b=>b.slug===slug);
- if(!brand){view.innerHTML=`<div class="editor-heading"><a href="#inicio" class="text-link">← Voltar</a><span class="eyebrow">MARCAS · A FAMÍLIA DUAVESSO</span></div><div class="marcas-intro"><h1>As linhas da duavesso.</h1><p>Sub-linhas com identidade própria e a mesma pegada: minimalismo e roupa que faz sentido pra você. Cada uma tem a sua página; a base oversized é a mesma.</p></div><div class="marcas-grid">${BRANDS.map(b=>`<a class="brand-card" data-theme="${b.theme}" href="marcas/${b.slug}"><span class="brand-kicker">${b.kicker}</span><span class="brand-logo">${b.logo}</span><p>${b.lead}</p><span class="brand-ver">Ver a linha <span aria-hidden="true">↗</span></span></a>`).join('')}</div>`;return;}
- const hasCollection=!!(brand.products||PRODUCTS.some(p=>p.brand===brand.slug));
- const notify=hasCollection?'':`<form class="brand-notify"><label>Avise-me quando a ${brand.name} lançar.</label><div class="brand-notify-row"><input type="text" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="email" name="email" placeholder="seu@email.com" required maxlength="120" autocomplete="off"><button type="submit" class="button button-blue">Quero</button></div></form>`;
- const hero=brand.hero?`<div class="brand-banner"><picture><source type="image/webp" srcset="assets/${brand.hero}.webp"><img src="assets/${brand.hero}.jpg" alt="${brand.name} · ${brand.kicker}" width="2172" height="724" fetchpriority="high"></picture></div><div class="brand-bannercta"><a href="#colecao" class="button button-blue">Ver a base oversized <span>↗</span></a>${brand.site?`<a class="brand-bannerlink" href="${brand.site}" target="_blank" rel="noopener">${brand.site.replace('https://','')} <span aria-hidden="true">↗</span></a>`:''}</div>`:`<div class="brand-hero"><div class="brand-hero-copy"><span class="brand-kicker">${brand.kicker}</span><div class="brand-logo">${brand.logo}${brand.theme==='geek'?'<span class="brand-cursor" aria-hidden="true"></span>':''}</div><p class="brand-lead">${brand.lead}</p><div class="brand-cta"><a href="#colecao" class="button button-blue">Ver a base oversized <span>↗</span></a>${brand.site?`<a class="brand-site" href="${brand.site}" target="_blank" rel="noopener">${brand.site.replace('https://','')} ↗</a>`:''}${hasCollection?'':'<span class="brand-soon">drops: <b>em breve</b></span>'}</div></div><div class="brand-hero-art"><img src="assets/${brand.art.src}" alt="" width="${brand.art.w}" height="${brand.art.h}" loading="lazy"></div></div>`;
- view.innerHTML=`<div class="editor-heading"><a href="marcas" class="text-link">← Todas as marcas</a><span class="eyebrow">MARCAS · ${brand.name}</span></div><article class="brand" data-theme="${brand.theme}">${hero}${brandCollection(brand)}${notify}</article>`;
+ const view=$('#marcas-view');clearInterval(countdownTimer);
+ if(!slug){
+  view.innerHTML=`<div class="editor-heading"><a href="#inicio" class="text-link">← Voltar</a><span class="eyebrow">MARCAS · A FAMÍLIA DUAVESSO</span></div><div class="marcas-intro"><h1>As linhas da duavesso.</h1><p>Marcas com identidade própria e a mesma pegada: produzidas e entregues pela duavesso, na base oversized que você já conhece. Cada uma tem a sua loja.</p></div><div class="marcas-grid">${brandList().map(b=>`<a class="brand-card b2-card" href="marcas/${esc(b.slug)}"${b.static?.theme?` data-theme="${b.static.theme}"`:''} style="${themeCSS(b.theme)}"><span class="b2-card-logo">${brandLogoHTML(b)}</span><span class="brand-kicker">${esc(b.tagline)}</span><span class="b2-card-name">${esc(b.name)}</span><p>${esc(b.bio)}</p><span class="brand-ver">Ver a loja <span aria-hidden="true">↗</span></span></a>`).join('')}</div>`;
+  const seen=brandsVersion;loadBrandsFromDB().then(()=>{if(brandsVersion!==seen&&shownView==='marcas'&&!shownBrand)renderMarcas(null);});
+  return;
+ }
+ const b=findBrand(slug);
+ if(!b){
+  view.innerHTML='<p class="helper b2-loading">Carregando a loja…</p>';
+  fetchBrand(slug).then(row=>{
+   if(shownView!=='marcas'||shownBrand!==slug)return;
+   if(row&&row.status==='active'){upsertBrandRow(row);renderMarcas(slug);setMeta({view:'marcas',brand:slug});return;}
+   toast('Essa marca não está mais na duavesso. Veja a coleção.');history.replaceState(null,'','/marcas');shownBrand=null;renderMarcas(null);setMeta({view:'marcas',brand:null});
+  });
+  return;
+ }
+ view.innerHTML=`<div class="editor-heading"><a href="marcas" class="text-link">← Todas as marcas</a><span class="eyebrow">MARCAS · ${esc(b.name)}</span></div>${brandArticleHTML(b)}`;
  wirePoseHovers();
+ if($('.b2-count',view))countdownTimer=setInterval(()=>{$$('.b2-count[data-until]',view).forEach(c=>{c.textContent=countdownText(c.dataset.until)||'encerrado';});},60000);
+ const seen=brandsVersion;loadBrandsFromDB().then(()=>{if(brandsVersion!==seen&&shownView==='marcas'&&shownBrand===slug)renderMarcas(slug);});
 }
+// Minha Marca (/minha-marca) e Painel da duavesso (/painel) -----------------------------------------
+// O editor serve ao dono da marca e à dona do site (que edita qualquer marca a partir do painel).
+// Tudo o que é gravado passa pelas regras do banco (migração 0009): o dono só muda o conteúdo da
+// própria marca; situação, plano e donos só mudam pelo painel.
+const LIMITS={name:60,tagline:80,bio:160,badge:24};
+let colorPicker=null;
+const picker=()=>colorPicker??=createColorPicker();
+// Converte a imagem escolhida para WebP no navegador (remove metadados) e corta no formato pedido
+function reencodeImage(file,{width,height}){
+ return new Promise((resolve,reject)=>{
+  if(!/^image\/(png|jpeg|webp)$/.test(file.type)){reject(new Error('Envie PNG, JPG ou WebP.'));return;}
+  if(file.size>10*1024*1024){reject(new Error('A imagem passa de 10 MB.'));return;}
+  const url=URL.createObjectURL(file),img=new Image();
+  img.onload=()=>{
+   const c=document.createElement('canvas');c.width=width;c.height=height;const ctx=c.getContext('2d');
+   const scale=Math.max(width/img.width,height/img.height),w=img.width*scale,h=img.height*scale;
+   ctx.drawImage(img,(width-w)/2,(height-h)/2,w,h);URL.revokeObjectURL(url);
+   c.toBlob(b=>b?resolve(b):reject(new Error('Não foi possível preparar a imagem.')),'image/webp',.9);
+  };
+  img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Não foi possível ler a imagem.'));};
+  img.src=url;
+ });
+}
+// Até 4 cores marcantes do logo, para sugerir como fundo ou destaque
+function paletteFromImage(src){
+ return new Promise(resolve=>{
+  const img=new Image();img.crossOrigin='anonymous';
+  img.onload=()=>{try{
+   const c=document.createElement('canvas');c.width=c.height=48;const ctx=c.getContext('2d');ctx.drawImage(img,0,0,48,48);
+   const d=ctx.getImageData(0,0,48,48).data,bins=new Map();
+   for(let i=0;i<d.length;i+=4){if(d[i+3]<128)continue;const k=(d[i]>>4)<<8|(d[i+1]>>4)<<4|(d[i+2]>>4);bins.set(k,(bins.get(k)||0)+1);}
+   const top=[...bins].sort((a,b)=>b[1]-a[1]).map(([k])=>'#'+[(k>>8)&15,(k>>4)&15,k&15].map(v=>(v*17).toString(16).padStart(2,'0')).join(''));
+   const out=[];for(const c of top){if(out.every(o=>Math.abs(parseInt(o.slice(1,3),16)-parseInt(c.slice(1,3),16))+Math.abs(parseInt(o.slice(3,5),16)-parseInt(c.slice(3,5),16))+Math.abs(parseInt(o.slice(5,7),16)-parseInt(c.slice(5,7),16))>90))out.push(c);if(out.length===4)break;}
+   resolve(out);
+  }catch{resolve([]);}};
+  img.onerror=()=>resolve([]);img.src=src;
+ });
+}
+const toLocalInput=iso=>{if(!iso)return '';const d=new Date(iso);if(isNaN(d))return '';const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;};
+const STATUS_PILL=b=>`<span class="pill ${b.status==='active'?'ok':'off'}">${b.status==='active'?'Publicada':'Suspensa'}</span> <span class="pill ${b.plan==='paid'?'paid':'off'}">${b.plan==='paid'?'Plano pago':'Plano grátis'}</span>`;
+function colorRowHTML(key,label,hex){return `<div class="me-color" data-key="${key}"><span class="me-clab">${label}</span><button type="button" class="me-swatch" style="--sw:${hex}" aria-label="Escolher a cor: ${label}" aria-expanded="false"></button><input class="me-hex" value="${hex.toUpperCase()}" maxlength="7" spellcheck="false" aria-label="Código da cor: ${label}"><button type="button" class="me-drop" title="Conta-gotas: pegar uma cor da tela" aria-label="Conta-gotas">${eyedropperIcon}</button></div>`;}
+
+function renderBrandEditor(container,row,{admin=false}={}){
+ const draft={...row,theme:normalizeTheme(row.theme),links:{...(row.links||{})}};
+ const own=PRODUCTS.filter(p=>p.brand===row.slug);
+ container.innerHTML=`<div class="me-head"><div><p class="eyebrow">${admin?'PAINEL · EDITANDO A MARCA':'MINHA MARCA'}</p><h1 class="me-title">${esc(row.name)}</h1><p class="me-sub">loja-duavesso.vercel.app/marcas/${esc(row.slug)} · ${STATUS_PILL(row)}</p></div><div class="me-actions"><a class="button me-ghost" href="/marcas/${esc(row.slug)}" target="_blank" rel="noopener">Ver a loja <span aria-hidden="true">↗</span></a><button type="button" class="button button-blue" id="me-save">Publicar alterações</button></div></div>
+<div class="me-grid"><form class="me-form" id="me-form" novalidate>
+ <section class="me-card"><h2>Identidade</h2><p class="me-hint">O que aparece no topo da sua loja.</p>
+  <div class="field-row"><label>Nome da marca<input name="name" maxlength="${LIMITS.name}" required value="${esc(draft.name)}"></label><label>Frase curta<input name="tagline" maxlength="${LIMITS.tagline}" value="${esc(draft.tagline||'')}" placeholder="ex.: rugby lifestyle"></label></div>
+  <label>Bio <small class="me-count" data-for="bio"></small><textarea name="bio" maxlength="${LIMITS.bio}" rows="3" placeholder="Em uma ou duas frases, o que é a sua marca.">${esc(draft.bio||'')}</textarea></label>
+  <div class="me-uploads">
+   <div class="me-up"><span class="me-up-prev me-up-logo" id="me-logo-prev"></span><div><b>Logo</b><small>Quadrado · PNG, JPG ou WebP</small><div class="me-up-actions"><label class="text-button">Enviar<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-up="logo"></label><button type="button" class="text-button" data-rm="logo_path">Remover</button></div></div></div>
+   <div class="me-up"><span class="me-up-prev me-up-cover" id="me-cover-prev"></span><div><b>Faixa de capa</b><small>Horizontal (3:1) · PNG, JPG ou WebP</small><div class="me-up-actions"><label class="text-button">Enviar<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-up="cover"></label><button type="button" class="text-button" data-rm="cover_path">Remover</button></div></div></div>
+  </div>
+  <p class="helper" id="me-up-status" aria-live="polite"></p>
+  <div class="field-row"><label>Instagram<input name="instagram" maxlength="30" value="${esc(draft.links.instagram||'')}" placeholder="sem o @" pattern="[A-Za-z0-9._]{1,30}"></label><label>Site (opcional)<input name="site" maxlength="120" value="${esc(draft.links.site||'')}" placeholder="https://"></label></div>
+ </section>
+ <section class="me-card"><h2>Cores</h2><p class="me-hint">Qualquer cor, sólida ou em degradê. Clique no quadradinho para abrir a roda de cores, use o conta-gotas ou digite o código.</p>
+  <div class="me-sug" id="me-sug" hidden><small>Sugestões do seu logo</small></div>
+  <div class="me-seg" role="radiogroup" aria-label="Tipo de fundo"><button type="button" data-mode="solid" role="radio">Sólido</button><button type="button" data-mode="gradient" role="radio">Degradê</button></div>
+  ${colorRowHTML('c1','Fundo',draft.theme.c1)}
+  <div class="me-grad">${colorRowHTML('c2','Fundo 2',draft.theme.c2)}<div class="me-color me-angle"><span class="me-clab">Ângulo</span><input type="range" min="0" max="360" step="5" value="${draft.theme.angle}" id="me-angle" aria-label="Ângulo do degradê"><output id="me-angle-v">${draft.theme.angle}°</output></div></div>
+  ${colorRowHTML('accent','Destaque',draft.theme.accent)}
+  <p class="me-hint">O texto fica preto ou branco sozinho, o que for mais legível sobre o seu fundo.</p>
+  <p class="me-flag" id="me-flag" hidden></p>
+  <p class="me-lock">Fixos em todas as marcas (DNA duavesso): barra do topo, fontes, ficha do produto, sacola, checkout e a faixa "produzida e entregue pela duavesso".</p>
+ </section>
+ <section class="me-card"><h2>Destaque da página</h2><p class="me-hint">A peça grande do topo, com selo e contagem regressiva opcional.</p>
+  ${own.length?`<div class="field-row"><label>Peça em destaque<select name="featured_product_id"><option value="">Nenhuma</option>${own.map(p=>`<option value="${p.id}"${p.id===draft.featured_product_id?' selected':''}>${esc(p.name)}</option>`).join('')}</select></label><label>Selo<input name="featured_badge" maxlength="${LIMITS.badge}" value="${esc(draft.featured_badge||'')}" placeholder="Lançamento"></label></div>
+  <label>Contagem regressiva até (opcional)<input type="datetime-local" name="featured_until" value="${toLocalInput(draft.featured_until)}"></label>`:'<p class="me-empty">Quando a sua marca tiver peças aprovadas, você escolhe aqui a peça em destaque.</p>'}
+ </section>
+</form>
+<aside class="me-preview"><span class="me-prev-label">Prévia ao vivo</span><div class="me-phone"><div class="me-screen" id="me-screen"></div></div><small>Muda enquanto você edita.</small></aside></div>`;
+ const form=$('#me-form',container),el=n=>form.elements.namedItem(n),flag=$('#me-flag',container);
+ const preview=()=>{
+  $('#me-screen',container).innerHTML=brandArticleHTML(brandFromRow({...draft,status:'active'}),{preview:true});
+  const s=themeStyle(draft.theme);flag.hidden=!s.notes.length;flag.textContent=s.notes.join(' ');
+  container.classList.toggle('me-is-grad',draft.theme.mode==='gradient');
+  $$('.me-seg button',container).forEach(b=>{const on=b.dataset.mode===draft.theme.mode;b.classList.toggle('on',on);b.setAttribute('aria-checked',String(on));});
+  for(const k of ['c1','c2','accent']){const r=$(`.me-color[data-key="${k}"]`,container);r.querySelector('.me-swatch').style.setProperty('--sw',draft.theme[k]);const h=r.querySelector('.me-hex');if(document.activeElement!==h){h.value=draft.theme[k].toUpperCase();h.classList.remove('bad');}}
+  $('#me-logo-prev',container).innerHTML=draft.logo_path?`<img src="${esc(brandAssetURL(draft.logo_path))}" alt="">`:`<span>${esc(draft.name.slice(0,10))}</span>`;
+  $('#me-cover-prev',container).innerHTML=draft.cover_path?`<img src="${esc(brandAssetURL(draft.cover_path))}" alt="">`:'';
+  const bio=el('bio');$('.me-count[data-for="bio"]',container).textContent=`${bio.value.length}/${LIMITS.bio}`;
+ };
+ const setColor=(k,hex)=>{draft.theme={...draft.theme,[k]:hex.toLowerCase()};if(k==='c1'&&draft.theme.mode==='solid')draft.theme.c2=draft.theme.c1;preview();};
+ form.addEventListener('input',e=>{
+  const n=e.target.name;
+  if(['name','tagline','bio','featured_badge'].includes(n))draft[n]=e.target.value;
+  if(n==='instagram'||n==='site'){const v=e.target.value.trim().replace(/^@/,'');if(v)draft.links[n]=v;else delete draft.links[n];}
+  if(n==='featured_product_id')draft.featured_product_id=e.target.value||null;
+  if(n==='featured_until')draft.featured_until=e.target.value?new Date(e.target.value).toISOString():null;
+  preview();
+ });
+ form.addEventListener('change',e=>{if(e.target.name==='featured_product_id'){draft.featured_product_id=e.target.value||null;preview();}});
+ $$('.me-seg button',container).forEach(b=>b.addEventListener('click',()=>{draft.theme={...draft.theme,mode:b.dataset.mode};if(b.dataset.mode==='solid')draft.theme.c2=draft.theme.c1;preview();}));
+ $('#me-angle',container).addEventListener('input',e=>{draft.theme={...draft.theme,angle:+e.target.value};$('#me-angle-v',container).textContent=`${e.target.value}°`;preview();});
+ $$('.me-color[data-key]',container).forEach(r=>{
+  const k=r.dataset.key;
+  r.querySelector('.me-swatch').addEventListener('click',e=>picker().open(e.currentTarget,r,draft.theme[k],hex=>setColor(k,hex)));
+  r.querySelector('.me-hex').addEventListener('input',e=>{let v=e.target.value.trim();if(v&&v[0]!=='#')v='#'+v;const ok=/^#[0-9a-f]{6}$/i.test(v);e.target.classList.toggle('bad',!ok);if(ok)setColor(k,v);});
+  r.querySelector('.me-drop').addEventListener('click',async()=>{if(!('EyeDropper' in window)){flag.hidden=false;flag.textContent='Seu navegador não tem conta-gotas. No Chrome ou no Edge ele funciona; aqui, digite o código da cor.';return;}const c=await pickFromScreen();if(c)setColor(k,c);});
+ });
+ const sug=async()=>{const box=$('#me-sug',container);if(!draft.logo_path){box.hidden=true;return;}const cols=await paletteFromImage(brandAssetURL(draft.logo_path));box.hidden=!cols.length;box.innerHTML=`<small>Sugestões do seu logo</small>${cols.map(c=>`<button type="button" style="background:${c}" data-c="${c}" title="${c.toUpperCase()}" aria-label="Usar ${c.toUpperCase()} no fundo"></button>`).join('')}`;};
+ $('#me-sug',container).addEventListener('click',e=>{const b=e.target.closest('[data-c]');if(b)setColor('c1',b.dataset.c);});
+ // Envio de imagens: converte, sobe para a pasta da marca e atualiza a prévia (grava só ao publicar)
+ const upStatus=$('#me-up-status',container);
+ $$('input[data-up]',container).forEach(inp=>inp.addEventListener('change',async()=>{
+  const file=inp.files?.[0];inp.value='';if(!file)return;const kind=inp.dataset.up;
+  upStatus.textContent='Preparando a imagem…';
+  try{const blob=await reencodeImage(file,kind==='logo'?{width:512,height:512}:{width:1800,height:600});upStatus.textContent='Enviando…';
+   draft[kind==='logo'?'logo_path':'cover_path']=await uploadBrandAsset(row.slug,kind,blob);upStatus.textContent='Imagem pronta. Publique para aparecer na loja.';preview();if(kind==='logo')sug();}
+  catch(error){upStatus.textContent=error.message;}
+ }));
+ $$('[data-rm]',container).forEach(b=>b.addEventListener('click',()=>{draft[b.dataset.rm]=null;preview();if(b.dataset.rm==='logo_path')sug();}));
+ // Publicar: valida aqui e no banco; manda só o conteúdo editável
+ $('#me-save',container).addEventListener('click',async()=>{
+  const name=draft.name.trim();
+  if(name.length<2){toast('O nome da marca precisa de pelo menos 2 letras.');el('name').focus();return;}
+  if(draft.links.site&&!/^https:\/\/\S{4,120}$/.test(draft.links.site)){toast('O site precisa começar com https://');el('site').focus();return;}
+  if(draft.links.instagram&&!/^[A-Za-z0-9._]{1,30}$/.test(draft.links.instagram)){toast('Instagram: só letras, números, ponto e sublinhado.');el('instagram').focus();return;}
+  const btn=$('#me-save',container);btn.disabled=true;btn.textContent='Publicando…';
+  try{
+   const saved=await updateBrand(row.slug,{name,tagline:(draft.tagline||'').trim(),bio:(draft.bio||'').trim(),theme:draft.theme,logo_path:draft.logo_path||null,cover_path:draft.cover_path||null,links:draft.links,featured_product_id:draft.featured_product_id||null,featured_badge:(draft.featured_badge||'').trim(),featured_until:draft.featured_until||null});
+   Object.assign(row,saved);upsertBrandRow(saved);toast('Página publicada. Ela já está no ar.');$('.me-title',container).textContent=saved.name;
+  }catch(error){toast(error.message);}
+  finally{btn.disabled=false;btn.textContent='Publicar alterações';}
+ });
+ preview();sug();
+}
+
+async function renderEditorPage(){
+ const view=$('#editor-view');
+ const user=getUser();
+ if(!user){view.innerHTML=`<div class="me-gate"><h1>Minha Marca</h1><p>Entre com a conta da sua marca para editar a sua loja.</p><button type="button" class="button button-blue" id="me-login">Entrar</button></div>`;$('#me-login').addEventListener('click',()=>openAuth('login'));return;}
+ view.innerHTML='<p class="helper me-gate">Carregando a sua marca…</p>';
+ const [mine,admin]=await Promise.all([myBrands(),isAdmin()]);
+ if(shownView!=='editor')return;
+ const wanted=new URLSearchParams(location.search).get('marca');
+ const slug=wanted&&(admin||mine.some(b=>b.slug===wanted))?wanted:mine[0]?.slug;
+ if(!slug){view.innerHTML=`<div class="me-gate"><h1>Minha Marca</h1><p>${admin?'Escolha no painel a marca que quer editar.':'Esta área é das marcas parceiras da duavesso. Quer a sua marca aqui? Fale com a gente.'}</p>${admin?'<a class="button button-blue" href="painel">Abrir o painel</a>':''}</div>`;return;}
+ const row=await fetchBrand(slug);
+ if(shownView!=='editor')return;
+ if(!row){view.innerHTML='<div class="me-gate"><h1>Minha Marca</h1><p>Não foi possível abrir esta marca agora. Tente de novo em instantes.</p></div>';return;}
+ view.innerHTML=`${mine.length>1?`<label class="me-switch">Marca<select id="me-pick">${mine.map(b=>`<option value="${esc(b.slug)}"${b.slug===slug?' selected':''}>${esc(b.name)}</option>`).join('')}</select></label>`:''}<div id="me-root"></div>`;
+ $('#me-pick')?.addEventListener('change',e=>navigate(`/minha-marca?marca=${encodeURIComponent(e.target.value)}`));
+ renderBrandEditor($('#me-root'),row,{admin:admin&&!mine.some(b=>b.slug===slug)});
+}
+
+async function renderAdminPage(){
+ const view=$('#admin-view'),user=getUser();
+ if(!user){view.innerHTML=`<div class="me-gate"><h1>Painel da duavesso</h1><p>Entre com a conta da duavesso.</p><button type="button" class="button button-blue" id="ad-login">Entrar</button></div>`;$('#ad-login').addEventListener('click',()=>openAuth('login'));return;}
+ view.innerHTML='<p class="helper me-gate">Carregando o painel…</p>';
+ if(!await isAdmin()){if(shownView==='admin')view.innerHTML='<div class="me-gate"><h1>Área restrita</h1><p>Este painel é só da conta dona da duavesso.</p></div>';return;}
+ let brands=[];
+ try{brands=await adminListBrands();}catch(error){view.innerHTML=`<div class="me-gate"><h1>Painel da duavesso</h1><p>${esc(error.message)}</p></div>`;return;}
+ if(shownView!=='admin')return;
+ const owners=b=>b.owners?.length?b.owners.map(o=>`<span class="ad-owner">${esc(o.name||o.email)}<small>${esc(o.email)}</small><button type="button" class="ad-x" data-act="rm-owner" data-email="${esc(o.email)}" aria-label="Tirar ${esc(o.email)} da marca">×</button></span>`).join(''):'<small class="ad-none">Sem dono ainda</small>';
+ view.innerHTML=`<div class="ad-head"><div><p class="eyebrow">PAINEL DA DUAVESSO</p><h1 class="me-title">Marcas parceiras</h1><p class="me-sub">${brands.filter(b=>b.status==='active').length} publicadas · ${brands.filter(b=>b.status!=='active').length} suspensas</p></div></div>
+<form class="ad-add" id="ad-add"><label>E-mail da conta<input type="email" name="email" required maxlength="120" placeholder="dono@marca.com.br"></label><label>Nome da marca<input name="name" required maxlength="60" placeholder="Nome que aparece na loja"></label><label>Endereço<input name="slug" required maxlength="40" pattern="[a-z0-9-]{2,40}" placeholder="nome-da-marca"></label><button type="submit" class="button button-blue">Tornar Marca Parceira</button><p class="helper">A pessoa precisa ter criado a conta na loja. Se o endereço já existe (como as marcas antigas), a conta vira dona dessa marca.</p></form>
+<div class="ad-list">${brands.map(b=>`<article class="ad-row" data-slug="${esc(b.slug)}"><span class="ad-logo" style="${themeCSS(b.theme)}">${b.logo_path?`<img src="${esc(brandAssetURL(b.logo_path))}" alt="">`:esc(b.name.slice(0,4))}</span><div class="ad-main"><b>${esc(b.name)}</b><small>/marcas/${esc(b.slug)} · ${b.products} ${b.products===1?'peça':'peças'}</small><div class="ad-owners">${owners(b)}</div></div><div class="ad-state">${STATUS_PILL(b)}${b.plan==='paid'&&b.paid_at?`<small>Pago em ${new Date(b.paid_at).toLocaleDateString('pt-BR')}${b.paid_note?` · ${esc(b.paid_note)}`:''}</small>`:''}</div><div class="ad-acts"><a class="button me-ghost" href="/marcas/${esc(b.slug)}" target="_blank" rel="noopener">Ver loja</a><a class="button me-ghost" href="minha-marca?marca=${esc(b.slug)}">Editar página</a><button type="button" class="button me-ghost" data-act="plan">${b.plan==='paid'?'Voltar ao grátis':'Marcar plano pago (R$ 400)'}</button><button type="button" class="button me-ghost ${b.status==='active'?'ad-danger':''}" data-act="status">${b.status==='active'?'Suspender':'Reativar'}</button></div></article>`).join('')}</div>`;
+ $('#ad-add').addEventListener('input',e=>{const slugEl=e.target.form.elements.namedItem('slug');if(e.target.name==='name'&&!slugEl.dataset.touched)slugEl.value=e.target.value.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40);if(e.target.name==='slug')e.target.dataset.touched='1';});
+ $('#ad-add').addEventListener('submit',async e=>{e.preventDefault();const f=e.target;if(!f.reportValidity())return;
+  const val=n=>f.elements.namedItem(n).value.trim();
+  try{await adminCreateBrand(val('email'),val('slug'),val('name'));toast('Pronto: a conta agora é Marca Parceira e já vê a aba Minha Marca.');renderAdminPage();}catch(error){toast(error.message);}});
+ $$('.ad-row').forEach(r=>r.addEventListener('click',async e=>{
+  const b=brands.find(x=>x.slug===r.dataset.slug),act=e.target.closest('[data-act]')?.dataset.act;if(!b||!act)return;
+  try{
+   if(act==='status'){if(b.status==='active'&&!confirm(`Suspender a ${b.name}? A loja sai do ar até você reativar.`))return;await adminSetBrandStatus(b.slug,b.status==='active'?'suspended':'active');}
+   if(act==='plan'){if(b.plan==='paid'){if(!confirm(`Voltar a ${b.name} para o plano grátis?`))return;await adminSetBrandPlan(b.slug,'free');}else{const note=prompt(`Plano pago da ${b.name} (R$ 400, pagamento único). Anote como foi pago (opcional):`,'Pix recebido');if(note===null)return;await adminSetBrandPlan(b.slug,'paid',note);}}
+   if(act==='rm-owner'){const email=e.target.closest('[data-email]').dataset.email;if(!confirm(`Tirar ${email} da ${b.name}?`))return;await adminRemoveOwner(b.slug,email);}
+   toast('Atualizado.');brandsLoaded=null;renderAdminPage();
+  }catch(error){toast(error.message);}
+ }));
+}
+
 // Navegação ------------------------------------------------------------------------
 // Endereços reais (pages.js) sem recarregar a página: links internos viram pushState. O produto abre
 // por cima da tela em que a pessoa está; ao fechar, o endereço volta para o anterior.
@@ -539,22 +781,25 @@ function setMeta(r){
  $('link[rel="canonical"]')?.setAttribute('href',SITE+m.path.slice(1));
 }
 function showView(view,brand){
- const studio=view==='studio',marcas=view==='marcas',checkout=view==='checkout';
- $('#shop-view').hidden=studio||marcas||checkout;$('#studio-view').hidden=!studio;$('#marcas-view').hidden=!marcas;$('#checkout-view').hidden=!checkout;document.documentElement.classList.toggle('studio',studio);document.documentElement.classList.toggle('checkout-mode',checkout);
- if(marcas)renderMarcas(brand);
- if(studio)renderDesign();
- if(checkout)renderCheckout();
- if(studio||marcas||checkout)window.scrollTo({top:0,behavior:'instant'});
+ const VIEWS={shop:'#shop-view',studio:'#studio-view',marcas:'#marcas-view',checkout:'#checkout-view',editor:'#editor-view',admin:'#admin-view'};
+ for(const [k,sel] of Object.entries(VIEWS))$(sel).hidden=k!==view;
+ document.documentElement.classList.toggle('studio',view==='studio');document.documentElement.classList.toggle('checkout-mode',view==='checkout');
  shownView=view;shownBrand=brand;
+ if(view==='marcas')renderMarcas(brand);
+ if(view==='studio')renderDesign();
+ if(view==='checkout')renderCheckout();
+ if(view==='editor')renderEditorPage();
+ if(view==='admin')renderAdminPage();
+ if(view!=='shop')window.scrollTo({top:0,behavior:'instant'});
 }
 function route(){
  let r=parseRoute(location.pathname,location.hash);
  // Endereço que não existe (ou peça e marca que saíram): mostra a loja e avisa.
- const missing=r.notFound?'Essa página não existe.':r.product&&!PRODUCTS.some(p=>p.id===r.product)?'Essa peça não está mais à venda.':r.brand&&!BRANDS.some(b=>b.slug===r.brand)?'Essa marca não está mais na duavesso.':'';
+ const missing=r.notFound?'Essa página não existe.':r.product&&!PRODUCTS.some(p=>p.id===r.product)?'Essa peça não está mais à venda.':r.brand&&!findBrand(r.brand)&&!online()?'Essa marca não está mais na duavesso.':'';
  if(missing){r=parseRoute('/');r.legacy=true;toast(`${missing} Veja a coleção.`);}
  if(r.legacy)history.replaceState(history.state,'',r.path);
  const view=r.product&&shownView?shownView:r.view,brand=r.product&&shownView?shownBrand:r.brand??null;
- if(view!==shownView||brand!==shownBrand)showView(view,brand);
+ if(view!==shownView||brand!==shownBrand||view==='editor')showView(view,brand);
  if(r.product)showProduct(r.product);
  else if($('#product-dialog').open){closingByRoute=true;closeDialog($('#product-dialog'));closingByRoute=false;}
  setMeta(r.product?r:{view,brand});
@@ -571,7 +816,7 @@ document.addEventListener('click',e=>{
  const target=url.pathname==='/'&&url.hash&&!['#inicio','#colecao','#sobre'].includes(url.hash)&&document.getElementById(url.hash.slice(1));
  if(target){e.preventDefault();target.setAttribute('tabindex','-1');target.focus();return;}
  if(url.pathname===location.pathname&&url.hash&&location.pathname==='/')return; // âncora na própria loja: o navegador cuida
- e.preventDefault();navigate(url.pathname+url.hash);
+ e.preventDefault();navigate(url.pathname+url.search+url.hash);
 });
 window.addEventListener('popstate',route);
 window.addEventListener('hashchange',route);
@@ -676,8 +921,8 @@ function avatarInner(p,user){return p&&p.avatar?`<img src="${esc(p.avatar)}" alt
 async function showAccount(tab){
  const user=getUser();if(!user){openAuth('login');return;}
  $('#account-content').innerHTML='<p class="helper">Carregando sua conta…</p>';openDialog('#account-dialog');
- let orders=[],p=null;
- try{[orders,p]=await Promise.all([fetchMyOrders(),loadProfile()]);}catch(error){$('#account-content').innerHTML=`<p class="helper">${esc(error.message)}</p>`;return;}
+ let orders=[],p=null,mine=[],admin=false;
+ try{[orders,p,mine,admin]=await Promise.all([fetchMyOrders(),loadProfile(),myBrands(),isAdmin()]);}catch(error){$('#account-content').innerHTML=`<p class="helper">${esc(error.message)}</p>`;return;}
  let avatarData=p?.avatar||'';
  const ordersPanel=orders.length?`<div class="order-list">${orders.map(orderCardHTML).join('')}</div>`:'<div class="empty-state"><h3>Nenhum pedido ainda.</h3><p>Quando você comprar logado, seus pedidos aparecem aqui com o status atualizado.</p><button class="button button-blue" id="empty-shop">Ver a coleção <span>↗</span></button></div>';
  const cityEnabled=!!(p?.state||p?.city);
@@ -691,10 +936,13 @@ async function showAccount(tab){
   <label>Endereço e número<input name="address" maxlength="160" value="${esc(p?.address||'')}" autocomplete="street-address" placeholder="Rua, número, complemento"></label>
   <div class="profile-actions"><button type="submit" class="button button-blue">Salvar dados <span>→</span></button>${user.provider==='google'?'':'<button type="button" class="text-button" id="change-password">Trocar senha</button>'}</div>
  </form>`;
- $('#account-content').innerHTML=`<header class="account-id"><span class="account-avatar" aria-hidden="true">${avatarInner(p,user)}</span><div class="account-id-text"><strong>${esc(user.name||firstName(user))}</strong><p>${esc(user.email)}${user.provider==='google'?' · <span class="provider-badge">Google</span>':''}</p></div><button class="account-signout" id="sign-out">Sair</button></header><nav class="account-tabs" role="tablist" aria-label="Seções da conta"><button type="button" role="tab" class="account-tab" data-acc-tab="orders" aria-selected="true">Pedidos${orders.length?`<span class="tab-count">${orders.length}</span>`:''}</button><button type="button" role="tab" class="account-tab" data-acc-tab="profile" aria-selected="false">Perfil</button></nav><section class="account-panel" data-acc-panel="orders">${ordersPanel}</section><section class="account-panel" data-acc-panel="profile" hidden>${profilePanel}</section>`;
+ $('#account-content').innerHTML=`<header class="account-id"><span class="account-avatar" aria-hidden="true">${avatarInner(p,user)}</span><div class="account-id-text"><strong>${esc(user.name||firstName(user))}</strong><p>${esc(user.email)}${user.provider==='google'?' · <span class="provider-badge">Google</span>':''}</p></div><button class="account-signout" id="sign-out">Sair</button></header>${admin?'<a class="account-admin" href="painel">Painel da duavesso <span aria-hidden="true">→</span></a>':''}<nav class="account-tabs" role="tablist" aria-label="Seções da conta"><button type="button" role="tab" class="account-tab" data-acc-tab="orders" aria-selected="true">Pedidos${orders.length?`<span class="tab-count">${orders.length}</span>`:''}</button><button type="button" role="tab" class="account-tab" data-acc-tab="profile" aria-selected="false">Perfil</button>${mine.length?'<button type="button" role="tab" class="account-tab" data-acc-tab="brand" aria-selected="false">Minha Marca</button>':''}</nav><section class="account-panel" data-acc-panel="orders">${ordersPanel}</section><section class="account-panel" data-acc-panel="profile" hidden>${profilePanel}</section>${mine.length?`<section class="account-panel" data-acc-panel="brand" hidden>${mine.map(b=>`<article class="acc-brand" style="${themeCSS(b.theme)}"><span class="acc-brand-logo">${b.logo_path?`<img src="${esc(brandAssetURL(b.logo_path))}" alt="">`:esc(b.name.slice(0,4))}</span><div><b>${esc(b.name)}</b><p>/marcas/${esc(b.slug)} · ${b.status==='active'?'publicada':'suspensa'}</p></div><a class="button button-blue" href="minha-marca?marca=${esc(b.slug)}">Editar minha loja <span>→</span></a><a class="text-button" href="marcas/${esc(b.slug)}">Ver a loja</a></article>`).join('')}<p class="panel-note">Na sua loja você troca nome, bio, logo, capa, cores (sólidas ou em degradê) e a peça em destaque. O que você publica entra no ar na hora.</p></section>`:''}`;
  const accTabs=$$('.account-tab');
  accTabs.forEach(t=>t.addEventListener('click',()=>{accTabs.forEach(x=>x.setAttribute('aria-selected',String(x===t)));$$('.account-panel').forEach(pl=>{pl.hidden=pl.dataset.accPanel!==t.dataset.accTab;});}));
  if(tab==='profile')$('.account-tab[data-acc-tab="profile"]')?.click();
+ if(tab==='brand')$('.account-tab[data-acc-tab="brand"]')?.click();
+ // Links da conta (editor, painel, loja da marca) levam a outra tela: fecha a janela da conta
+ $$('#account-content a[href]:not([target])').forEach(a=>a.addEventListener('click',()=>closeDialog($('#account-dialog'))));
  $('#empty-shop')?.addEventListener('click',()=>{closeDialog($('#account-dialog'));location.hash='#colecao';});
  $('#sign-out').addEventListener('click',async()=>{await signOut();closeDialog($('#account-dialog'));toast('Você saiu da sua conta.');});
  $('#change-password')?.addEventListener('click',()=>{closeDialog($('#account-dialog'));openAuth('password');});

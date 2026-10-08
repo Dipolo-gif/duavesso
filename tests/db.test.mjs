@@ -31,7 +31,7 @@ async function order(items,{shipping='standard',cust=customer}={}){
 const rejects=(items,re,opts)=>assert.rejects(order(items,opts),re);
 
 test('all migrations apply in order and 0006, 0007 and 0008 can be applied twice',async()=>{
- for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
+ for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
 });
 
 test('active catalog in the database matches dist/commerce.js field by field',async()=>{
@@ -262,4 +262,104 @@ test('coupons: preview and order use the same server rule, limits and dates are 
   for(let i=0;i<20;i++)await db.query(`select public.check_coupon('X',100)`);
   await assert.rejects(db.query(`select public.check_coupon('X',100)`),/Muitas tentativas/);
  },{ip:'5.5.5.5'});
+});
+
+// 0009 · Marcas parceiras ------------------------------------------------------------------------
+const ADMIN='bbbbbbbb-0000-4000-8000-00000000000a',OWNER='bbbbbbbb-0000-4000-8000-00000000000b',OTHER='bbbbbbbb-0000-4000-8000-00000000000c';
+async function brandUsers(){
+ await db.query(`insert into auth.users (id,email,email_confirmed_at) values ($1,'duavesso.co@gmail.com',now()),($2,'dono@exemplo.com',now()),($3,'outra@exemplo.com',now()) on conflict (id) do nothing`,[ADMIN,OWNER,OTHER]);
+}
+// Executa como uma pessoa logada e desfaz no fim (o erro de uma consulta não contamina a outra)
+async function as(sub,sql,params=[]){
+ await db.exec('begin');
+ try{if(sub)await db.query("select set_config('request.jwt.claim.sub',$1,true)",[sub]);await db.exec(`set local role ${sub?'authenticated':'anon'}`);return await db.query(sql,params);}
+ finally{await db.exec('rollback');}
+}
+const asAdmin=(sql,p)=>as(ADMIN,sql,p);
+
+test('marcas: só a conta da duavesso com e-mail confirmado é administradora',async()=>{
+ await brandUsers();
+ const admin=async sub=>(await as(sub,'select public.is_admin() as a')).rows[0].a;
+ assert.equal(await admin(null),false);assert.equal(await admin(OWNER),false);assert.equal(await admin(ADMIN),true);
+ await db.query(`update auth.users set email_confirmed_at=null where id=$1`,[ADMIN]);
+ try{assert.equal(await admin(ADMIN),false,'e-mail não confirmado não vira admin');}
+ finally{await db.query(`update auth.users set email_confirmed_at=now() where id=$1`,[ADMIN]);}
+});
+
+test('marcas: as 3 marcas de hoje estão no banco e o público só vê as ativas',async()=>{
+ await brandUsers();
+ const pub=(await as(null,'select slug,name,tagline from public.brands order by slug')).rows;
+ assert.deepEqual(pub.map(b=>b.slug),['geek','solfado','try84']);
+ assert.equal(pub.find(b=>b.slug==='try84').tagline,'rugby lifestyle · forward together');
+ assert.deepEqual((await db.query(`select id from public.products where brand_slug='geek' order by id`)).rows.map(r=>r.id),['geek-carpa','geek-coracao']);
+ await db.exec('begin');
+ try{
+  await db.query(`update public.brands set status='suspended' where slug='solfado'`);
+  await db.query(`insert into public.brand_members (brand_slug,user_id) values ('solfado',$1)`,[OWNER]);
+  await db.query("select set_config('request.jwt.claim.sub','',true)");await db.exec('set local role anon');
+  assert.deepEqual((await db.query('select slug from public.brands order by slug')).rows.map(b=>b.slug),['geek','try84'],'suspensa some do público');
+  await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,true)",[OWNER]);await db.exec('set local role authenticated');
+  assert.deepEqual((await db.query(`select slug from public.brands where slug='solfado'`)).rows.length,1,'o dono ainda vê a própria marca suspensa');
+ }finally{await db.exec('rollback');}
+});
+
+test('marcas: o dono edita só o conteúdo da própria marca, nunca situação ou plano',async()=>{
+ await brandUsers();
+ await db.exec('begin');
+ try{
+  await db.query(`insert into public.brand_members (brand_slug,user_id) values ('try84',$1)`,[OWNER]);
+  await db.query("select set_config('request.jwt.claim.sub',$1,true)",[OWNER]);await db.exec('set local role authenticated');
+  const up=await db.query(`update public.brands set bio='Nova bio', theme='{"mode":"gradient","c1":"#112233","c2":"#ffeedd","angle":90,"accent":"#ff0066"}', links='{"instagram":"try84","site":"https://try84.com.br"}' where slug='try84'`);
+  assert.equal(up.affectedRows,1);
+  assert.equal((await db.query(`update public.brands set bio='invasão' where slug='geek'`)).affectedRows,0,'marca de outro: nada muda');
+  assert.deepEqual((await db.query('select slug from public.my_brands()')).rows.map(r=>r.slug),['try84']);
+ }finally{await db.exec('rollback');}
+ for(const sql of [`update public.brands set status='active' where slug='try84'`,`update public.brands set plan='paid' where slug='try84'`,`update public.brands set slug='x' where slug='try84'`,`insert into public.brands (slug,name) values ('nova','Nova')`,`delete from public.brands where slug='try84'`])
+  await assert.rejects(as(OWNER,sql),/permission denied/,sql);
+});
+
+test('marcas: cores, links, imagens e peça em destaque são conferidos pelo banco',async()=>{
+ await brandUsers();
+ const bad=[[`theme='{"mode":"solid","c1":"red","c2":"#000000","angle":0,"accent":"#ffffff"}'`,'cor fora do formato'],[`theme='{"mode":"neon","c1":"#000000","c2":"#000000","angle":0,"accent":"#ffffff"}'`,'modo inválido'],[`theme='{"mode":"solid","c1":"#000000","c2":"#000000","angle":999,"accent":"#ffffff"}'`,'ângulo'],[`links='{"site":"javascript:alert(1)"}'`,'link perigoso'],[`links='{"tiktok":"x"}'`,'link desconhecido'],[`logo_path='geek/logo-abcdef.webp'`,'imagem de outra marca'],[`cover_path='http://evil.com/x.jpg'`,'imagem externa']];
+ for(const [set,why] of bad)await assert.rejects(asAdmin(`update public.brands set ${set} where slug='try84'`),/check|violates/,why);
+ await asAdmin(`update public.brands set logo_path='try84/logo-abc123.webp', cover_path='assets/try84-hero.jpg' where slug='try84'`);
+ await asAdmin(`update public.brands set featured_product_id='geek-coracao', featured_badge='Lançamento', featured_until=now()+interval '3 days' where slug='geek'`);
+ await assert.rejects(asAdmin(`update public.brands set featured_product_id='heavy-avesso' where slug='geek'`),/peça ativa da sua marca/);
+});
+
+test('marcas: painel da duavesso cria marca por e-mail, suspende e marca o plano pago',async()=>{
+ await brandUsers();
+ await assert.rejects(as(OWNER,`select public.admin_list_brands()`),/Área restrita/);
+ await assert.rejects(as(null,`select public.admin_list_brands()`),/permission denied/);
+ await db.exec('begin');
+ try{
+  await db.query("select set_config('request.jwt.claim.sub',$1,true)",[ADMIN]);await db.exec('set local role authenticated');
+  assert.deepEqual((await db.query(`select public.admin_create_brand('DONO@exemplo.com','estudio-mar','Estúdio Mar') as r`)).rows[0].r,{slug:'estudio-mar'});
+  await assert.rejects(db.query(`select public.admin_create_brand('ninguem@exemplo.com','x-y','X')`),/Não existe conta/);
+ }finally{await db.exec('rollback');}
+ await db.exec('begin');
+ try{
+  await db.query("select set_config('request.jwt.claim.sub',$1,true)",[ADMIN]);await db.exec('set local role authenticated');
+  await db.query(`select public.admin_create_brand('dono@exemplo.com','try84','TRY84')`);
+  await db.query(`select public.admin_set_brand_plan('try84','paid','Pix recebido em 08/10')`);
+  await db.query(`select public.admin_set_brand_status('try84','suspended')`);
+  const list=(await db.query('select public.admin_list_brands() as l')).rows[0].l,t=list.find(b=>b.slug==='try84');
+  assert.deepEqual([t.plan,t.status,t.paid_note,t.owners.map(o=>o.email)],['paid','suspended','Pix recebido em 08/10',['dono@exemplo.com']]);
+  assert(t.paid_at,'data do pagamento');
+  assert.equal(list.find(b=>b.slug==='geek').products,2);
+  await db.query(`select public.admin_remove_owner('try84','dono@exemplo.com')`);
+  assert.equal((await db.query(`select count(*)::int as n from public.brand_members where brand_slug='try84'`)).rows[0].n,0);
+ }finally{await db.exec('rollback');}
+});
+
+test('marcas: imagens só na pasta da própria marca e com nome no padrão',async()=>{
+ await brandUsers();
+ await db.exec('begin');
+ try{
+  await db.query(`insert into public.brand_members (brand_slug,user_id) values ('try84',$1)`,[OWNER]);
+  await db.query("select set_config('request.jwt.claim.sub',$1,true)",[OWNER]);await db.exec('set local role authenticated');
+  await db.query(`insert into storage.objects (bucket_id,name) values ('brand-assets','try84/logo-a1b2c3d4.webp')`);
+  for(const name of ['geek/logo-a1b2c3d4.webp','try84/script-a1b2c3d4.webp','try84/sub/logo-a1b2c3d4.webp'])
+   await db.query('savepoint s').then(()=>assert.rejects(db.query(`insert into storage.objects (bucket_id,name) values ('brand-assets',$1)`,[name]),/row-level security/,name)).then(()=>db.query('rollback to savepoint s'));
+ }finally{await db.exec('rollback');}
 });
