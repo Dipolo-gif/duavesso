@@ -653,7 +653,8 @@ test('brand pages come from the database: colors, gradient, featured piece with 
 test('Minha Marca: the owner gets the tab, edits identity and free colors (gradient, HEX, color wheel, logo) with a live preview and publishes only content',async()=>{
  const {rows,calls,fetchStub}=brandsBackend();
  const s=await setup(sessionFor('dono@exemplo.com'),fetchStub);try{
- s.w.URL.createObjectURL=()=>'blob:logo';s.w.URL.revokeObjectURL=()=>{};
+ // A CSP do site bloqueia imagens blob: (foi o que quebrou o envio de logo no ar); o logo tem de ser lido como data:
+ s.w.URL.createObjectURL=()=>{throw new Error('blob: é bloqueado pela CSP do site');};
  s.click('#open-account');await tick(40);
  const tab=s.doc.querySelector('.account-tab[data-acc-tab="brand"]');assert(tab,'aba Minha Marca na conta');
  tab.click();const link=s.doc.querySelector('.acc-brand a[href="minha-marca?marca=estudio-mar"]');assert(link);

@@ -604,20 +604,15 @@ const LIMITS={name:60,tagline:80,bio:160,badge:24};
 let colorPicker=null;
 const picker=()=>colorPicker??=createColorPicker();
 // Converte a imagem escolhida para WebP no navegador (remove metadados) e corta no formato pedido
-function reencodeImage(file,{width,height}){
- return new Promise((resolve,reject)=>{
-  if(!/^image\/(png|jpeg|webp)$/.test(file.type)){reject(new Error('Envie PNG, JPG ou WebP.'));return;}
-  if(file.size>10*1024*1024){reject(new Error('A imagem passa de 10 MB.'));return;}
-  const url=URL.createObjectURL(file),img=new Image();
-  img.onload=()=>{
-   const c=document.createElement('canvas');c.width=width;c.height=height;const ctx=c.getContext('2d');
-   const scale=Math.max(width/img.width,height/img.height),w=img.width*scale,h=img.height*scale;
-   ctx.drawImage(img,(width-w)/2,(height-h)/2,w,h);URL.revokeObjectURL(url);
-   c.toBlob(b=>b?resolve(b):reject(new Error('Não foi possível preparar a imagem.')),'image/webp',.9);
-  };
-  img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Não foi possível ler a imagem.'));};
-  img.src=url;
- });
+async function reencodeImage(file,{width,height}){
+ if(!/^image\/(png|jpeg|webp)$/.test(file.type))throw new Error('Envie PNG, JPG ou WebP.');
+ if(file.size>10*1024*1024)throw new Error('A imagem passa de 10 MB.');
+ // Lida como data: (igual ao estúdio): a CSP do site não libera imagens blob:
+ const img=await loadImage(await readAsDataURL(file)).catch(()=>{throw new Error('Não foi possível ler a imagem. Tente outro arquivo PNG, JPG ou WebP.');});
+ const c=document.createElement('canvas');c.width=width;c.height=height;const ctx=c.getContext('2d');
+ const scale=Math.max(width/img.width,height/img.height),w=img.width*scale,h=img.height*scale;
+ ctx.drawImage(img,(width-w)/2,(height-h)/2,w,h);
+ return new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error('Não foi possível preparar a imagem.')),'image/webp',.9));
 }
 // Até 4 cores marcantes do logo, para sugerir como fundo ou destaque
 function paletteFromImage(src){
