@@ -570,3 +570,26 @@ input[type=range]:disabled{opacity:.4}
  .ad-add{grid-template-columns:1fr}
  .acc-brand{grid-template-columns:44px 1fr}.acc-brand .button,.acc-brand .text-button{grid-column:1/-1}
 }
+/* Enquadramento de logo e capa (Minha Marca) */
+.crop-dialog{width:780px;max-width:94vw}
+.crop-body{padding:20px 28px 26px;display:grid;gap:14px}
+.crop-tip{margin:0}
+.crop-stage{position:relative;overflow:hidden;width:100%;aspect-ratio:3/1;background:#111 repeating-conic-gradient(#1c1d20 0 25%,#141518 0 50%) 0 0/20px 20px;border-radius:10px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.crop-stage.dragging{cursor:grabbing}
+.crop-stage:focus-visible{outline:3px solid #5c7cff;outline-offset:3px}
+.crop-stage img,.crop-prev img{position:absolute;max-width:none;pointer-events:none;user-select:none}
+.crop-round{width:min(100%,340px);aspect-ratio:1;justify-self:center}
+.crop-round:after{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 999px #000a;outline:2px dashed #fff8;outline-offset:-2px;pointer-events:none}
+.crop-zoom{display:flex;align-items:center;gap:12px;font-size:13px}
+.crop-zoom input{flex:1;accent-color:var(--blue)}
+.crop-previews{display:grid;grid-template-columns:2.2fr 1fr;gap:16px;align-items:end}
+.crop-previews figure{margin:0;display:grid;gap:6px}
+.crop-previews figcaption{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.crop-prev{position:relative;overflow:hidden;aspect-ratio:3/1;border-radius:6px;background:#111}
+.crop-logo{position:absolute;bottom:0;aspect-ratio:1;border-radius:50%;transform:translateY(50%);background:var(--paper);border:2px solid #fff;box-shadow:0 0 0 1px #0003}
+.crop-prev-desk .crop-logo{left:2.3%;width:7.9%}
+.crop-prev-phone .crop-logo{left:4.6%;width:22.9%}
+.crop-note{margin:0;color:#8a4b00}
+.crop-note:empty{display:none}
+.crop-actions{display:flex;justify-content:flex-end;gap:10px}
+@media(max-width:700px){.crop-body{padding:16px}.crop-previews{grid-template-columns:1fr}.crop-prev-phone{width:62%}.crop-actions .button{flex:1;justify-content:center}}

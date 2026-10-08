@@ -389,7 +389,8 @@ function removePrint(){if(prints.length<=1)return;prints.splice(activePrint,1);a
 function updatePrint(i,patch){if(!prints[i])return;readPrintFields();Object.assign(prints[i],patch);if(i===activePrint)writePrintFields();renderDesign();}
 $('#print-tabs')?.addEventListener('click',e=>{const tab=e.target.closest('[data-print]');if(tab)selectPrint(Number(tab.dataset.print),true);});
 $('#print-tabs')?.addEventListener('keydown',e=>{
- const step={ArrowRight:1,ArrowLeft:-1,Home:-Infinity,End:Infinity}[e.key];if(step===undefined)return;
+ // As setas movem a imagem (como arrastar), então o recorte anda para o lado oposto
+  const step={ArrowRight:1,ArrowLeft:-1,Home:-Infinity,End:Infinity}[e.key];if(step===undefined)return;
  e.preventDefault();const next=step===-Infinity?0:step===Infinity?prints.length-1:(activePrint+step+prints.length)%prints.length;selectPrint(next,true);
 });
 $('#print-actions')?.addEventListener('click',e=>{if(e.target.closest('#add-print'))addPrint();else if(e.target.closest('#remove-print'))removePrint();});
@@ -603,25 +604,66 @@ function renderMarcas(slug){
 const LIMITS={name:60,tagline:80,bio:160,badge:24};
 let colorPicker=null;
 const picker=()=>colorPicker??=createColorPicker();
-// Converte a imagem escolhida para WebP no navegador (remove metadados) e corta no formato pedido
-async function reencodeImage(file,{width,height}){
- if(!/^image\/(png|jpeg|webp)$/.test(file.type))throw new Error('Envie PNG, JPG ou WebP.');
- if(file.size>10*1024*1024)throw new Error('A imagem passa de 10 MB.');
- // Lida como data: (igual ao estúdio): a CSP do site não libera imagens blob:
- const img=await loadImage(await readAsDataURL(file)).catch(()=>{throw new Error('Não foi possível ler a imagem. Tente outro arquivo PNG, JPG ou WebP.');});
- const c=document.createElement('canvas');c.width=width;c.height=height;const ctx=c.getContext('2d');
- const scale=Math.max(width/img.width,height/img.height),w=img.width*scale,h=img.height*scale;
- ctx.drawImage(img,(width-w)/2,(height-h)/2,w,h);
- const blob=await new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error('Não foi possível preparar a imagem.')),'image/webp',.9));
- return {blob,w:img.width,h:img.height};
-}
 // Medidas das imagens da marca. A capa aparece inteira (3:1) em qualquer tela; o logo, num círculo.
 const BRAND_IMG={logo:{width:512,height:512},cover:{width:1800,height:600}};
-function imageFitNote(kind,w,h){
- const s=BRAND_IMG[kind],want=s.width/s.height,got=w/h,size=`${s.width} × ${s.height}`,notes=[];
- if(Math.abs(got-want)>want*.05)notes.push(`Sua imagem tem ${w} × ${h} px, então cortamos ${got>want?'as laterais':'em cima e embaixo'} para caber em ${size}. Confira na prévia.`);
- if(Math.max(s.width/w,s.height/h)>1.05)notes.push(`Ela é menor que ${size} px e pode ficar borrada em telas grandes.`);
- return notes.join(' ');
+// Lê a imagem escolhida como data: (igual ao estúdio): a CSP do site não libera imagens blob:
+async function readBrandImage(file){
+ if(!/^image\/(png|jpeg|webp)$/.test(file.type))throw new Error('Envie PNG, JPG ou WebP.');
+ if(file.size>10*1024*1024)throw new Error('A imagem passa de 10 MB.');
+ const src=await readAsDataURL(file);
+ const img=await loadImage(src).catch(()=>{throw new Error('Não foi possível ler a imagem. Tente outro arquivo PNG, JPG ou WebP.');});
+ return {img,src};
+}
+// Recorta o pedaço escolhido e converte para WebP no navegador (remove metadados)
+function cropToBlob(img,{sx,sy,sw,sh},{width,height}){
+ const c=document.createElement('canvas');c.width=width;c.height=height;
+ c.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,width,height);
+ return new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error('Não foi possível preparar a imagem.')),'image/webp',.9));
+}
+// Enquadramento: a pessoa arrasta a imagem e ajusta o zoom para escolher o pedaço que aparece.
+// Na capa, mostra ao vivo como fica no computador e no celular, com o logo por cima do canto.
+// Devolve o recorte em pixels da imagem original, ou null se a pessoa cancelar.
+function cropBrandImage(img,src,kind){
+ const spec=BRAND_IMG[kind],ratio=spec.width/spec.height,iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height;
+ const sw0=Math.min(iw,ih*ratio),sh0=sw0/ratio,clamp=(v,a,b)=>Math.min(Math.max(v,a),b);
+ let z=1,cx=iw/2,cy=ih/2;
+ const box=cls=>`<div class="${cls}"><img src="${src}" alt="" draggable="false">${kind==='cover'&&cls.startsWith('crop-prev')?'<span class="crop-logo" aria-hidden="true"></span>':''}</div>`;
+ const d=document.createElement('dialog');d.className='crop-dialog';d.setAttribute('aria-labelledby','crop-title');
+ d.innerHTML=`<div class="dialog-heading"><h2 id="crop-title">${kind==='logo'?'Ajuste o logo':'Ajuste a faixa de capa'}</h2></div>
+<div class="crop-body"><p class="helper crop-tip">Arraste a imagem para escolher o que aparece. Use o zoom para aproximar.${kind==='cover'?' A faixa é igual em todas as telas; no celular o logo cobre mais o canto de baixo à esquerda.':' O logo aparece dentro do círculo.'}</p>
+${box(`crop-stage${kind==='logo'?' crop-round':''}`).replace('<div class="crop-stage','<div tabindex="0" role="group" aria-label="Enquadramento: arraste, ou use as setas para mover e + ou - para o zoom" class="crop-stage')}
+<label class="crop-zoom"><span>Zoom</span><input type="range" min="1" max="4" step="0.01" value="1" aria-label="Zoom"></label>
+${kind==='cover'?`<div class="crop-previews"><figure><figcaption>Computador</figcaption>${box('crop-prev crop-prev-desk')}</figure><figure><figcaption>Celular</figcaption>${box('crop-prev crop-prev-phone')}</figure></div>`:''}
+<p class="helper crop-note" aria-live="polite"></p>
+<div class="crop-actions"><button type="button" class="button button-outline" data-crop="cancel">Cancelar</button><button type="button" class="button button-blue" data-crop="ok">Usar esta imagem</button></div></div>`;
+ document.body.append(d);d.showModal();
+ const stage=$('.crop-stage',d),zoom=$('.crop-zoom input',d),note=$('.crop-note',d);
+ const crop=()=>{const sw=sw0/z,sh=sh0/z;cx=clamp(cx,sw/2,iw-sw/2);cy=clamp(cy,sh/2,ih-sh/2);return {sx:cx-sw/2,sy:cy-sh/2,sw,sh};};
+ // Posição em % da caixa: vale para o palco e para as prévias, de qualquer tamanho
+ const pct=n=>`${Math.round(n*1e5)/1e3}%`;
+ const render=()=>{const r=crop();
+  for(const im of $$('.crop-stage img,.crop-prev img',d))Object.assign(im.style,{width:pct(iw/r.sw),height:pct(ih/r.sh),left:pct(-r.sx/r.sw),top:pct(-r.sy/r.sh)});
+  zoom.value=String(z);
+  note.textContent=r.sw<spec.width*.95?`O pedaço escolhido tem ${Math.round(r.sw)} × ${Math.round(r.sh)} px, menor que ${spec.width} × ${spec.height}: pode ficar borrado em telas grandes. Diminua o zoom ou envie uma imagem maior.`:'';};
+ const move=(dx,dy)=>{const r=crop();cx+=dx*r.sw;cy+=dy*r.sh;render();};
+ const setZoom=v=>{z=clamp(v,1,4);render();};
+ let drag=null;
+ stage.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};stage.setPointerCapture?.(e.pointerId);stage.classList.add('dragging');});
+ stage.addEventListener('pointermove',e=>{if(!drag)return;const w=stage.clientWidth||1,h=stage.clientHeight||1;move(-(e.clientX-drag.x)/w,-(e.clientY-drag.y)/h);drag={x:e.clientX,y:e.clientY};});
+ const stop=()=>{drag=null;stage.classList.remove('dragging');};
+ stage.addEventListener('pointerup',stop);stage.addEventListener('pointercancel',stop);
+ stage.addEventListener('wheel',e=>{e.preventDefault();setZoom(z*(1-e.deltaY*.0015));},{passive:false});
+ stage.addEventListener('keydown',e=>{
+  const step={ArrowLeft:[.04,0],ArrowRight:[-.04,0],ArrowUp:[0,.04],ArrowDown:[0,-.04]}[e.key];
+  if(step){e.preventDefault();move(...step);}else if(e.key==='+'||e.key==='='){e.preventDefault();setZoom(z+.1);}else if(e.key==='-'){e.preventDefault();setZoom(z-.1);}
+ });
+ zoom.addEventListener('input',()=>setZoom(Number(zoom.value)));
+ render();stage.focus();
+ return new Promise(resolve=>{
+  const finish=ok=>{const r=crop();d.remove();resolve(ok?r:null);};
+  d.addEventListener('click',e=>{const act=e.target.closest('[data-crop]')?.dataset.crop;if(act)finish(act==='ok');});
+  d.addEventListener('cancel',e=>{e.preventDefault();finish(false);});
+ });
 }
 // Até 4 cores marcantes do logo, para sugerir como fundo ou destaque
 function paletteFromImage(src){
@@ -651,8 +693,8 @@ function renderBrandEditor(container,row,{admin=false}={}){
   <div class="field-row"><label>Nome da marca<input name="name" maxlength="${LIMITS.name}" required value="${esc(draft.name)}"></label><label>Frase curta<input name="tagline" maxlength="${LIMITS.tagline}" value="${esc(draft.tagline||'')}" placeholder="ex.: rugby lifestyle"></label></div>
   <label>Bio <small class="me-count" data-for="bio"></small><textarea name="bio" maxlength="${LIMITS.bio}" rows="3" placeholder="Em uma ou duas frases, o que é a sua marca.">${esc(draft.bio||'')}</textarea></label>
   <div class="me-uploads">
-   <div class="me-up"><span class="me-up-prev me-up-logo" id="me-logo-prev"></span><div><b>Logo</b><small>Quadrado, 512 × 512 px ou maior · PNG, JPG ou WebP</small><small>Aparece num círculo: deixe uma folga nas bordas.</small><div class="me-up-actions"><label class="text-button">Enviar<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-up="logo"></label><button type="button" class="text-button" data-rm="logo_path">Remover</button></div></div></div>
-   <div class="me-up"><span class="me-up-prev me-up-cover" id="me-cover-prev"></span><div><b>Faixa de capa</b><small>1800 × 600 px (3 por 1) · PNG, JPG ou WebP</small><small>Aparece inteira em qualquer tela. Deixe livre o canto de baixo à esquerda, onde fica o logo.</small><div class="me-up-actions"><label class="text-button">Enviar<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-up="cover"></label><button type="button" class="text-button" data-rm="cover_path">Remover</button></div></div></div>
+   <div class="me-up"><span class="me-up-prev me-up-logo" id="me-logo-prev"></span><div><b>Logo</b><small>Quadrado, 512 × 512 px ou maior · PNG, JPG ou WebP</small><small>Aparece num círculo. Ao enviar, você ajusta o enquadramento.</small><div class="me-up-actions"><label class="text-button">Enviar<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-up="logo"></label><button type="button" class="text-button" data-rm="logo_path">Remover</button></div></div></div>
+   <div class="me-up"><span class="me-up-prev me-up-cover" id="me-cover-prev"></span><div><b>Faixa de capa</b><small>1800 × 600 px (3 por 1) · PNG, JPG ou WebP</small><small>Aparece inteira em qualquer tela. Ao enviar, você arrasta a imagem e vê como fica no computador e no celular.</small><div class="me-up-actions"><label class="text-button">Enviar<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-up="cover"></label><button type="button" class="text-button" data-rm="cover_path">Remover</button></div></div></div>
   </div>
   <p class="helper" id="me-up-status" aria-live="polite"></p>
   <div class="field-row"><label>Instagram<input name="instagram" maxlength="30" value="${esc(draft.links.instagram||'')}" placeholder="sem o @" pattern="[A-Za-z0-9._]{1,30}"></label><label>Site (opcional)<input name="site" maxlength="120" value="${esc(draft.links.site||'')}" placeholder="https://"></label></div>
@@ -708,9 +750,11 @@ function renderBrandEditor(container,row,{admin=false}={}){
  const upStatus=$('#me-up-status',container);
  $$('input[data-up]',container).forEach(inp=>inp.addEventListener('change',async()=>{
   const file=inp.files?.[0];inp.value='';if(!file)return;const kind=inp.dataset.up;
-  upStatus.textContent='Preparando a imagem…';
-  try{const {blob,w,h}=await reencodeImage(file,BRAND_IMG[kind]);upStatus.textContent='Enviando…';
-   draft[kind==='logo'?'logo_path':'cover_path']=await uploadBrandAsset(row.slug,kind,blob);upStatus.textContent=['Imagem pronta. Publique para aparecer na loja.',imageFitNote(kind,w,h)].filter(Boolean).join(' ');preview();if(kind==='logo')sug();}
+  upStatus.textContent='Abrindo a imagem…';
+  try{const {img,src}=await readBrandImage(file);upStatus.textContent='';
+   const crop=await cropBrandImage(img,src,kind);if(!crop)return;
+   upStatus.textContent='Enviando…';const blob=await cropToBlob(img,crop,BRAND_IMG[kind]);
+   draft[kind==='logo'?'logo_path':'cover_path']=await uploadBrandAsset(row.slug,kind,blob);upStatus.textContent='Imagem pronta. Publique para aparecer na loja.';preview();if(kind==='logo')sug();}
   catch(error){upStatus.textContent=error.message;}
  }));
  $$('[data-rm]',container).forEach(b=>b.addEventListener('click',()=>{draft[b.dataset.rm]=null;preview();if(b.dataset.rm==='logo_path')sug();}));
