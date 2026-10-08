@@ -711,12 +711,22 @@ test('Minha Marca: the owner gets the tab, edits identity and free colors (gradi
  assert.equal(calls.some(c=>c.url.includes('/brand-assets/estudio-mar/cover-')),false,'cancelar não envia nada');
  crop=await pickCover();crop.querySelector('[data-crop="ok"]').click();await tick(40);
  assert(calls.some(c=>c.url.includes('/storage/v1/object/brand-assets/estudio-mar/cover-')),'capa enquadrada enviada');
+ const ig=form.elements.namedItem('instagram'),site=form.elements.namedItem('site');
+ assert.equal(ig.value,'@estudiomar','perfil salvo aparece como @usuario');
+ ig.value='https://www.instagram.com/estudio.mar_surf/?igsh=MWx0eDJ5';ig.dispatchEvent(new s.w.Event('input',{bubbles:true}));ig.dispatchEvent(new s.w.Event('change',{bubbles:true}));
+ assert.equal(ig.value,'@estudio.mar_surf','link inteiro colado vira @usuario ao sair do campo');
+ const igLink=art().querySelector('.b2-links a[aria-label^="Instagram"]');
+ assert.equal(igLink.textContent,'@estudio.mar_surf','a página mostra só o @usuario');
+ assert.equal(igLink.getAttribute('href'),'https://instagram.com/estudio.mar_surf','o clique abre o perfil, sem o código de rastreio');
+ site.value='estudiomar.com.br';site.dispatchEvent(new s.w.Event('input',{bubbles:true}));site.dispatchEvent(new s.w.Event('change',{bubbles:true}));
+ assert.equal(site.value,'https://estudiomar.com.br','site sem https:// é completado');
  v.querySelector('#me-save').click();await tick(40);
  const patch=calls.find(c=>c.init.method==='PATCH');assert(patch,'publicou');
  const body=JSON.parse(patch.init.body);
  assert.deepEqual(Object.keys(body).sort(),['bio','cover_path','featured_badge','featured_product_id','featured_until','links','logo_path','name','tagline','theme'],'só o conteúdo editável');
  assert.equal(body.name,'Estúdio Mar Surf');assert.deepEqual(body.theme,{mode:'gradient',c1:'#0b3d91',c2:'#ff7a00',angle:120,accent:'#001d48'});
  assert.match(body.logo_path,/^estudio-mar\/logo-[0-9a-z-]+\.webp$/);
+ assert.deepEqual(body.links,{instagram:'estudio.mar_surf',site:'https://estudiomar.com.br'},'banco recebe só o nome de usuário e o site com https');
  assert.match(s.doc.querySelector('#toast').textContent,/publicada/);
  assert.equal(rows.find(b=>b.slug==='estudio-mar').name,'Estúdio Mar Surf');
  }finally{s.close();}

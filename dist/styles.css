@@ -406,6 +406,9 @@ input[type=range]:disabled{opacity:.4}
 .b2-bio{padding:8px 32px 0;max-width:640px;font-size:15px;line-height:1.55;opacity:.92}
 .b2-links{display:flex;flex-wrap:wrap;gap:8px;padding:14px 32px 0}
 .b2-links a{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:999px;border:1px solid color-mix(in srgb,var(--brand-text) 32%,transparent);color:inherit;text-shadow:none}
+.b2-links a{display:inline-flex;align-items:center;gap:6px}
+.b2-ig{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
+.b2-ig .b2-ig-dot{fill:currentColor;stroke:none}
 .b2-links a:hover{background:color-mix(in srgb,var(--brand-text) 10%,transparent)}
 .b2-feat{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);width:calc(100% - 64px);margin:26px 32px 0;background:var(--brand-paint);color:var(--brand-text);border-radius:14px;overflow:hidden;text-align:left;cursor:pointer;box-shadow:0 12px 30px #0000001f;transition:transform .2s}
 .b2-feat:hover{transform:translateY(-2px)}

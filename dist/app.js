@@ -528,9 +528,19 @@ function countdownText(until){
  const d=Math.floor(ms/864e5),h=Math.floor(ms%864e5/36e5),m=Math.floor(ms%36e5/6e4);
  return d?`acaba em ${d}d ${h}h`:h?`acaba em ${h}h ${m}min`:`acaba em ${Math.max(1,m)}min`;
 }
+// Perfil do Instagram: a marca cola o link, o @usuario ou só o nome; guardamos só o nome
+// (o banco aceita só ele), sem os códigos de rastreio que o Instagram põe no fim do link
+function instagramHandle(value){
+ const v=String(value||'').trim(),m=v.match(/^(?:https?:\/\/)?(?:www\.|m\.)?(?:instagram\.com|instagr\.am)\/(?:_u\/)?([^/?#\s]+)/i);
+ if(m&&['p','reel','reels','tv','stories','explore'].includes(m[1].toLowerCase()))return v;
+ return (m?m[1]:v).replace(/^@/,'');
+}
+// Site: aceita sem o https:// e completa (o banco exige https)
+function brandSiteURL(value){const v=String(value||'').trim();return !v?'':/^https?:\/\//i.test(v)?v.replace(/^http:/i,'https:'):`https://${v}`;}
+const IG_ICON='<svg class="b2-ig" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle class="b2-ig-dot" cx="17.5" cy="6.5" r="1.2"/></svg>';
 function brandLinksHTML(b){
  const l=[];
- if(b.links?.instagram)l.push(`<a href="https://instagram.com/${encodeURIComponent(b.links.instagram)}" target="_blank" rel="noopener">Instagram @${esc(b.links.instagram)}</a>`);
+ if(b.links?.instagram)l.push(`<a href="https://instagram.com/${encodeURIComponent(b.links.instagram)}" target="_blank" rel="noopener" aria-label="Instagram @${esc(b.links.instagram)}">${IG_ICON}@${esc(b.links.instagram)}</a>`);
  const site=b.links?.site||b.external;
  if(site)l.push(`<a href="${esc(site)}" target="_blank" rel="noopener">${esc(site.replace(/^https:\/\//,'').replace(/\/$/,''))} <span aria-hidden="true">↗</span></a>`);
  return l.length?`<div class="b2-links">${l.join('')}</div>`:'';
@@ -697,7 +707,7 @@ function renderBrandEditor(container,row,{admin=false}={}){
    <div class="me-up"><span class="me-up-prev me-up-cover" id="me-cover-prev"></span><div><b>Faixa de capa</b><small>1800 × 600 px (3 por 1) · PNG, JPG ou WebP</small><small>Aparece inteira em qualquer tela. Ao enviar, você arrasta a imagem e vê como fica no computador e no celular.</small><div class="me-up-actions"><label class="text-button">Enviar<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-up="cover"></label><button type="button" class="text-button" data-rm="cover_path">Remover</button></div></div></div>
   </div>
   <p class="helper" id="me-up-status" aria-live="polite"></p>
-  <div class="field-row"><label>Instagram<input name="instagram" maxlength="30" value="${esc(draft.links.instagram||'')}" placeholder="sem o @" pattern="[A-Za-z0-9._]{1,30}"></label><label>Site (opcional)<input name="site" maxlength="120" value="${esc(draft.links.site||'')}" placeholder="https://"></label></div>
+  <div class="field-row"><label>Instagram<input name="instagram" maxlength="300" value="${draft.links.instagram?'@'+esc(draft.links.instagram):''}" placeholder="Cole o link do perfil ou @usuario" autocomplete="off"></label><label>Site (opcional)<input name="site" maxlength="130" value="${esc(draft.links.site||'')}" placeholder="suamarca.com.br" inputmode="url" autocomplete="off"></label></div>
  </section>
  <section class="me-card"><h2>Cores</h2><p class="me-hint">Qualquer cor, sólida ou em degradê. Clique no quadradinho para abrir a roda de cores, use o conta-gotas ou digite o código.</p>
   <div class="me-sug" id="me-sug" hidden><small>Sugestões do seu logo</small></div>
@@ -727,10 +737,14 @@ function renderBrandEditor(container,row,{admin=false}={}){
   const bio=el('bio');$('.me-count[data-for="bio"]',container).textContent=`${bio.value.length}/${LIMITS.bio}`;
  };
  const setColor=(k,hex)=>{draft.theme={...draft.theme,[k]:hex.toLowerCase()};if(k==='c1'&&draft.theme.mode==='solid')draft.theme.c2=draft.theme.c1;preview();};
+ form.addEventListener('change',e=>{
+  if(e.target.name==='instagram'){const h=draft.links.instagram;e.target.value=h?(/^[A-Za-z0-9._]{1,30}$/.test(h)?'@'+h:h):'';}
+  if(e.target.name==='site')e.target.value=draft.links.site||'';
+ });
  form.addEventListener('input',e=>{
   const n=e.target.name;
   if(['name','tagline','bio','featured_badge'].includes(n))draft[n]=e.target.value;
-  if(n==='instagram'||n==='site'){const v=e.target.value.trim().replace(/^@/,'');if(v)draft.links[n]=v;else delete draft.links[n];}
+  if(n==='instagram'||n==='site'){const v=n==='instagram'?instagramHandle(e.target.value):brandSiteURL(e.target.value);if(v)draft.links[n]=v;else delete draft.links[n];}
   if(n==='featured_product_id')draft.featured_product_id=e.target.value||null;
   if(n==='featured_until')draft.featured_until=e.target.value?new Date(e.target.value).toISOString():null;
   preview();
@@ -763,7 +777,7 @@ function renderBrandEditor(container,row,{admin=false}={}){
   const name=draft.name.trim();
   if(name.length<2){toast('O nome da marca precisa de pelo menos 2 letras.');el('name').focus();return;}
   if(draft.links.site&&!/^https:\/\/\S{4,120}$/.test(draft.links.site)){toast('O site precisa começar com https://');el('site').focus();return;}
-  if(draft.links.instagram&&!/^[A-Za-z0-9._]{1,30}$/.test(draft.links.instagram)){toast('Instagram: só letras, números, ponto e sublinhado.');el('instagram').focus();return;}
+  if(draft.links.instagram&&!/^[A-Za-z0-9._]{1,30}$/.test(draft.links.instagram)){toast('Instagram: cole o link do perfil (instagram.com/suamarca) ou o @usuario.');el('instagram').focus();return;}
   const btn=$('#me-save',container);btn.disabled=true;btn.textContent='Publicando…';
   try{
    const saved=await updateBrand(row.slug,{name,tagline:(draft.tagline||'').trim(),bio:(draft.bio||'').trim(),theme:draft.theme,logo_path:draft.logo_path||null,cover_path:draft.cover_path||null,links:draft.links,featured_product_id:draft.featured_product_id||null,featured_badge:(draft.featured_badge||'').trim(),featured_until:draft.featured_until||null});
