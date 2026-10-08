@@ -173,6 +173,21 @@ export async function fetchProducts(){
  const rows=await handle(await net(`${SUPABASE_URL}/rest/v1/products?select=${fields}&active=eq.true&order=sort_order`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}}));
  return rows.map(p=>({id:p.id,name:p.name,category:p.category,color:p.color,base:p.base,price:p.price_cents,tag:p.tag,graphic:p.graphic,graphicClass:p.graphic_class,description:p.description,print:p.print,fabric:p.fabric,finish:p.finish,fit:p.fit,care:p.care}));
 }
+// Promoções em vigor (migração 0008). null quando o banco ainda não tem a tabela ou está fora do ar:
+// o site segue com as promoções padrão de commerce.js.
+export async function fetchPromos(){
+ try{
+  const res=await fetch(`${SUPABASE_URL}/rest/v1/promotions?select=kind,min_subtotal_cents,label`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
+  if(!res.ok)return null;
+  return (await res.json()).map(p=>({kind:p.kind,min:p.min_subtotal_cents,label:p.label}));
+ }catch{return null;}
+}
+// Prévia do cupom no checkout; o desconto de verdade é recalculado pelo place_order.
+export async function checkCoupon(code,subtotal){
+ const res=await net(`${SUPABASE_URL}/rest/v1/rpc/check_coupon`,{method:'POST',headers:{...await authHeaders(),'Content-Type':'application/json'},body:JSON.stringify({p_code:code,p_subtotal_cents:subtotal})});
+ if(res.status===404)return {ok:false,message:'Cupons ainda não estão disponíveis.'};
+ return handle(res);
+}
 export async function rpc(name,args){
  return handle(await net(`${SUPABASE_URL}/rest/v1/rpc/${name}`,{method:'POST',headers:{...await authHeaders(),'Content-Type':'application/json'},body:JSON.stringify(args)}));
 }

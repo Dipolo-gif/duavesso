@@ -1,6 +1,6 @@
-import {PRODUCTS,SIZES,CUSTOM,FREE_SHIPPING_MIN,INSTALLMENTS,installment,customMode,shippingSuggestion,money,escapeHTML as esc,totals,addItem,changeQuantity,normalizeCart,validImageURL,garmentLabel,PRINT_ZONES,PRINT_ZONE_AT,isZone,MAX_PRINTS,printsSummary} from './commerce.js';
+import {PRODUCTS,SIZES,CUSTOM,freeShippingMin,setPromos,promoGoals,INSTALLMENTS,installment,customMode,shippingSuggestion,money,escapeHTML as esc,totals,addItem,changeQuantity,normalizeCart,validImageURL,garmentLabel,PRINT_ZONES,PRINT_ZONE_AT,isZone,MAX_PRINTS,printsSummary} from './commerce.js';
 import {CHEST_Y,UNIT} from './studio-placement.js';
-import {online,rpc,uploadDesign,dataURLToBlob,getUser,signIn,signUp,signOut,resetPassword,updatePassword,signInWithGoogle,handleAuthRedirect,fetchProfile,updateProfile,fetchMyOrders} from './api.js';
+import {online,rpc,uploadDesign,dataURLToBlob,getUser,signIn,signUp,signOut,resetPassword,updatePassword,signInWithGoogle,handleAuthRedirect,fetchProfile,updateProfile,fetchMyOrders,fetchPromos,checkCoupon} from './api.js';
 import {BRANDS} from './brands.js';
 import {SITE,parseRoute,isAppPath,pageMeta,productPath} from './pages.js';
 const $=(selector,root=document)=>root.querySelector(selector);
@@ -63,7 +63,7 @@ $('.search-toggle').addEventListener('click',()=>{$('.search-row').hidden=false;
 function showProduct(id){
  const p=PRODUCTS.find(p=>p.id===id);if(!p)return;
  const cat=p.brand==='geek'?'GEEK':p.category==='graphic'?'ESTAMPADAS':p.category==='simples'?'SIMPLES':'ESSENCIAIS';
- $('#product-detail').innerHTML=`<div class="detail-layout"><div class="detail-gallery"><div class="detail-main" id="detail-main"><div class="detail-track" id="detail-track" tabindex="0" aria-label="Fotos do produto. Deslize ou use as setas para ver as outras."></div><span class="detail-count" id="detail-count" aria-hidden="true"></span><div class="detail-dots" id="detail-dots" aria-hidden="true"></div></div><div class="detail-thumbs" id="detail-thumbs" role="group" aria-label="Fotos do produto"></div></div><div class="detail-copy"><span class="eyebrow">DUAVESSO · ${cat}</span><div class="detail-head"><h2>${p.name}</h2><div class="price">${money(p.price)}</div></div><p class="installments">ou ${INSTALLMENTS}x de ${money(installment(p.price))} sem juros</p>${p.variants?`<div class="color-select"><span class="field-label">Cor: <strong id="detail-color-name"></strong></span><div class="detail-swatches" role="group" aria-label="Cor da camiseta">${p.variants.map(v=>`<button type="button" class="detail-swatch" data-base="${v.base}" style="background:${v.swatch}" title="${v.color}"><span class="sr-only">${v.color}</span></button>`).join('')}</div></div>`:`<p class="detail-color"><i class="color-dot" style="background:${p.swatch}"></i> ${p.color}</p>`}<div class="size-head"><span class="field-label" id="detail-size-label">Tamanho</span><button type="button" class="text-link size-guide-button">Guia de medidas</button></div><div class="size-options" role="group" aria-labelledby="detail-size-label">${SIZES.map(s=>`<button type="button" data-size="${s}" aria-pressed="false">${s}</button>`).join('')}</div><div class="detail-cta"><button class="button button-blue" id="add-product" disabled>Selecione um tamanho <span>＋</span></button></div><ul class="trust-row"><li>Frete grátis a partir de ${money(FREE_SHIPPING_MIN)}</li><li>Troca fácil em 30 dias</li><li>Pix ou cartão em até ${INSTALLMENTS}x</li></ul><p class="detail-desc">${p.description}</p><div class="detail-accs"><details class="detail-acc" open><summary>Tecido e acabamento</summary><dl class="specs"><div><dt>Tecido</dt><dd>${p.fabric}</dd></div><div><dt>Acabamento</dt><dd>${p.finish}</dd></div>${p.print?`<div><dt>Estampa</dt><dd>${p.print}</dd></div>`:''}</dl></details><details class="detail-acc"><summary>Caimento</summary><p>${p.fit}</p></details><details class="detail-acc"><summary>Cuidados</summary><p>${p.care}</p></details></div><p class="helper">Imagem, preço e características para demonstração.</p></div></div>`;
+ $('#product-detail').innerHTML=`<div class="detail-layout"><div class="detail-gallery"><div class="detail-main" id="detail-main"><div class="detail-track" id="detail-track" tabindex="0" aria-label="Fotos do produto. Deslize ou use as setas para ver as outras."></div><span class="detail-count" id="detail-count" aria-hidden="true"></span><div class="detail-dots" id="detail-dots" aria-hidden="true"></div></div><div class="detail-thumbs" id="detail-thumbs" role="group" aria-label="Fotos do produto"></div></div><div class="detail-copy"><span class="eyebrow">DUAVESSO · ${cat}</span><div class="detail-head"><h2>${p.name}</h2><div class="price">${money(p.price)}</div></div><p class="installments">ou ${INSTALLMENTS}x de ${money(installment(p.price))} sem juros</p>${p.variants?`<div class="color-select"><span class="field-label">Cor: <strong id="detail-color-name"></strong></span><div class="detail-swatches" role="group" aria-label="Cor da camiseta">${p.variants.map(v=>`<button type="button" class="detail-swatch" data-base="${v.base}" style="background:${v.swatch}" title="${v.color}"><span class="sr-only">${v.color}</span></button>`).join('')}</div></div>`:`<p class="detail-color"><i class="color-dot" style="background:${p.swatch}"></i> ${p.color}</p>`}<div class="size-head"><span class="field-label" id="detail-size-label">Tamanho</span><button type="button" class="text-link size-guide-button">Guia de medidas</button></div><div class="size-options" role="group" aria-labelledby="detail-size-label">${SIZES.map(s=>`<button type="button" data-size="${s}" aria-pressed="false">${s}</button>`).join('')}</div><div class="detail-cta"><button class="button button-blue" id="add-product" disabled>Selecione um tamanho <span>＋</span></button></div><ul class="trust-row"><li>${freeShippingLine()}</li><li>Troca fácil em 30 dias</li><li>Pix ou cartão em até ${INSTALLMENTS}x</li></ul><p class="detail-desc">${p.description}</p><div class="detail-accs"><details class="detail-acc" open><summary>Tecido e acabamento</summary><dl class="specs"><div><dt>Tecido</dt><dd>${p.fabric}</dd></div><div><dt>Acabamento</dt><dd>${p.finish}</dd></div>${p.print?`<div><dt>Estampa</dt><dd>${p.print}</dd></div>`:''}</dl></details><details class="detail-acc"><summary>Caimento</summary><p>${p.fit}</p></details><details class="detail-acc"><summary>Cuidados</summary><p>${p.care}</p></details></div><p class="helper">Imagem, preço e características para demonstração.</p></div></div>`;
  let selected='',activeBase=p.variants?p.variants[0].base:p.base,activePose=0,slides=[];
  const root=$('#product-detail'),track=$('#detail-track',root),thumbsEl=$('#detail-thumbs',root),countEl=$('#detail-count',root),dotsEl=$('#detail-dots',root);
  // Galeria em carrossel: desliza com o dedo (scroll-snap), miniaturas no desktop, contador e pontinhos no celular
@@ -105,7 +105,7 @@ function showSizeGuide(){showInfo('Guia de medidas',`<p>Medidas da peça estendi
 $('#design-form .size-guide-button').addEventListener('click',showSizeGuide);
 $('#footer-size-guide').addEventListener('click',showSizeGuide);
 $('#open-returns').addEventListener('click',()=>showInfo('Trocas e devoluções','<p>Política demonstrativa. Os termos reais devem ser definidos antes de iniciar vendas.</p><h3>30 dias para decidir</h3><p>Peças do catálogo podem ser trocadas ou devolvidas em até 30 dias após o recebimento, sem uso, com etiqueta e na embalagem original.</p><h3>Primeira troca por nossa conta</h3><p>Errou o tamanho? A primeira troca de tamanho tem envio de ida e volta gratuito.</p><h3>Camisetas personalizadas</h3><p>Peças criadas no estúdio são produzidas sob demanda e só entram em troca por defeito de fabricação ou erro de produção. Por isso a prévia é aprovada antes de produzir.</p>'));
-$('#open-shipping').addEventListener('click',()=>showInfo('Entregas e prazos',`<p>Valores e prazos demonstrativos.</p><h3>Padrão</h3><p>R$ 14,90 · 5 a 8 dias úteis. Grátis em pedidos a partir de ${money(FREE_SHIPPING_MIN)} em produtos.</p><h3>Expressa</h3><p>R$ 24,90 · 2 a 3 dias úteis.</p><h3>Personalizadas</h3><p>Peças do estúdio somam 3 dias úteis de produção ao prazo de entrega. Estampas sob medida entram em produção após a aprovação da prévia.</p><h3>Acompanhamento</h3><p>Em uma loja real, o código de rastreio seria enviado por e-mail assim que a peça saísse para entrega.</p>`));
+$('#open-shipping').addEventListener('click',()=>showInfo('Entregas e prazos',`<p>Valores e prazos demonstrativos.</p><h3>Padrão</h3><p>R$ 14,90 · 5 a 8 dias úteis.${freeShippingMin()===null?'':` Grátis em pedidos a partir de ${money(freeShippingMin())} em produtos.`}</p><h3>Expressa</h3><p>R$ 24,90 · 2 a 3 dias úteis.</p><h3>Personalizadas</h3><p>Peças do estúdio somam 3 dias úteis de produção ao prazo de entrega. Estampas sob medida entram em produção após a aprovação da prévia.</p><h3>Acompanhamento</h3><p>Em uma loja real, o código de rastreio seria enviado por e-mail assim que a peça saísse para entrega.</p>`));
 $('#open-contact').addEventListener('click',()=>showInfo('Fale com a gente','<p>Canal de atendimento demonstrativo.</p><h3>Como funcionaria</h3><p>Atendimento por WhatsApp e e-mail, de segunda a sexta, das 9h às 18h. Dúvidas sobre tamanho, prazo ou estampa respondidas em até um dia útil.</p><h3>Por enquanto</h3><p>Esta versão não envia nem recebe mensagens. Consulte as dúvidas frequentes para as respostas mais comuns.</p>'));
 async function submitSubscribe(form,demo,ok){if(!form.reportValidity())return;if(form.elements.namedItem('website')?.value){form.reset();return;}if(!online()){form.reset();toast(demo);return;}const button=$('button[type=submit]',form);button.disabled=true;try{await rpc('subscribe_newsletter',{p_email:form.elements.namedItem('email').value});form.reset();toast(ok);}catch(error){toast(error.message);}finally{button.disabled=false;}}
 function subscribeForm(sel,demo,ok){const form=$(sel);if(form)form.addEventListener('submit',e=>{e.preventDefault();submitSubscribe(form,demo,ok);});}
@@ -131,56 +131,163 @@ function cookieBanner(){
  document.body.appendChild(bar);
 }
 function itemThumb(item){const prod=PRODUCTS.find(x=>x.id===item.id),ph=prod&&photosOf(prod,item.base);return `<div class="cart-thumb">${item.preview&&validImageURL(item.preview)?`<img src="${item.preview}" alt="${esc(item.name)}">`:ph?photoPicture(ph[0],esc(item.name),'88px'):teePicture(item.base,esc(item.name),'88px')+graphicHTML(item)}</div>`;}
-function showCart(){renderCart();openDialog('#cart-dialog');}
+function showCart(){loadPromos();renderCart();openDialog('#cart-dialog');}
 function renderCart(){
  $('#cart-title-count').textContent=`(${totals(cart).count})`;
  if(!cart.length){$('#cart-content').innerHTML=`<div class="empty-state"><h3>Espaço para o seu próximo favorito.</h3><p>Sua sacola está vazia. Encontre uma peça ou crie a sua.</p><button class="button button-blue" id="continue-shopping">Explorar a coleção <span>↗</span></button></div>`;$('#continue-shopping').addEventListener('click',()=>{closeDialog($('#cart-dialog'));location.hash='colecao';});return;}
  const t=totals(cart);
- $('#cart-content').innerHTML=cart.map(item=>`<article class="cart-item">${itemThumb(item)}<div><h3>${esc(item.name)}</h3><p>${esc(item.color)} / ${esc(item.size)}</p>${item.id==='custom'?(customMode(item.design)==='brief'?`<p class="brief-excerpt">“${esc(item.design.brief)}”</p><p>Arte criada pela equipe · prévia para aprovação</p>`:`<p>${esc(printsSummary(item.design))}</p>`):''}<div class="cart-item-bottom"><div class="quantity"><button data-qty="-1" data-key="${esc(item.key)}" aria-label="Diminuir quantidade de ${esc(item.name)}">−</button><span>${item.qty}</span><button data-qty="1" data-key="${esc(item.key)}" aria-label="Aumentar quantidade de ${esc(item.name)}" ${item.qty>=10?'disabled':''}>+</button></div><strong class="price">${money(item.price*item.qty)}</strong></div><button class="remove-item" data-remove="${esc(item.key)}">Remover</button></div></article>`).join('')+`<div class="cart-summary"><div class="summary-row"><span>Subtotal</span><span>${money(t.subtotal)}</span></div><div class="summary-row"><span>Entrega padrão</span><span>${t.delivery?money(t.delivery):'Grátis'}</span></div>${shippingProgressHTML(t.subtotal)}<div class="summary-row summary-total"><span>Total estimado</span><span>${money(t.total)}</span></div><button class="button button-blue" id="begin-checkout">Continuar para compra <span>→</span></button><button class="text-button" id="keep-shopping">Continuar comprando</button><p class="helper">Pré-lançamento: nenhum valor é cobrado por enquanto.</p></div>`;
+ $('#cart-content').innerHTML=cart.map(item=>`<article class="cart-item">${itemThumb(item)}<div><h3>${esc(item.name)}</h3><p>${esc(item.color)} / ${esc(item.size)}</p>${item.id==='custom'?(customMode(item.design)==='brief'?`<p class="brief-excerpt">“${esc(item.design.brief)}”</p><p>Arte criada pela equipe · prévia para aprovação</p>`:`<p>${esc(printsSummary(item.design))}</p>`):''}<div class="cart-item-bottom"><div class="quantity"><button data-qty="-1" data-key="${esc(item.key)}" aria-label="Diminuir quantidade de ${esc(item.name)}">−</button><span>${item.qty}</span><button data-qty="1" data-key="${esc(item.key)}" aria-label="Aumentar quantidade de ${esc(item.name)}" ${item.qty>=10?'disabled':''}>+</button></div><strong class="price">${money(item.price*item.qty)}</strong></div><button class="remove-item" data-remove="${esc(item.key)}">Remover</button></div></article>`).join('')+`<div class="cart-summary"><div class="summary-row"><span>Subtotal</span><span>${money(t.subtotal)}</span></div>${t.promo?`<div class="summary-row summary-discount"><span>Promoção · peça mais barata grátis</span><span>−${money(t.promo)}</span></div>`:''}<div class="summary-row"><span>Entrega padrão</span><span>${t.delivery?money(t.delivery):'Grátis'}</span></div>${promoProgressHTML()}<div class="summary-row summary-total"><span>Total estimado</span><span>${money(t.total)}</span></div><button class="button button-blue" id="begin-checkout">Continuar para compra <span>→</span></button><button class="text-button" id="keep-shopping">Continuar comprando</button><p class="helper">Pré-lançamento: nenhum valor é cobrado por enquanto.</p></div>`;
  $('#begin-checkout').addEventListener('click',()=>{closeDialog($('#cart-dialog'));showCheckout();});
  $('#keep-shopping').addEventListener('click',()=>{closeDialog($('#cart-dialog'));location.hash='colecao';});
  $('[data-suggest]',$('#cart-content'))?.addEventListener('click',e=>{closeDialog($('#cart-dialog'));openProduct(e.currentTarget.dataset.suggest);});
 }
-function shippingProgressHTML(subtotal){
- const remaining=FREE_SHIPPING_MIN-subtotal,pct=Math.min(100,Math.round(subtotal/FREE_SHIPPING_MIN*100));
- if(remaining<=0)return `<div class="shipping-progress unlocked"><p><strong>Frete grátis liberado.</strong> Entrega padrão por nossa conta.</p><div class="progress-track"><div class="progress-fill" style="width:100%"></div></div></div>`;
- const s=shippingSuggestion(cart);
- return `<div class="shipping-progress"><p>Faltam <strong>${money(remaining)}</strong> para o frete grátis.</p><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>${s?`<button class="suggestion" data-suggest="${s.id}"><span class="suggestion-thumb">${photosOf(s)?photoPicture(photosOf(s)[0],'','60px'):teePicture(s.base,'','60px')+graphicHTML(s)}</span><span><strong>Complete com ${esc(s.name)}</strong><small>${money(s.price)} · ${s.price>=remaining?'libera o frete grátis':'e chegue mais perto'}</small></span><span class="suggestion-arrow">→</span></button>`:''}</div>`;
+const freeShippingLine=()=>{const m=freeShippingMin();return m===null?'Entrega para todo o Brasil':`Frete grátis a partir de ${money(m)}`;};
+// Promoções em vigor: lidas do banco uma vez, quando a sacola ou o checkout abrem (a página inicial não chama o banco).
+let promosLoaded=false;
+function loadPromos(){
+ if(promosLoaded||!online())return;promosLoaded=true;
+ fetchPromos().then(list=>{if(!list)return;setPromos(list);if($('#cart-dialog').open)renderCart();if($('#checkout-dialog').open)$('#checkout-form')?.dispatchEvent(new Event('change'));});
+}
+// Avisos "faltam R$ X para..." de cada promoção; na sacola, sugere uma peça que completa o frete grátis.
+function promoProgressHTML({coupon=0,suggest=true}={}){
+ const bar=pct=>`<div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>`;
+ return promoGoals(cart,{coupon}).map(g=>{
+  const pct=Math.min(100,Math.round(g.have/Math.max(1,g.min)*100));
+  if(g.kind==='cheapest_free')return g.remaining?`<div class="shipping-progress"><p>Faltam <strong>${money(g.remaining)}</strong> para a peça mais barata sair de graça.</p>${bar(pct)}</div>`:`<div class="shipping-progress unlocked"><p><strong>Promoção liberada:</strong> a peça mais barata sai de graça.</p>${bar(100)}</div>`;
+  if(!g.remaining)return `<div class="shipping-progress unlocked"><p><strong>Frete grátis liberado.</strong> Entrega padrão por nossa conta.</p>${bar(100)}</div>`;
+  const s=suggest&&shippingSuggestion(cart);
+  return `<div class="shipping-progress"><p>Faltam <strong>${money(g.remaining)}</strong> para o frete grátis.</p>${bar(pct)}${s?`<button class="suggestion" data-suggest="${s.id}"><span class="suggestion-thumb">${photosOf(s)?photoPicture(photosOf(s)[0],'','60px'):teePicture(s.base,'','60px')+graphicHTML(s)}</span><span><strong>Complete com ${esc(s.name)}</strong><small>${money(s.price)} · ${s.price>=g.remaining?'libera o frete grátis':'e chegue mais perto'}</small></span><span class="suggestion-arrow">→</span></button>`:''}</div>`;
+ }).join('');
 }
 $('#open-cart').addEventListener('click',showCart);
 $('#cart-content').addEventListener('click',e=>{const q=e.target.closest('[data-qty]'),r=e.target.closest('[data-remove]');if(q)cart=changeQuantity(cart,q.dataset.key,Number(q.dataset.qty));if(r)cart=cart.filter(i=>i.key!==r.dataset.remove);if(q||r){saveCart();renderCart();}});
 
+// Checkout ---------------------------------------------------------------------------
+// Pagamento à esquerda (contato, entrega e forma de pagamento), pedido à direita (peças agrupadas por
+// marca, cupom e totais). No celular o resumo fica recolhido no topo e o botão de finalizar fica fixo.
+const CO_ICON={
+ card:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M6 15h4"/></svg>',
+ pix:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 9-9 9-9-9z"/><path d="M8.5 12h7"/></svg>',
+ boleto:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5v14M7 5v14M9.5 5v14M13 5v14M15.5 5v14M18 5v14M20 5v14"/></svg>',
+ lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>'
+};
+const PAY_PANEL={
+ 'Cartão':total=>`<div class="co-secure"><p class="co-secure-title">${CO_ICON.lock}<span>Campo seguro do cartão</span><span class="co-flags"><i>Visa</i><i>Master</i><i>Elo</i><i>Amex</i></span></p><p>Os dados do cartão são digitados num campo seguro do provedor de pagamento e nunca passam pela loja. Ele entra no ar junto com a cobrança.</p></div><label class="co-installments">Parcelas<select name="installments">${Array.from({length:INSTALLMENTS},(_,i)=>`<option value="${i+1}">${i+1}x de ${money(Math.ceil(total/(i+1)))} sem juros</option>`).join('')}</select></label>`,
+ 'Pix':()=>`<p><strong>Aprovação na hora.</strong> Depois de confirmar, aparece o QR Code do Pix para pagar no app do seu banco. O pedido entra em produção assim que o pagamento cai.</p>`,
+ 'Boleto':()=>`<p><strong>Vencimento em 2 dias úteis.</strong> O pedido entra em produção quando o banco confirma o pagamento, o que leva até 2 dias úteis depois de pago.</p>`
+};
+// Marca de cada peça, para agrupar o resumo com a etiqueta de cada uma.
+function itemBrand(item){
+ if(item.id==='custom')return {slug:'estudio',name:'Estúdio duavesso',theme:'duavesso'};
+ const p=PRODUCTS.find(x=>x.id===item.id),b=p?.brand&&BRANDS.find(x=>x.slug===p.brand);
+ return b?{slug:b.slug,name:b.name,theme:b.theme}:{slug:'duavesso',name:'duavesso',theme:'duavesso'};
+}
+// "Rua X, 123 - Ap 4" (o que fica no perfil) volta separado em rua, número e complemento.
+function splitAddress(full){const m=String(full||'').match(/^(.*?),\s*([0-9]+[A-Za-z]?|s\/n)\s*(?:-\s*(.*))?$/i);return m?{address:m[1],number:m[2],complement:m[3]||''}:{address:full||'',number:'',complement:''};}
+const joinAddress=d=>[`${String(d.get('address')).trim()}, ${String(d.get('number')).trim()}`,String(d.get('complement')||'').trim()].filter(Boolean).join(' - ');
 function showCheckout(){
  if(!cart.length){showCart();return;}
- const live=online();
- $('#checkout-content').innerHTML=`<div class="demo-note">${live?'Pagamento ainda não integrado: o pedido é registrado como “aguardando pagamento” e nenhum valor é cobrado agora.':'Este é um pedido de demonstração: não há cobrança nem envio de produtos. Use dados fictícios.'}</div><form id="checkout-form"><div class="checkout-columns"><div class="checkout-fields"><div style="display:flex;justify-content:space-between;gap:15px;align-items:center"><h3>Dados para entrega</h3>${live?'':'<button type="button" class="text-button" id="fill-demo">Preencher exemplo</button>'}</div><label>Nome<input name="name" autocomplete="name" required minlength="3" maxlength="80" placeholder="Seu nome"></label><label>E-mail<input name="email" type="email" autocomplete="email" required maxlength="120" placeholder="voce@exemplo.com"></label><div class="field-row" style="margin:0"><label>CEP<input name="cep" inputmode="numeric" autocomplete="postal-code" required pattern="[0-9]{5}-?[0-9]{3}" maxlength="9" placeholder="00000-000" title="Informe 8 dígitos, com ou sem hífen"></label><label>Estado<select name="uf" autocomplete="address-level1" required><option value="">Selecione…</option>${UF_LIST.map(([s,n])=>`<option value="${s}">${esc(n)}</option>`).join('')}</select></label></div><p class="helper" id="checkout-cep-status" aria-live="polite"></p><label>Cidade<input name="city" autocomplete="address-level2" required minlength="2" maxlength="80" placeholder="Sua cidade"></label><label>Endereço e número<input name="address" autocomplete="street-address" required minlength="5" maxlength="160" placeholder="Rua Exemplo, 123"></label><fieldset><legend>Entrega</legend><label class="radio-option"><input type="radio" name="shipping" value="standard" checked> Padrão · 5 a 8 dias úteis</label><label class="radio-option"><input type="radio" name="shipping" value="express"> Expressa · 2 a 3 dias úteis · R$ 24,90</label></fieldset><fieldset><legend>Pagamento</legend><label class="radio-option"><input type="radio" name="payment" value="Pix" checked> Pix</label><label class="radio-option"><input type="radio" name="payment" value="Cartão"> Cartão</label><p class="helper">${live?'Nenhum dado bancário é pedido aqui. A cobrança ainda não está ativa.':'Nenhum dado bancário é necessário. A aprovação é simulada.'}</p></fieldset></div><aside class="checkout-summary" id="checkout-summary" aria-live="polite"></aside></div><button type="submit" class="button button-blue checkout-submit">${live?'Confirmar pedido':'Confirmar pedido demonstrativo'} <span>→</span></button><p class="helper">${live?'Seus dados de entrega ficam guardados com segurança, só para este pedido. O histórico de itens fica também neste navegador.':'Nome, e-mail e endereço não são armazenados. O histórico de itens fica apenas neste navegador.'}</p></form>`;
- const form=$('#checkout-form');
- const user=getUser();
- if(user){const email=form.elements.namedItem('email');email.value=user.email;email.readOnly=true;loadProfile().then(p=>{for(const k of ['name','cep','city','address']){const input=form.elements.namedItem(k);if(p?.[k]&&!input.value)input.value=p[k];}if(p?.state&&!form.elements.namedItem('uf').value)form.elements.namedItem('uf').value=p.state;if(!form.elements.namedItem('name').value&&user.name)form.elements.namedItem('name').value=user.name;});}
- const summary=()=>{const t=totals(cart,new FormData(form).get('shipping'));$('#checkout-summary').innerHTML=`<h3>Resumo · ${t.count} ${t.count===1?'peça':'peças'}</h3>${cart.map(i=>`<div class="summary-row"><span>${esc(i.name)} · ${esc(i.size)} × ${i.qty}</span><span>${money(i.price*i.qty)}</span></div>`).join('')}<div class="summary-row"><span>Subtotal</span><span>${money(t.subtotal)}</span></div><div class="summary-row"><span>Entrega</span><span>${t.delivery?money(t.delivery):'Grátis'}</span></div><div class="summary-row summary-total"><span>Total</span><span>${money(t.total)}</span></div>`;};
- form.addEventListener('change',summary);summary();
- const cepInput=form.elements.namedItem('cep');
+ loadPromos();
+ const live=online(),state={coupon:null};
+ $('#checkout-content').innerHTML=`<div class="co-steps"><span>Sacola</span><i aria-hidden="true">›</i><b>Entrega e pagamento</b><i aria-hidden="true">›</i><span>Confirmação</span><small class="co-safe">${CO_ICON.lock}Compra segura</small></div>
+<form id="checkout-form" class="co-form">
+ <div class="co-left">
+  <div class="demo-note">${live?'Pré-lançamento: nenhum valor é cobrado agora. O pedido é registrado como “aguardando pagamento”.':'Este é um pedido de demonstração: não há cobrança nem envio de produtos. Use dados fictícios.'}${live?'':' <button type="button" class="text-button" id="fill-demo">Preencher exemplo</button>'}</div>
+  <section class="co-sec" aria-labelledby="co-h1"><h3 id="co-h1"><em>1</em>Contato</h3>
+   <div class="field-row"><label>Nome<input name="name" autocomplete="name" required minlength="3" maxlength="80" placeholder="Seu nome"></label><label>E-mail<input name="email" type="email" autocomplete="email" required maxlength="120" placeholder="voce@exemplo.com"></label></div>
+  </section>
+  <section class="co-sec" aria-labelledby="co-h2"><h3 id="co-h2"><em>2</em>Entrega</h3>
+   <div class="co-row3"><label>CEP<input name="cep" inputmode="numeric" autocomplete="postal-code" required pattern="[0-9]{5}-?[0-9]{3}" maxlength="9" placeholder="00000-000" title="Informe 8 dígitos, com ou sem hífen"></label><label>Estado<select name="uf" autocomplete="address-level1" required><option value="">Selecione…</option>${UF_LIST.map(([s,n])=>`<option value="${s}">${esc(n)}</option>`).join('')}</select></label><label>Cidade<input name="city" autocomplete="address-level2" required minlength="2" maxlength="80" placeholder="Sua cidade"></label></div>
+   <p class="helper" id="checkout-cep-status" aria-live="polite"></p>
+   <div class="co-addr"><label>Endereço<input name="address" autocomplete="address-line1" required minlength="3" maxlength="110" placeholder="Rua, avenida…"></label><label>Número<input name="number" required maxlength="10" placeholder="123" title="Número do endereço (ou s/n)"></label><label>Complemento<input name="complement" autocomplete="address-line2" maxlength="40" placeholder="Apto, bloco (opcional)"></label></div>
+   <fieldset class="co-ship"><legend class="sr-only">Tipo de entrega</legend>
+    <label class="co-opt"><input type="radio" name="shipping" value="standard" checked><span class="co-dot" aria-hidden="true"></span><span class="co-opt-text"><b>Padrão</b><small>5 a 8 dias úteis</small></span><span class="co-opt-price" id="co-price-standard"></span></label>
+    <label class="co-opt"><input type="radio" name="shipping" value="express"><span class="co-dot" aria-hidden="true"></span><span class="co-opt-text"><b>Expressa</b><small>2 a 3 dias úteis</small></span><span class="co-opt-price">${money(2490)}</span></label>
+   </fieldset>
+  </section>
+  <section class="co-sec" aria-labelledby="co-h3"><h3 id="co-h3"><em>3</em>Pagamento</h3>
+   <fieldset class="co-pay"><legend class="sr-only">Forma de pagamento</legend>
+    <label class="co-pm"><input type="radio" name="payment" value="Cartão" checked>${CO_ICON.card}<b>Cartão de crédito</b><small>até ${INSTALLMENTS}x sem juros</small></label>
+    <label class="co-pm"><input type="radio" name="payment" value="Pix">${CO_ICON.pix}<b>Pix</b><small>aprovação na hora</small></label>
+    <label class="co-pm"><input type="radio" name="payment" value="Boleto">${CO_ICON.boleto}<b>Boleto</b><small>até 2 dias úteis</small></label>
+   </fieldset>
+   <div class="co-panel" id="co-pay-panel" aria-live="polite"></div>
+  </section>
+  <div class="co-submit"><div class="co-submit-total"><strong id="co-bar-total"></strong><small id="co-bar-inst"></small></div><button type="submit" class="button button-blue checkout-submit">Finalizar compra</button></div>
+  <p class="co-trust"><span>Pagamento criptografado</span><span>Troca fácil em 30 dias</span><span>Produzido e entregue pela duavesso</span></p>
+ </div>
+ <aside class="co-right">
+  <details class="co-summary" open><summary><span>Seu pedido · <span id="co-count"></span></span><strong id="co-sum-total"></strong></summary>
+   <div id="co-items"></div>
+   <div class="co-cupom"><input name="coupon" maxlength="20" autocomplete="off" placeholder="Cupom de desconto" aria-label="Cupom de desconto"><button type="button" id="co-apply">Aplicar</button></div>
+   <p class="helper" id="co-cupom-msg" aria-live="polite"></p>
+   <div id="checkout-summary" aria-live="polite"></div>
+   <p class="co-made">Todas as peças são produzidas e entregues pela duavesso, num pedido só.</p>
+  </details>
+ </aside>
+</form>`;
+ const form=$('#checkout-form'),el=k=>form.elements.namedItem(k),user=getUser();
+ if(matchMedia('(max-width: 700px)').matches)$('.co-summary',form).open=false;
+ if(user){el('email').value=user.email;el('email').readOnly=true;loadProfile().then(p=>{
+  for(const k of ['name','cep','city'])if(p?.[k]&&!el(k).value)el(k).value=p[k];
+  if(p?.address&&!el('address').value){const a=splitAddress(p.address);for(const k of ['address','number','complement'])el(k).value=a[k];}
+  if(p?.state&&!el('uf').value)el('uf').value=p.state;
+  if(!el('name').value&&user.name)el('name').value=user.name;
+ });}
+ // Peças agrupadas por marca, com a etiqueta de cada uma
+ const groups=new Map();for(const item of cart){const b=itemBrand(item);if(!groups.has(b.slug))groups.set(b.slug,{...b,items:[]});groups.get(b.slug).items.push(item);}
+ $('#co-items').innerHTML=[...groups.values()].map(g=>`<div class="co-group" data-theme="${g.theme}"><span class="co-chip">${esc(g.name)}</span>${g.items.map(i=>`<div class="co-item">${itemThumb(i)}<span class="co-qty">${i.qty}</span><div><b>${esc(i.name)}</b><small>${esc(i.color)} · ${esc(i.size)}</small></div><strong>${money(i.price*i.qty)}</strong></div>`).join('')}</div>`).join('');
+ const payment=()=>new FormData(form).get('payment');
+ const summary=()=>{
+  const data=new FormData(form),t=totals(cart,data.get('shipping'),{coupon:state.coupon?.discount||0}),pay=data.get('payment');
+  const inst=pay==='Cartão'?Number(data.get('installments')||1):1;
+  $('#co-count').textContent=`${t.count} ${t.count===1?'peça':'peças'}`;
+  $('#co-price-standard').textContent=totals(cart,'standard',{coupon:state.coupon?.discount||0}).delivery?money(1490):'Grátis';
+  $('#checkout-summary').innerHTML=`<div class="summary-row"><span>Subtotal</span><span>${money(t.subtotal)}</span></div>${t.promo?`<div class="summary-row summary-discount"><span>Promoção · peça mais barata grátis</span><span>−${money(t.promo)}</span></div>`:''}${t.coupon?`<div class="summary-row summary-discount"><span>Cupom ${esc(state.coupon.code)}</span><span>−${money(t.coupon)}</span></div>`:''}<div class="summary-row"><span>Entrega · ${data.get('shipping')==='express'?'Expressa':'Padrão'}</span><span>${t.delivery?money(t.delivery):'<b class="co-free">Grátis</b>'}</span></div>${promoProgressHTML({coupon:state.coupon?.discount||0,suggest:false})}<div class="summary-row summary-total"><span>Total</span><span>${money(t.total)}</span></div><p class="co-inst">${pay==='Cartão'?`${inst>1?`${inst}x de ${money(Math.ceil(t.total/inst))} sem juros`:`ou até ${INSTALLMENTS}x de ${money(Math.ceil(t.total/INSTALLMENTS))} sem juros`}`:pay==='Pix'?'à vista no Pix':'à vista no boleto'}</p>`;
+  $('#co-sum-total').textContent=money(t.total);$('#co-bar-total').textContent=money(t.total);
+  $('#co-bar-inst').textContent=pay==='Cartão'&&inst>1?`${inst}x de ${money(Math.ceil(t.total/inst))}`:pay;
+  return t;
+ };
+ const renderPayment=()=>{const keep=el('installments')?.value,t=totals(cart,new FormData(form).get('shipping'),{coupon:state.coupon?.discount||0});$('#co-pay-panel').innerHTML=PAY_PANEL[payment()](t.total);if(keep&&el('installments'))el('installments').value=keep;};
+ form.addEventListener('change',e=>{if(['payment','shipping'].includes(e.target?.name)||e.target===form)renderPayment();summary();});
+ renderPayment();summary();
+ // Cupom: prévia pelo banco (o pedido recalcula); mudar o código depois de aplicar desfaz o desconto.
+ el('coupon').addEventListener('input',()=>{if(state.coupon){state.coupon=null;$('#co-cupom-msg').textContent='';summary();}});
+ $('#co-apply').addEventListener('click',async()=>{
+  const code=el('coupon').value.trim().toUpperCase(),msg=$('#co-cupom-msg');
+  if(!code){msg.textContent='Digite o código do cupom.';return;}
+  if(!live){msg.textContent='Cupons valem só na loja online.';return;}
+  const t=totals(cart);msg.textContent='Conferindo o cupom…';
+  try{const r=await checkCoupon(code,t.subtotal-t.promo);
+   if(r?.ok){state.coupon={code:r.code,discount:r.discount_cents};msg.textContent=`Cupom ${r.code} aplicado: −${money(r.discount_cents)}.`;}
+   else{state.coupon=null;msg.textContent=r?.message||'Cupom inválido ou expirado.';}
+  }catch(error){state.coupon=null;msg.textContent=error.message;}
+  renderPayment();summary();
+ });
+ const cepInput=el('cep');
  cepInput.addEventListener('input',()=>{cepInput.value=maskCEP(cepInput.value);if(cepInput.value.replace(/\D/g,'').length===8)checkoutCEP(form);});
- $('#fill-demo')?.addEventListener('click',()=>{for(const [key,value] of Object.entries({name:'Cliente de Exemplo',email:'cliente@example.com',cep:'60000-000',uf:'CE',city:'Fortaleza',address:'Rua de Exemplo, 123'}))form.elements.namedItem(key).value=value;});
+ $('#fill-demo')?.addEventListener('click',()=>{for(const [key,value] of Object.entries({name:'Cliente de Exemplo',email:'cliente@example.com',cep:'60000-000',uf:'CE',city:'Fortaleza',address:'Rua de Exemplo',number:'123'}))el(key).value=value;});
  form.addEventListener('submit',async e=>{
   e.preventDefault();if(!form.reportValidity()||!cart.length)return;
-  const data=new FormData(form),payment=data.get('payment'),shipping=data.get('shipping'),button=$('.checkout-submit',form);
+  const data=new FormData(form),pay=data.get('payment'),shipping=data.get('shipping'),button=$('.checkout-submit',form);
+  const extra={address:joinAddress(data),coupon:state.coupon?.code||null,installments:pay==='Cartão'?Number(data.get('installments')||1):1};
   let result;
   if(live){
    button.disabled=true;button.textContent='Registrando pedido…';
-   try{result=await submitOrder(data,shipping,payment);}
-   catch(error){toast(error.message);button.disabled=false;button.innerHTML='Confirmar pedido <span>→</span>';return;}
-  }else{const t=totals(cart,shipping);result={code:`AV-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0,4).toUpperCase()}`,status:'demo',count:t.count,subtotal_cents:t.subtotal,delivery_cents:t.delivery,total_cents:t.total};}
-  const order={id:result.code,status:result.status,date:new Date().toISOString(),payment,shipping,subtotal:result.subtotal_cents,delivery:result.delivery_cents,total:result.total_cents,count:result.count,items:cart.map(({id,name,color,size,qty,price,preview,design})=>({id,name,color,size,qty,price,...(preview?{preview,design}:{})}))};
+   try{result=await submitOrder(data,shipping,pay,extra);}
+   catch(error){toast(error.message);button.disabled=false;button.textContent='Finalizar compra';return;}
+  }else{const t=totals(cart,shipping);result={code:`AV-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0,4).toUpperCase()}`,status:'demo',count:t.count,subtotal_cents:t.subtotal,discount_cents:t.discount,delivery_cents:t.delivery,total_cents:t.total,installments:extra.installments};}
+  const order={id:result.code,status:result.status,date:new Date().toISOString(),payment:pay,shipping,subtotal:result.subtotal_cents,discount:result.discount_cents||0,delivery:result.delivery_cents,total:result.total_cents,count:result.count,items:cart.map(({id,name,color,size,qty,price,preview,design})=>({id,name,color,size,qty,price,...(preview?{preview,design}:{})}))};
   orders=[order,...orders].slice(0,12);
   try{localStorage.setItem(ORDERS_KEY,JSON.stringify(orders));}catch{toast('Pedido confirmado nesta sessão. O histórico não pôde ser salvo no navegador.');}
   cart=[];saveCart();profile=null;
-  $('#checkout-content').innerHTML=`<div class="success"><span class="success-mark">✓</span><p class="eyebrow">${live?'PEDIDO REGISTRADO':'SIMULAÇÃO CONCLUÍDA'}</p><h3>Seu pedido ganhou forma.</h3><p>Pedido <span class="order-id">${esc(order.id)}</span><br>${money(order.total)} · ${esc(payment)}${live?'':' simulado'}</p><div class="demo-note">${live?'Guarde o código do pedido. Nenhum valor foi cobrado: o pagamento ainda não está integrado e o pedido fica como “aguardando pagamento”.':'Nenhuma cobrança foi feita. Este pedido não será produzido nem enviado.'}</div><button class="button button-blue" id="finish-order">Voltar à coleção <span>↗</span></button><p class="helper" style="margin-top:20px">O resumo está em “Meus pedidos”, no rodapé.</p></div>`;
+  const inst=result.installments>1?` em ${result.installments}x de ${money(Math.ceil(order.total/result.installments))}`:'';
+  $('#checkout-content').innerHTML=`<div class="success"><span class="success-mark">✓</span><p class="eyebrow">${live?'PEDIDO REGISTRADO':'SIMULAÇÃO CONCLUÍDA'}</p><h3>Seu pedido ganhou forma.</h3><p>Pedido <span class="order-id">${esc(order.id)}</span><br>${money(order.total)} · ${esc(pay)}${inst}${live?'':' simulado'}</p><div class="demo-note">${live?'Guarde o código do pedido. Nenhum valor foi cobrado: o pagamento ainda não está integrado e o pedido fica como “aguardando pagamento”.':'Nenhuma cobrança foi feita. Este pedido não será produzido nem enviado.'}</div><button class="button button-blue" id="finish-order">Voltar à coleção <span>↗</span></button><p class="helper" style="margin-top:20px">O resumo está em “Meus pedidos”, no rodapé.</p></div>`;
   $('#finish-order').addEventListener('click',()=>{closeDialog($('#checkout-dialog'));location.hash='colecao';});
  });
  openDialog('#checkout-dialog');
 }
-async function submitOrder(data,shipping,payment){
+async function submitOrder(data,shipping,payment,extra){
  // Prévias e artes do estúdio sobem todas em paralelo; a cor (base) de cada peça vai junto para o banco.
  const items=await Promise.all(cart.map(async item=>{
   if(item.id!=='custom')return {kind:'catalog',product_id:item.id,base:item.base,size:item.size,qty:item.qty};
@@ -191,7 +298,7 @@ async function submitOrder(data,shipping,payment){
   if(design.prints)design.image_paths=prints.map(p=>p.image_path||null);
   return {kind:mode==='brief'?'brief':'custom',base:item.base,size:item.size,qty:item.qty,design,preview_path,image_path:arts.find(Boolean)??null};
  }));
- return rpc('place_order',{p_customer:{name:data.get('name'),email:data.get('email'),cep:data.get('cep'),uf:data.get('uf'),city:data.get('city'),address:data.get('address')},p_shipping:shipping,p_payment:payment,p_items:items});
+ return rpc('place_order',{p_customer:{name:data.get('name'),email:data.get('email'),cep:data.get('cep'),uf:data.get('uf'),city:data.get('city'),address:extra.address,...(extra.coupon?{coupon:extra.coupon}:{}),...(payment==='Cartão'?{installments:extra.installments}:{})},p_shipping:shipping,p_payment:payment,p_items:items});
 }
 const STATUS_LABEL={aguardando_pagamento:'Aguardando pagamento',pago:'Pagamento confirmado',em_producao:'Em produção',enviado:'Enviado',entregue:'Entregue',cancelado:'Cancelado'};
 function orderRecordHTML(code,total,line,items){return `<article class="order-record"><strong>${esc(code)} · ${money(total)}</strong><p>${line}</p><ul>${items}</ul></article>`;}

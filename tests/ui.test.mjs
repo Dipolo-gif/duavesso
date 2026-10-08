@@ -104,7 +104,7 @@ test('the catalog stays local (stale server products ignored) and online checkou
  s.click('[data-product="heavy-eclipse"]');s.click('[data-size="M"]');s.click('#add-product');s.click('#begin-checkout');
  assert.equal(s.doc.querySelector('#fill-demo'),null);
  const form=s.doc.querySelector('#checkout-form');
- for(const [k,v] of Object.entries({name:'Cliente Real',email:'cliente@example.com',cep:'60000-000',uf:'CE',city:'Fortaleza',address:'Rua Um, 10'}))form.elements.namedItem(k).value=v;
+ for(const [k,v] of Object.entries({name:'Cliente Real',email:'cliente@example.com',cep:'60000-000',uf:'CE',city:'Fortaleza',address:'Rua Um',number:'10'}))form.elements.namedItem(k).value=v;
  form.dispatchEvent(new s.w.Event('submit',{bubbles:true,cancelable:true}));await new Promise(r=>setTimeout(r,30));
  const order=calls.find(c=>c.url.includes('place_order'));assert(order);const body=JSON.parse(order.init.body);
  assert.deepEqual(body.p_items,[{kind:'catalog',product_id:'heavy-eclipse',base:'brown',size:'M',qty:1}]);assert.equal(body.p_customer.email,'cliente@example.com');
@@ -182,7 +182,7 @@ test('accounts: signup asks for confirmation, login updates header, account list
  const account=s.doc.querySelector('#account-content').textContent;assert(account.includes('AV-DB-1'));assert(account.includes('Em produção'));assert.equal(s.doc.querySelector('#profile-form input[name=city]').value,'Fortaleza');
  s.doc.querySelector('#account-dialog').close();
  s.click('[data-product="heavy-avesso"]');s.click('[data-size="M"]');s.click('#add-product');s.click('#begin-checkout');await new Promise(r=>setTimeout(r,20));
- const form=s.doc.querySelector('#checkout-form');assert.equal(form.elements.namedItem('email').value,'nova@example.com');assert(form.elements.namedItem('email').readOnly);assert.equal(form.elements.namedItem('address').value,'Rua Um, 10');
+ const form=s.doc.querySelector('#checkout-form');assert.equal(form.elements.namedItem('email').value,'nova@example.com');assert(form.elements.namedItem('email').readOnly);assert.equal(form.elements.namedItem('address').value,'Rua Um');assert.equal(form.elements.namedItem('number').value,'10','o número salvo no perfil volta separado');
  const authed=calls.find(c=>c.url.includes('/rest/v1/orders'));assert.equal(authed.init.headers.Authorization,'Bearer tok');
  s.doc.querySelector('#checkout-dialog').close();s.click('#open-account');await new Promise(r=>setTimeout(r,30));s.click('#sign-out');await new Promise(r=>setTimeout(r,20));
  assert.equal(s.doc.querySelector('#open-auth').hidden,false);assert.equal(s.w.localStorage.getItem('duavesso.session.v1'),null);
@@ -302,7 +302,7 @@ test('checkout sends the chosen color and uploads every studio image in parallel
  const s=await setup({'duavesso.cart.v1':cart},fetchStub);try{
  s.click('#open-cart');s.click('#begin-checkout');
  const form=s.doc.querySelector('#checkout-form');
- for(const [k,v] of Object.entries({name:'Cliente Real',email:'cliente@example.com',cep:'60000-000',uf:'CE',city:'Fortaleza',address:'Rua Um, 10'}))form.elements.namedItem(k).value=v;
+ for(const [k,v] of Object.entries({name:'Cliente Real',email:'cliente@example.com',cep:'60000-000',uf:'CE',city:'Fortaleza',address:'Rua Um',number:'10'}))form.elements.namedItem(k).value=v;
  form.dispatchEvent(new s.w.Event('submit',{bubbles:true,cancelable:true}));await new Promise(r=>setTimeout(r,80));
  const uploads=calls.filter(c=>c.url.includes('/storage/v1/object/designs/'));
  assert.equal(uploads.length,3,'1 prévia + 2 artes (a estampa só de texto não sobe nada)');
@@ -463,9 +463,108 @@ test('checkout: the CEP fills state, city and street, and the state (UF) goes wi
  el('cep').value='20040002';el('cep').dispatchEvent(new s.w.Event('input',{bubbles:true}));await new Promise(r=>setTimeout(r,30));
  assert.equal(el('cep').value,'20040-002');assert.equal(el('uf').value,'RJ');assert.equal(el('city').value,'Rio de Janeiro');assert.equal(el('address').value,'Avenida Rio Branco');
  assert.match(s.doc.querySelector('#checkout-cep-status').textContent,/preenchido pelo CEP/);
- el('name').value='Cliente RJ';el('email').value='rj@example.com';el('address').value='Avenida Rio Branco, 1';
+ el('name').value='Cliente RJ';el('email').value='rj@example.com';el('number').value='1';el('complement').value='Sala 2';
  form.dispatchEvent(new s.w.Event('submit',{bubbles:true,cancelable:true}));await new Promise(r=>setTimeout(r,40));
  const body=JSON.parse(calls.find(c=>c.url.includes('place_order')).init.body);
- assert.equal(body.p_customer.uf,'RJ');
+ assert.equal(body.p_customer.uf,'RJ');assert.equal(body.p_customer.address,'Avenida Rio Branco, 1 - Sala 2','rua, número e complemento viram um endereço só');
+ }finally{s.close();}
+});
+
+// Checkout novo -----------------------------------------------------------------------
+const nb=s=>String(s).replace(/\u00a0/g,' '); // o Intl separa "R$" do número com espaço não separável
+function checkoutStub(extra=()=>null){
+ const calls=[];
+ const fetchStub=async(url,init={})=>{
+  url=String(url);calls.push({url,init});
+  const json=(body,status=200)=>({ok:status<400,status,json:async()=>body});
+  const custom=await extra(url,init,json);if(custom)return custom;
+  if(url.includes('/rest/v1/promotions'))return json([{kind:'free_shipping',min_subtotal_cents:25000,label:'Frete grátis'}]);
+  if(url.includes('/rpc/place_order'))return json({code:'AV-CO-1',status:'aguardando_pagamento',count:2,subtotal_cents:27980,discount_cents:0,delivery_cents:0,total_cents:27980,installments:JSON.parse(init.body).p_customer.installments||1});
+  return json([]);
+ };
+ return {calls,fetchStub};
+}
+const twoBrands=[{id:'simples',base:'brown',size:'G',qty:1},{id:'geek-coracao',size:'M',qty:1}];
+async function openCheckout(s){s.click('#open-cart');s.click('#begin-checkout');await new Promise(r=>setTimeout(r,20));return s.doc.querySelector('#checkout-form');}
+function fill(form){for(const [k,v] of Object.entries({name:'Cliente Real',email:'cliente@example.com',cep:'60000-000',uf:'CE',city:'Fortaleza',address:'Rua Um',number:'10'}))form.elements.namedItem(k).value=v;}
+const submit=async(s,form)=>{form.dispatchEvent(new s.w.Event('submit',{bubbles:true,cancelable:true}));await new Promise(r=>setTimeout(r,40));};
+const choose=(s,form,name,value)=>{const r=[...form.querySelectorAll(`input[name="${name}"]`)].find(i=>i.value===value);r.checked=true;r.dispatchEvent(new s.w.Event('change',{bubbles:true}));};
+
+test('checkout: payment on the left, order grouped by brand on the right, no emojis',async()=>{
+ const {fetchStub}=checkoutStub();
+ const s=await setup({'duavesso.cart.v1':twoBrands},fetchStub);try{
+ const form=await openCheckout(s);
+ assert.deepEqual([...form.querySelectorAll('.co-left .co-sec h3')].map(h=>h.textContent.replace(/\d/,'')),['Contato','Entrega','Pagamento']);
+ assert.deepEqual([...form.querySelectorAll('.co-pm b')].map(b=>b.textContent),['Cartão de crédito','Pix','Boleto']);
+ assert(form.querySelectorAll('.co-pm svg').length===3,'ícones de traço, não emojis');
+ assert.deepEqual([...form.querySelectorAll('.co-right .co-chip')].map(c=>c.textContent),['duavesso','duavessogeek'],'peças agrupadas por marca');
+ assert.equal(form.querySelector('.co-group[data-theme="geek"] .co-item b').textContent,'Coração Pixelado');
+ assert(!/\p{Extended_Pictographic}/u.test(s.doc.querySelector('#checkout-dialog').textContent.replace(/[✓›×]/g,'')),'nenhum emoji no checkout');
+ }finally{s.close();}
+});
+
+test('checkout: card shows installments and sends them; Pix and boleto are paid in full',async()=>{
+ const {calls,fetchStub}=checkoutStub();
+ const s=await setup({'duavesso.cart.v1':twoBrands},fetchStub);try{
+ let form=await openCheckout(s);fill(form);
+ const inst=form.elements.namedItem('installments');
+ assert.deepEqual([...inst.options].map(o=>nb(o.textContent)),['1x de R$ 279,80 sem juros','2x de R$ 139,90 sem juros','3x de R$ 93,27 sem juros']);
+ inst.value='3';inst.dispatchEvent(new s.w.Event('change',{bubbles:true}));
+ assert.match(nb(s.doc.querySelector('#checkout-summary .co-inst').textContent),/3x de R\$ 93,27/);
+ assert.match(form.querySelector('.co-secure').textContent,/nunca passam pela loja/);
+ choose(s,form,'payment','Pix');
+ assert.equal(form.elements.namedItem('installments'),null,'Pix não tem parcelas');assert.match(form.querySelector('#co-pay-panel').textContent,/QR Code/);
+ choose(s,form,'payment','Boleto');assert.match(form.querySelector('#co-pay-panel').textContent,/2 dias úteis/);
+ await submit(s,form);
+ let body=JSON.parse(calls.filter(c=>c.url.includes('place_order')).at(-1).init.body);
+ assert.equal(body.p_payment,'Boleto');assert.equal(body.p_customer.installments,undefined);
+ }finally{s.close();}
+ const t=checkoutStub(),s2=await setup({'duavesso.cart.v1':twoBrands},t.fetchStub);try{
+  const form=await openCheckout(s2);fill(form);form.elements.namedItem('installments').value='3';
+  await submit(s2,form);
+  const body=JSON.parse(t.calls.find(c=>c.url.includes('place_order')).init.body);
+  assert.equal(body.p_payment,'Cartão');assert.equal(body.p_customer.installments,3);assert.equal(body.p_customer.address,'Rua Um, 10');
+  assert.match(nb(s2.doc.querySelector('.success').textContent),/em 3x de/);
+ }finally{s2.close();}
+});
+
+test('checkout: coupon is checked by the server, shown as a discount and sent with the order',async()=>{
+ let mode='ok';
+ const {calls,fetchStub}=checkoutStub((url,init,json)=>{
+  if(!url.includes('/rpc/check_coupon'))return null;
+  if(mode==='missing')return json({code:'PGRST202'},404);
+  const {p_code,p_subtotal_cents}=JSON.parse(init.body);
+  return json(p_code==='DEZ'?{ok:true,code:'DEZ',discount_cents:Math.floor(p_subtotal_cents/10)}:{ok:false,message:'Cupom inválido ou expirado.'});
+ });
+ const s=await setup({'duavesso.cart.v1':twoBrands},fetchStub);try{
+ const form=await openCheckout(s),msg=()=>nb(s.doc.querySelector('#co-cupom-msg').textContent),apply=async code=>{form.elements.namedItem('coupon').value=code;s.click('#co-apply');await new Promise(r=>setTimeout(r,20));};
+ await apply('nada');assert.equal(msg(),'Cupom inválido ou expirado.');
+ await apply('dez');
+ assert.equal(msg(),'Cupom DEZ aplicado: −R$ 27,98.');
+ assert.match(nb(s.doc.querySelector('#checkout-summary').textContent),/Cupom DEZ−R\$ 27,98/);
+ assert.equal(nb(s.doc.querySelector('#co-sum-total').textContent),'R$ 251,82');
+ fill(form);await submit(s,form);
+ assert.equal(JSON.parse(calls.find(c=>c.url.includes('place_order')).init.body).p_customer.coupon,'DEZ');
+ }finally{s.close();}
+ mode='missing';const t=await setup({'duavesso.cart.v1':twoBrands},fetchStub);try{
+  const form=await openCheckout(t);form.elements.namedItem('coupon').value='DEZ';t.click('#co-apply');await new Promise(r=>setTimeout(r,20));
+  assert.equal(t.doc.querySelector('#co-cupom-msg').textContent,'Cupons ainda não estão disponíveis.');
+ }finally{t.close();}
+});
+
+test('promotions from the database drive the "faltam R$ X" notices in the bag and the checkout',async()=>{
+ const promos=[{kind:'free_shipping',min_subtotal_cents:30000,label:'Frete grátis'},{kind:'cheapest_free',min_subtotal_cents:40000,label:'Leve a mais barata'}];
+ const {fetchStub}=checkoutStub((url,init,json)=>url.includes('/rest/v1/promotions')?json(promos):null);
+ const s=await setup({'duavesso.cart.v1':twoBrands},fetchStub);try{
+ s.click('#open-cart');await new Promise(r=>setTimeout(r,30));
+ const bag=()=>nb(s.doc.querySelector('#cart-content').textContent);
+ assert.match(bag(),/Faltam R\$ 20,20 para o frete grátis/,'27.980 de 30.000');
+ assert.match(bag(),/Faltam R\$ 120,20 para a peça mais barata sair de graça/);
+ s.click('[data-qty="1"][data-key="geek-coracao-M"]');await new Promise(r=>setTimeout(r,10));
+ assert.match(bag(),/Frete grátis liberado/);assert.match(bag(),/Promoção liberada/);
+ assert.match(bag(),/Promoção · peça mais barata grátis−R\$ 119,90/,'a mais barata (Simples) sai de graça');
+ s.click('#begin-checkout');await new Promise(r=>setTimeout(r,20));
+ assert.match(nb(s.doc.querySelector('#checkout-summary').textContent),/Promoção · peça mais barata grátis−R\$ 119,90/);
+ assert.equal(s.doc.querySelector('#co-price-standard').textContent,'Grátis');
  }finally{s.close();}
 });

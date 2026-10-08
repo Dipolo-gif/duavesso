@@ -30,8 +30,8 @@ async function order(items,{shipping='standard',cust=customer}={}){
 }
 const rejects=(items,re,opts)=>assert.rejects(order(items,opts),re);
 
-test('all migrations apply in order and 0006 and 0007 can be applied twice',async()=>{
- for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
+test('all migrations apply in order and 0006, 0007 and 0008 can be applied twice',async()=>{
+ for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
 });
 
 test('active catalog in the database matches dist/commerce.js field by field',async()=>{
@@ -208,4 +208,58 @@ test('studio uploads stop at the hourly cap set in store_settings',async()=>{
   for(let i=0;i<3;i++)await up();
   await assert.rejects(up(),/row-level security/);
  }finally{await db.exec('rollback');}
+});
+
+// 0008 -----------------------------------------------------------------------------------------
+const orderWith=(items,{payment='Pix',shipping='standard',cust={}}={})=>db.query(`select public.place_order($1::jsonb,$2,$3,$4::jsonb) as r`,[JSON.stringify({...customer,...cust}),shipping,payment,JSON.stringify(items)]).then(r=>r.rows[0].r);
+const tee=(id,qty=1)=>({kind:'catalog',product_id:id,size:'M',qty});
+async function inTx(fn){await db.exec('begin');try{return await fn();}finally{await db.exec('rollback');}}
+
+test('boleto is accepted; installments only on card, from 1 to the store maximum',async()=>{
+ await inTx(async()=>{
+  assert.equal((await orderWith([tee('simples')],{payment:'Boleto'})).installments,1);
+  assert.equal((await orderWith([tee('simples')],{payment:'Cartão',cust:{installments:3}})).installments,3);
+  assert.equal((await orderWith([tee('simples')],{payment:'Pix',cust:{installments:3}})).installments,1,'Pix ignora parcelas');
+  const row=(await db.query('select installments from public.orders order by id desc limit 1')).rows[0];assert.equal(row.installments,1);
+ });
+ await inTx(()=>assert.rejects(orderWith([tee('simples')],{payment:'Cartão',cust:{installments:4}}),/Parcelamento inválido/));
+ await inTx(()=>assert.rejects(orderWith([tee('simples')],{payment:'Dinheiro'}),/Pagamento inválido/));
+});
+
+test('promotions: free shipping threshold comes from the table and the cheapest piece can be free',async()=>{
+ await inTx(async()=>{
+  await db.query(`update public.promotions set min_subtotal_cents=30000 where kind='free_shipping'`);
+  assert.equal((await orderWith([tee('heavy-avesso'),tee('simples')])).delivery_cents,1490,'27.980 não chega a 30.000');
+  assert.equal((await orderWith([tee('heavy-avesso',2)])).delivery_cents,0,'31.980 libera o frete');
+  await db.query(`insert into public.promotions (kind,min_subtotal_cents,label) values ('cheapest_free',40000,'Compre 400 e leve a mais barata')`);
+  const r=await orderWith([tee('heavy-avesso',2),tee('simples')]);
+  assert.deepEqual([r.subtotal_cents,r.promo_discount_cents,r.total_cents],[43970,11990,31980]);
+  assert.equal(r.delivery_cents,0,'31.980 depois do desconto ainda libera o frete de 30.000');
+  assert.equal((await orderWith([tee('heavy-avesso',2)])).promo_discount_cents,0,'abaixo de 400 não ganha');
+  await db.query(`update public.promotions set ends_at=now()-interval '1 day' where kind='cheapest_free'`);
+  assert.equal((await orderWith([tee('heavy-avesso',2),tee('simples')])).promo_discount_cents,0,'promoção vencida não vale');
+ });
+ const visible=await asApi(()=>db.query('select kind,min_subtotal_cents from public.promotions'));
+ assert.deepEqual(visible.rows,[{kind:'free_shipping',min_subtotal_cents:25000}],'a chave pública lê só as promoções em vigor');
+});
+
+test('coupons: preview and order use the same server rule, limits and dates are enforced, codes stay private',async()=>{
+ await inTx(async()=>{
+  await db.query(`insert into public.coupons (code,kind,value,min_subtotal_cents,max_uses,uses,ends_at) values
+   ('DEZ','percent',10,0,null,0,null),('VINTE','fixed',2000,20000,null,0,null),('ESGOTADO','percent',10,0,1,1,null),('VENCIDO','percent',10,0,null,0,now()-interval '1 day')`);
+  const check=async(c,s)=>(await db.query('select public.check_coupon($1,$2) as r',[c,s])).rows[0].r;
+  assert.deepEqual(await check('dez',15990),{ok:true,code:'DEZ',discount_cents:1599});
+  assert.deepEqual(await check('VINTE',15990),{ok:false,message:'Este cupom vale para compras a partir de R$ 200,00.'});
+  assert.equal((await check('ESGOTADO',15990)).ok,false);assert.equal((await check('VENCIDO',15990)).ok,false);assert.equal((await check('NADA',15990)).ok,false);
+  const r=await orderWith([tee('heavy-avesso',2)],{cust:{coupon:'vinte'}});
+  assert.deepEqual([r.subtotal_cents,r.coupon_discount_cents,r.delivery_cents,r.total_cents],[31980,2000,0,29980]);
+  assert.equal((await db.query(`select uses from public.coupons where code='VINTE'`)).rows[0].uses,1,'conta o uso');
+  assert.deepEqual((await db.query(`select coupon_code,discount_cents from public.orders order by id desc limit 1`)).rows[0],{coupon_code:'VINTE',discount_cents:2000});
+  await assert.rejects(orderWith([tee('simples')],{cust:{coupon:'ESGOTADO'}}),/Cupom inválido ou expirado/);
+ });
+ await assert.rejects(asApi(()=>db.query('select * from public.coupons')),/permission denied/);
+ await asApi(async()=>{
+  for(let i=0;i<20;i++)await db.query(`select public.check_coupon('X',100)`);
+  await assert.rejects(db.query(`select public.check_coupon('X',100)`),/Muitas tentativas/);
+ },{ip:'5.5.5.5'});
 });

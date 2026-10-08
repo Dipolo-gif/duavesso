@@ -18,14 +18,33 @@ export const customMode=design=>design?.mode==='brief'?'brief':'create';
 export const garmentLabel=design=>design?.garment?`Cor personalizada ${design.garment}`:design?.color==='black'?'Preto lavado':'Branco giz';
 export const money=cents=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(cents/100);
 export const escapeHTML=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export const FREE_SHIPPING_MIN=25000;
-export function totals(items,shipping='standard'){
- const subtotal=items.reduce((sum,item)=>sum+item.price*item.qty,0);
- const delivery=items.length?(shipping==='express'?2490:subtotal>=FREE_SHIPPING_MIN?0:1490):0;
- return {subtotal,delivery,total:subtotal+delivery,count:items.reduce((sum,item)=>sum+item.qty,0)};
+// Promoções em vigor: vêm da tabela promotions do banco (migração 0008); sem conexão vale o padrão.
+//   free_shipping: frete padrão grátis quando as peças, já com descontos, somam min
+//   cheapest_free: quando as peças somam min, uma unidade da peça mais barata sai de graça
+// A mesma regra está no place_order; o banco sempre dá a palavra final.
+export const DEFAULT_PROMOS=[{kind:'free_shipping',min:25000,label:'Frete grátis'}];
+let PROMOS=DEFAULT_PROMOS;
+export function setPromos(list){PROMOS=Array.isArray(list)?list.filter(p=>['free_shipping','cheapest_free'].includes(p?.kind)&&Number.isInteger(p.min)&&p.min>=0):DEFAULT_PROMOS;}
+const promoMin=kind=>{const v=PROMOS.filter(p=>p.kind===kind).map(p=>p.min);return v.length?Math.min(...v):null;};
+export const freeShippingMin=()=>promoMin('free_shipping');
+// coupon: desconto do cupom já calculado pelo banco (check_coupon) sobre o valor depois da promoção.
+export function totals(items,shipping='standard',{coupon=0}={}){
+ const subtotal=items.reduce((sum,item)=>sum+item.price*item.qty,0),count=items.reduce((sum,item)=>sum+item.qty,0);
+ const gift=promoMin('cheapest_free'),promo=items.length&&gift!==null&&subtotal>=gift?Math.min(...items.map(i=>i.price)):0;
+ const couponOff=Math.min(Math.max(0,coupon|0),subtotal-promo),goods=subtotal-promo-couponOff,ship=freeShippingMin();
+ const delivery=items.length?(shipping==='express'?2490:ship!==null&&goods>=ship?0:1490):0;
+ return {subtotal,promo,coupon:couponOff,discount:promo+couponOff,delivery,total:goods+delivery,count};
+}
+// Quanto falta para cada promoção (para os avisos "faltam R$ X para...").
+export function promoGoals(items,opts){
+ const t=totals(items,'standard',opts),goals=[],ship=freeShippingMin(),gift=promoMin('cheapest_free');
+ if(ship!==null){const have=t.subtotal-t.discount;goals.push({kind:'free_shipping',min:ship,have,remaining:Math.max(0,ship-have)});}
+ if(gift!==null)goals.push({kind:'cheapest_free',min:gift,have:t.subtotal,remaining:Math.max(0,gift-t.subtotal),value:t.promo});
+ return goals;
 }
 export function shippingSuggestion(items){
- const remaining=FREE_SHIPPING_MIN-items.reduce((sum,item)=>sum+item.price*item.qty,0);
+ const ship=freeShippingMin();if(ship===null)return null;
+ const t=totals(items),remaining=ship-(t.subtotal-t.discount);
  if(remaining<=0)return null;
  const inCart=new Set(items.map(i=>i.id)),candidates=[...PRODUCTS].sort((a,b)=>a.price-b.price);
  return candidates.find(p=>p.price>=remaining&&!inCart.has(p.id))||candidates.find(p=>p.price>=remaining)||candidates.at(-1);
