@@ -391,9 +391,9 @@ input[type=range]:disabled{opacity:.4}
 /* Lojas das marcas (cores de cada marca em --brand-*, calculadas por brand-theme.js) */
 .b2{--brand-paint:#161719;--brand-bg:#161719;--brand-text:#fff;--brand-accent:#1737bc;--brand-on-accent:#fff;--brand-shadow:none;margin-top:18px;border:1px solid var(--line);background:#fff;overflow:clip;border-radius:18px}
 .b2-head{background:var(--brand-paint);color:var(--brand-text);text-shadow:var(--brand-shadow);padding:0 0 26px}
-.b2-cover{height:clamp(130px,22vw,260px);background:color-mix(in srgb,var(--brand-bg) 80%,#000)}
+.b2-cover{aspect-ratio:3/1;background:color-mix(in srgb,var(--brand-bg) 80%,#000)}
 .b2-cover img{width:100%;height:100%;object-fit:cover}
-.b2-cover:empty{height:78px;background:linear-gradient(180deg,color-mix(in srgb,var(--brand-bg) 70%,#000),var(--brand-bg))}
+.b2-cover:empty{aspect-ratio:auto;height:78px;background:linear-gradient(180deg,color-mix(in srgb,var(--brand-bg) 70%,#000),var(--brand-bg))}
 .b2-id{display:flex;align-items:flex-end;gap:18px;padding:0 32px;margin-top:-56px}
 .b2-logo{flex:none;width:112px;height:112px;border-radius:50%;background:var(--brand-bg);border:5px solid var(--brand-bg);box-shadow:0 0 0 1px color-mix(in srgb,var(--brand-text) 22%,transparent);display:grid;place-items:center;overflow:hidden;position:relative}
 .b2-logo img{width:100%;height:100%;object-fit:cover}

@@ -612,7 +612,16 @@ async function reencodeImage(file,{width,height}){
  const c=document.createElement('canvas');c.width=width;c.height=height;const ctx=c.getContext('2d');
  const scale=Math.max(width/img.width,height/img.height),w=img.width*scale,h=img.height*scale;
  ctx.drawImage(img,(width-w)/2,(height-h)/2,w,h);
- return new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error('Não foi possível preparar a imagem.')),'image/webp',.9));
+ const blob=await new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error('Não foi possível preparar a imagem.')),'image/webp',.9));
+ return {blob,w:img.width,h:img.height};
+}
+// Medidas das imagens da marca. A capa aparece inteira (3:1) em qualquer tela; o logo, num círculo.
+const BRAND_IMG={logo:{width:512,height:512},cover:{width:1800,height:600}};
+function imageFitNote(kind,w,h){
+ const s=BRAND_IMG[kind],want=s.width/s.height,got=w/h,size=`${s.width} × ${s.height}`,notes=[];
+ if(Math.abs(got-want)>want*.05)notes.push(`Sua imagem tem ${w} × ${h} px, então cortamos ${got>want?'as laterais':'em cima e embaixo'} para caber em ${size}. Confira na prévia.`);
+ if(Math.max(s.width/w,s.height/h)>1.05)notes.push(`Ela é menor que ${size} px e pode ficar borrada em telas grandes.`);
+ return notes.join(' ');
 }
 // Até 4 cores marcantes do logo, para sugerir como fundo ou destaque
 function paletteFromImage(src){
@@ -642,8 +651,8 @@ function renderBrandEditor(container,row,{admin=false}={}){
   <div class="field-row"><label>Nome da marca<input name="name" maxlength="${LIMITS.name}" required value="${esc(draft.name)}"></label><label>Frase curta<input name="tagline" maxlength="${LIMITS.tagline}" value="${esc(draft.tagline||'')}" placeholder="ex.: rugby lifestyle"></label></div>
   <label>Bio <small class="me-count" data-for="bio"></small><textarea name="bio" maxlength="${LIMITS.bio}" rows="3" placeholder="Em uma ou duas frases, o que é a sua marca.">${esc(draft.bio||'')}</textarea></label>
   <div class="me-uploads">
-   <div class="me-up"><span class="me-up-prev me-up-logo" id="me-logo-prev"></span><div><b>Logo</b><small>Quadrado · PNG, JPG ou WebP</small><div class="me-up-actions"><label class="text-button">Enviar<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-up="logo"></label><button type="button" class="text-button" data-rm="logo_path">Remover</button></div></div></div>
-   <div class="me-up"><span class="me-up-prev me-up-cover" id="me-cover-prev"></span><div><b>Faixa de capa</b><small>Horizontal (3:1) · PNG, JPG ou WebP</small><div class="me-up-actions"><label class="text-button">Enviar<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-up="cover"></label><button type="button" class="text-button" data-rm="cover_path">Remover</button></div></div></div>
+   <div class="me-up"><span class="me-up-prev me-up-logo" id="me-logo-prev"></span><div><b>Logo</b><small>Quadrado, 512 × 512 px ou maior · PNG, JPG ou WebP</small><small>Aparece num círculo: deixe uma folga nas bordas.</small><div class="me-up-actions"><label class="text-button">Enviar<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-up="logo"></label><button type="button" class="text-button" data-rm="logo_path">Remover</button></div></div></div>
+   <div class="me-up"><span class="me-up-prev me-up-cover" id="me-cover-prev"></span><div><b>Faixa de capa</b><small>1800 × 600 px (3 por 1) · PNG, JPG ou WebP</small><small>Aparece inteira em qualquer tela. Deixe livre o canto de baixo à esquerda, onde fica o logo.</small><div class="me-up-actions"><label class="text-button">Enviar<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-up="cover"></label><button type="button" class="text-button" data-rm="cover_path">Remover</button></div></div></div>
   </div>
   <p class="helper" id="me-up-status" aria-live="polite"></p>
   <div class="field-row"><label>Instagram<input name="instagram" maxlength="30" value="${esc(draft.links.instagram||'')}" placeholder="sem o @" pattern="[A-Za-z0-9._]{1,30}"></label><label>Site (opcional)<input name="site" maxlength="120" value="${esc(draft.links.site||'')}" placeholder="https://"></label></div>
@@ -700,8 +709,8 @@ function renderBrandEditor(container,row,{admin=false}={}){
  $$('input[data-up]',container).forEach(inp=>inp.addEventListener('change',async()=>{
   const file=inp.files?.[0];inp.value='';if(!file)return;const kind=inp.dataset.up;
   upStatus.textContent='Preparando a imagem…';
-  try{const blob=await reencodeImage(file,kind==='logo'?{width:512,height:512}:{width:1800,height:600});upStatus.textContent='Enviando…';
-   draft[kind==='logo'?'logo_path':'cover_path']=await uploadBrandAsset(row.slug,kind,blob);upStatus.textContent='Imagem pronta. Publique para aparecer na loja.';preview();if(kind==='logo')sug();}
+  try{const {blob,w,h}=await reencodeImage(file,BRAND_IMG[kind]);upStatus.textContent='Enviando…';
+   draft[kind==='logo'?'logo_path':'cover_path']=await uploadBrandAsset(row.slug,kind,blob);upStatus.textContent=['Imagem pronta. Publique para aparecer na loja.',imageFitNote(kind,w,h)].filter(Boolean).join(' ');preview();if(kind==='logo')sug();}
   catch(error){upStatus.textContent=error.message;}
  }));
  $$('[data-rm]',container).forEach(b=>b.addEventListener('click',()=>{draft[b.dataset.rm]=null;preview();if(b.dataset.rm==='logo_path')sug();}));

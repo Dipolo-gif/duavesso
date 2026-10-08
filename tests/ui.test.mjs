@@ -684,6 +684,11 @@ test('Minha Marca: the owner gets the tab, edits identity and free colors (gradi
  Object.defineProperty(up,'files',{value:[file]});up.dispatchEvent(new s.w.Event('change',{bubbles:true}));await tick(40);
  const upload=calls.find(c=>c.url.includes('/storage/v1/object/brand-assets/estudio-mar/logo-'));assert(upload,'logo enviado para a pasta da marca');
  assert(art().querySelector('.b2-logo img').getAttribute('src').includes('/storage/v1/object/public/brand-assets/estudio-mar/logo-'),'prévia com o logo novo');
+ assert.equal(v.querySelector('#me-up-status').textContent,'Imagem pronta. Publique para aparecer na loja.','logo quadrado e grande: sem aviso');
+ assert.match(v.querySelector('.me-up:has([data-up="cover"])').textContent,/1800 × 600 px \(3 por 1\).*Aparece inteira em qualquer tela/,'medidas da capa à vista');
+ const cover=v.querySelector('input[data-up="cover"]');Object.defineProperty(cover,'files',{value:[new s.w.File(['x'],'capa.png',{type:'image/png'})]});
+ cover.dispatchEvent(new s.w.Event('change',{bubbles:true}));await tick(40);
+ assert.match(v.querySelector('#me-up-status').textContent,/1000 × 1000 px, então cortamos em cima e embaixo para caber em 1800 × 600\. .*menor que 1800 × 600 px/,'capa quadrada e pequena: avisa o corte e a resolução');
  v.querySelector('#me-save').click();await tick(40);
  const patch=calls.find(c=>c.init.method==='PATCH');assert(patch,'publicou');
  const body=JSON.parse(patch.init.body);
