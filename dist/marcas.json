@@ -7,17 +7,19 @@
   "status": "active",
   "plan": "free",
   "theme": {
-   "c1": "#141519",
-   "c2": "#141519",
+   "c1": "#3c4461",
+   "c2": "#3c4461",
    "mode": "solid",
    "angle": 135,
-   "accent": "#3a5bff"
+   "accent": "#2f47bf"
   },
-  "logo_path": null,
-  "cover_path": null,
-  "links": {},
-  "featured_product_id": null,
-  "featured_badge": "",
+  "logo_path": "geek/logo-1f9d8682-5be4.webp",
+  "cover_path": "geek/cover-cae2d6da-a19f.webp",
+  "links": {
+   "instagram": "duavesso_co"
+  },
+  "featured_product_id": "geek-coracao",
+  "featured_badge": "Lançamento",
   "featured_until": null,
   "external_url": null
  },
