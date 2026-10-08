@@ -17,7 +17,7 @@ refs.push(...[...app.matchAll(/'(assets\/[^']+\.(?:webp|jpg|png))'/g)].map(m=>m[
 for(const ref of new Set(refs))await exists(ref);
 for(const f of ['dist/vendor/motion.js','dist/vendor/three.js','dist/assets/tee.glb','dist/assets/tee-ao.webp','dist/assets/tee-LICENSE.txt'])await access(f);
 for(const file of ['dist/app.js','dist/commerce.js','dist/motion-ui.js','dist/studio-3d.js','dist/studio-placement.js','dist/brands.js','dist/pages.js','scripts/build-pages.mjs','server.mjs'])execFileSync(process.execPath,['--check',file]);
-for(const id of ['inicio','colecao','sobre','studio-view','design-form','design-canvas','product-dialog','cart-dialog','checkout-dialog'])assert(ids.includes(id),`Missing route/control: ${id}`);
+for(const id of ['inicio','colecao','sobre','studio-view','design-form','design-canvas','product-dialog','cart-dialog','checkout-view'])assert(ids.includes(id),`Missing route/control: ${id}`);
 assert(app.includes('e.preventDefault()'),'Checkout must not submit personal data to a server');
 const css=await readFile('dist/styles.css','utf8');
 assert(css.includes('prefers-reduced-motion'),'Reduced-motion support required');
