@@ -224,6 +224,17 @@ export const adminCreateBrand=(email,slug,name)=>rpc('admin_create_brand',{p_ema
 export const adminSetBrandStatus=(slug,status)=>rpc('admin_set_brand_status',{p_slug:slug,p_status:status});
 export const adminSetBrandPlan=(slug,plan,note)=>rpc('admin_set_brand_plan',{p_slug:slug,p_plan:plan,p_note:note||null});
 export const adminRemoveOwner=(slug,email)=>rpc('admin_remove_owner',{p_slug:slug,p_email:email});
+// Excluir loja (migração 0011): o banco confere o nome digitado e recusa marca com peças à venda
+export const adminDeleteBrand=(slug,confirm)=>rpc('admin_delete_brand',{p_slug:slug,p_confirm:confirm});
+// Depois de excluir, apaga as imagens da pasta da marca (logo, capas e fotos, inclusive as trocadas).
+// Só apaga nomes no padrão das imagens de marca; devolve quantas foram apagadas.
+export async function adminDeleteBrandAssets(slug){
+ const headers={...await authHeaders(),'Content-Type':'application/json'};
+ const list=await handle(await net(`${SUPABASE_URL}/storage/v1/object/list/brand-assets`,{method:'POST',headers,body:JSON.stringify({prefix:slug,limit:1000})}));
+ const names=(Array.isArray(list)?list:[]).map(f=>f?.name).filter(n=>/^(logo|cover|about)-[0-9a-z-]{6,40}\.webp$/.test(n||'')).map(n=>`${slug}/${n}`);
+ if(names.length)await handle(await net(`${SUPABASE_URL}/storage/v1/object/brand-assets`,{method:'DELETE',headers,body:JSON.stringify({prefixes:names})}));
+ return names.length;
+}
 // Pedidos de quem quer ter marca na duavesso (migração 0010): qualquer pessoa envia; só a duavesso lê
 export const applyBrand=({name,email,brand,instagram,about})=>rpc('apply_brand',{p_name:name,p_email:email,p_brand:brand,p_instagram:instagram||null,p_about:about});
 export const adminListApplications=()=>rpc('admin_list_applications',{});

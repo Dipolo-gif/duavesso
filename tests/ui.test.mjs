@@ -614,6 +614,7 @@ function brandsBackend({admin=false,mine=['estudio-mar']}={}){
   if(url.includes('/rest/v1/brands'))return json(slug?rows.filter(b=>b.slug===slug):rows.filter(b=>b.status==='active'));
   if(url.includes('/rpc/my_brands'))return json(rows.filter(b=>mine.includes(b.slug)));
   if(url.includes('/rpc/is_admin'))return json(admin);
+  if(url.includes('/storage/v1/object/list/brand-assets'))return json([{name:'logo-a1b2c3d4.webp',id:'1'},{name:'cover-b2c3d4e5f6.webp',id:'2'},{name:'.emptyFolderPlaceholder',id:'3'}]);
   if(url.includes('/rpc/admin_list_applications'))return admin?json(apps):json({code:'42501',message:'Área restrita à duavesso.'},403);
   if(url.includes('/rpc/admin_list_brands'))return admin?json(rows.map(b=>({...b,owners:mine.includes(b.slug)?[{email:'dono@exemplo.com',name:'Dono'}]:[],products:b.slug==='geek'?2:0}))):json({code:'42501',message:'Área restrita à duavesso.'},403);
   if(url.includes('/rpc/admin_'))return json(url.includes('create')?{slug:JSON.parse(init.body).p_slug}:null,url.includes('create')?200:204);
@@ -790,6 +791,18 @@ test('Painel da duavesso: only the admin gets in, creates a partner brand from a
   assert.deepEqual([ae('email').value,ae('name').value,ae('slug').value],['ana@estudiomar.com','Estúdio Mar Kids','estudio-mar-kids'],'Criar marca preenche o formulário');
   t.doc.querySelector('.ad-app[data-app="7"] [data-app-act="contacted"]').click();await tick(40);
   assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/admin_set_application_status')).init.body),{p_id:7,p_status:'contacted'});
+  // Excluir loja: marca com peças à venda é barrada; nome errado não apaga; nome certo apaga a marca e as imagens
+  const delCalls=()=>calls.filter(c=>c.url.includes('/rpc/admin_delete_brand'));
+  t.w.prompt=()=>'duavessogeek';t.doc.querySelector('.ad-row[data-slug="geek"] [data-act="delete"]').click();await tick(40);
+  assert.match(t.doc.querySelector('#toast').textContent,/tem 2 peças à venda/);assert.equal(delCalls().length,0,'nem chega a perguntar');
+  t.w.prompt=()=>'Estudio';t.doc.querySelector('.ad-row[data-slug="estudio-mar"] [data-act="delete"]').click();await tick(40);
+  assert.match(t.doc.querySelector('#toast').textContent,/não confere/);assert.equal(delCalls().length,0);
+  t.w.prompt=()=>'estúdio mar ';t.doc.querySelector('.ad-row[data-slug="estudio-mar"] [data-act="delete"]').click();await tick(40);
+  assert.deepEqual(JSON.parse(delCalls()[0].init.body),{p_slug:'estudio-mar',p_confirm:'estúdio mar '});
+  assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/storage/v1/object/list/brand-assets')).init.body),{prefix:'estudio-mar',limit:1000});
+  const rm=calls.find(c=>c.init.method==='DELETE'&&c.url.endsWith('/storage/v1/object/brand-assets'));
+  assert.deepEqual(JSON.parse(rm.init.body),{prefixes:['estudio-mar/logo-a1b2c3d4.webp','estudio-mar/cover-b2c3d4e5f6.webp']},'apaga só as imagens da marca');
+  assert.match(t.doc.querySelector('#toast').textContent,/Estúdio Mar foi excluída/);
   t.click('#open-account');await tick(40);assert(t.doc.querySelector('.account-admin[href="painel"]'),'atalho do painel na conta da dona');
  }finally{t.close();}
 });

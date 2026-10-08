@@ -30,6 +30,6 @@ create function storage.filename(name text) returns text language sql immutable 
   select (string_to_array(name, '/'))[array_length(string_to_array(name, '/'), 1)]
 $$;
 create function public.rls_auto_enable() returns event_trigger language plpgsql as $$ begin end $$;
--- Como no Supabase: a API (anon e authenticated) enxerga o esquema storage e grava em storage.objects via RLS.
+-- Como no Supabase: a API (anon e authenticated) enxerga o esquema storage e grava e apaga em storage.objects via RLS.
 grant usage on schema storage to anon, authenticated;
-grant select, insert on storage.objects to anon, authenticated;
+grant select, insert, delete on storage.objects to anon, authenticated;
