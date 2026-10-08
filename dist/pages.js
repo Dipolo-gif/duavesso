@@ -13,7 +13,7 @@ import {BRANDS,brandFromStatic,brandFromRow} from './brands.js';
 
 // Marcas: começa com a lista de reserva (dist/brands.js) e passa a usar a do banco quando ela chega
 // (o app chama setBrandList com as marcas ativas; o gerador de páginas usa dist/marcas.json).
-let BRAND_LIST=BRANDS.map(brandFromStatic);
+let BRAND_LIST=BRANDS.filter(b=>!b.off).map(brandFromStatic);
 export const brandList=()=>BRAND_LIST;
 export const findBrand=slug=>BRAND_LIST.find(b=>b.slug===slug)||null;
 export function setBrandList(rows){if(Array.isArray(rows))BRAND_LIST=rows.filter(r=>r&&r.status!=='suspended').map(brandFromRow);}

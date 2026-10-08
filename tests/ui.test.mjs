@@ -225,25 +225,13 @@ test('several prints: free zones, 2D zone buttons, placeholders left out of the 
  }finally{s.close();}
  const r=await setup({'duavesso.cart.v1':saved});try{r.click('#open-cart');assert(r.doc.querySelector('#cart-content').textContent.includes('2 estampas: frente, manga esquerda'));}finally{r.close();}
 });
-test('Marcas: hub lista as 3 linhas e cada uma abre sua página com tema próprio',async()=>{
+test('Marcas: sem o banco, o hub mostra só as marcas no ar e a geek abre sua página com tema próprio',async()=>{
  const s=await setup();try{
  assert(s.doc.querySelector('.desktop-nav a[href="marcas"]'),'link Marcas no menu');
  s.w.location.hash='marcas';await new Promise(r=>setTimeout(r,10));
  assert.equal(s.doc.querySelector('#marcas-view').hidden,false,'tela Marcas visível');
  assert.equal(s.doc.querySelector('#shop-view').hidden,true,'loja escondida');
- assert.equal(s.doc.querySelectorAll('#marcas-view .brand-card').length,3,'3 marcas no hub');
- assert(s.doc.querySelector('.brand-card[href="marcas/solfado"][data-theme="music"]'),'card solfado com tema music');
- s.w.location.hash='marca-try84';await new Promise(r=>setTimeout(r,10));
- assert(s.doc.querySelector('#marcas-view .b2[data-theme="rugby"]'),'página try84 com tema rugby');assert.match(s.doc.querySelector('#marcas-view .b2').getAttribute('style'),/--brand-paint:#1c1d1f/,'cores da marca');
- assert.equal(s.doc.querySelectorAll('#marcas-view .brand-prod').length,5,'5 produtos reais da TRY84');
- assert(s.doc.querySelector('.brand-prod-img img[src*="try84-"]'),'foto de produto hospedada local');
- assert(s.doc.querySelector('.brand-prod[href^="https://try84.com.br/"]'),'produto linka pro site da marca');
- assert(s.doc.querySelector('.b2-cover img[src*="try84-hero"]'),'capa oficial da try84');
- assert(s.doc.querySelector('#marcas-view a[href="https://try84.com.br"]'),'link para o site da marca');
- assert.equal(s.doc.querySelector('.brand-notify'),null,'marca com coleção não mostra form de aviso');
- s.w.location.hash='marca-solfado';await new Promise(r=>setTimeout(r,10));
- assert.equal(s.doc.querySelectorAll('#marcas-view .brand-prod').length,10,'solfado: 10 estampas');
- assert(s.doc.querySelector('#marcas-view .brand-prod-img img[src*="solfado-"]'),'solfado: estampa com foto real');
+ assert.deepEqual([...s.doc.querySelectorAll('#marcas-view .brand-card')].map(a=>a.getAttribute('href')),['marcas/geek'],'só a geek: TRY84 e SolFáDó saíram da loja');
  s.w.location.hash='marca-geek';await new Promise(r=>setTimeout(r,10));
  assert.equal(s.doc.querySelectorAll('#marcas-view .brand-prod').length,2,'geek: 2 produtos');
  assert(s.doc.querySelector('#marcas-view .brand-prod-img.poses .pose'),'geek: card com poses (Frente/Costas/Lado)');
@@ -261,6 +249,25 @@ test('Marcas: hub lista as 3 linhas e cada uma abre sua página com tema própri
  s.w.location.hash='colecao';await new Promise(r=>setTimeout(r,10));
  assert.equal(s.doc.querySelector('#marcas-view').hidden,true,'ao sair, Marcas some');
  assert.equal(s.doc.querySelector('#shop-view').hidden,false,'loja volta');
+ }finally{s.close();}
+});
+test('Marcas que voltam: reativadas no painel, TRY84 e SolFáDó reaparecem com as fotos, a capa e os links guardados',async()=>{
+ const {rows,fetchStub}=brandsBackend();
+ rows.push(brandRow({slug:'solfado',name:'SolFáDó',tagline:'camisetas inspiradas na música',bio:'Música é a arte do som.',theme:{mode:'solid',c1:'#f2efe7',c2:'#f2efe7',angle:135,accent:'#17324f'}}));
+ const s=await setup({},fetchStub,{path:'/marcas'});try{
+ await new Promise(r=>setTimeout(r,40));
+ assert(s.doc.querySelector('.brand-card[href="marcas/solfado"][data-theme="music"]'),'card solfado com tema music');
+ s.w.location.hash='marca-try84';await new Promise(r=>setTimeout(r,40));
+ assert(s.doc.querySelector('#marcas-view .b2[data-theme="rugby"]'),'página try84 com tema rugby');assert.match(s.doc.querySelector('#marcas-view .b2').getAttribute('style'),/--brand-paint:#1c1d1f/,'cores da marca');
+ assert.equal(s.doc.querySelectorAll('#marcas-view .brand-prod').length,5,'5 produtos reais da TRY84');
+ assert(s.doc.querySelector('.brand-prod-img img[src*="try84-"]'),'foto de produto hospedada local');
+ assert(s.doc.querySelector('.brand-prod[href^="https://try84.com.br/"]'),'produto linka pro site da marca');
+ assert(s.doc.querySelector('.b2-cover img[src*="try84-hero"]'),'capa oficial da try84');
+ assert(s.doc.querySelector('#marcas-view a[href="https://try84.com.br"]'),'link para o site da marca');
+ assert.equal(s.doc.querySelector('.brand-notify'),null,'marca com coleção não mostra form de aviso');
+ s.w.location.hash='marca-solfado';await new Promise(r=>setTimeout(r,40));
+ assert.equal(s.doc.querySelectorAll('#marcas-view .brand-prod').length,10,'solfado: 10 estampas');
+ assert(s.doc.querySelector('#marcas-view .brand-prod-img img[src*="solfado-"]'),'solfado: estampa com foto real');
  }finally{s.close();}
 });
 test('LGPD: banner de consentimento aparece na primeira visita e registra a escolha',async()=>{
@@ -430,7 +437,7 @@ test('real addresses: product link opens over the shop, closing returns, history
  }finally{s.close();}
 });
 test('old # links become real addresses and unknown addresses fall back to the shop with a notice',async()=>{
- for(const [from,to] of [['/#marca-try84','/marcas/try84'],['/#produto-simples','/produto/simples'],['/#estudio','/estudio'],['/#marcas','/marcas']]){
+ for(const [from,to] of [['/#marca-geek','/marcas/geek'],['/#produto-simples','/produto/simples'],['/#estudio','/estudio'],['/#marcas','/marcas']]){
   const s=await setup({},undefined,{path:from});try{assert.equal(s.w.location.pathname,to,from);}finally{s.close();}
  }
  for(const [path,msg] of [['/nao-existe','Essa página não existe'],['/produto/off-line','Essa peça não está mais à venda'],['/marcas/sumiu','Essa marca não está mais']]){
@@ -687,7 +694,7 @@ test('Minha Marca: the owner gets the tab, edits identity and free colors (gradi
  }finally{s.close();}
 });
 
-test('Painel da duavesso: only the admin gets in, creates a partner brand from an e-mail, suspends and marks the R$ 400 plan',async()=>{
+test('Painel da duavesso: only the admin gets in, creates a partner brand from an e-mail, adds owners to existing brands, warns about look-alike names, suspends and marks the R$ 400 plan',async()=>{
  const notAdmin=brandsBackend();
  const s=await setup(sessionFor('dono@exemplo.com'),notAdmin.fetchStub,{path:'/painel'});try{
   await tick(40);assert.match(s.doc.querySelector('#admin-view').textContent,/Área restrita/);
@@ -701,12 +708,21 @@ test('Painel da duavesso: only the admin gets in, creates a partner brand from a
   assert(v.querySelector('.ad-row[data-slug="geek"] a[href="minha-marca?marca=geek"]'),'editar a página de qualquer marca');
   const f=v.querySelector('#ad-add'),fe=n=>f.elements.namedItem(n);fe('email').value='nova@marca.com';fe('name').value='Ação & Reação';fe('name').dispatchEvent(new t.w.Event('input',{bubbles:true}));
   assert.equal(fe('slug').value,'acao-reacao','endereço sugerido a partir do nome');
+  assert.equal(v.querySelector('#ad-twin').hidden,true,'nome novo: sem aviso');
+  const typeName=n=>{fe('name').value=n;fe('name').dispatchEvent(new t.w.Event('input',{bubbles:true}));};
+  typeName('Duavesso Geek');assert.equal(v.querySelector('#ad-twin').hidden,false,'nome parecido com a geek: avisa');
+  assert.match(v.querySelector('#ad-twin').textContent,/Parece a duavessogeek.*\/marcas\/geek.*Adicionar dono/);
+  fe('slug').value='geek';fe('slug').dispatchEvent(new t.w.Event('input',{bubbles:true}));assert.match(v.querySelector('#ad-twin').textContent,/já é da duavessogeek: a conta vira dona dela/);
+  delete fe('slug').dataset.touched;typeName('Ação & Reação');assert.equal(v.querySelector('#ad-twin').hidden,true);
   f.dispatchEvent(new t.w.Event('submit',{bubbles:true,cancelable:true}));await tick(40);
   const create=calls.find(c=>c.url.includes('/rpc/admin_create_brand'));assert.deepEqual(JSON.parse(create.init.body),{p_email:'nova@marca.com',p_slug:'acao-reacao',p_name:'Ação & Reação'});
   t.doc.querySelector('.ad-row[data-slug="try84"] [data-act="status"]').click();await tick(40);
   assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/admin_set_brand_status')).init.body),{p_slug:'try84',p_status:'suspended'});
   t.doc.querySelector('.ad-row[data-slug="try84"] [data-act="plan"]').click();await tick(40);
   assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/admin_set_brand_plan')).init.body),{p_slug:'try84',p_plan:'paid',p_note:'Pix recebido em 08/10'});
+  t.w.prompt=()=>' parceiro@geek.com ';t.doc.querySelector('.ad-row[data-slug="geek"] [data-act="add-owner"]').click();await tick(40);
+  assert.deepEqual(JSON.parse(calls.filter(c=>c.url.includes('/rpc/admin_create_brand')).at(-1).init.body),{p_email:'parceiro@geek.com',p_slug:'geek',p_name:'duavessogeek'},'Adicionar dono liga a conta à marca que já existe');
+  assert.match(t.doc.querySelector('#toast').textContent,/vê a aba Minha Marca/);
   t.click('#open-account');await tick(40);assert(t.doc.querySelector('.account-admin[href="painel"]'),'atalho do painel na conta da dona');
  }finally{t.close();}
 });
