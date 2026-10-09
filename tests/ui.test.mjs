@@ -9,11 +9,12 @@ const placement=(await readFile(new URL('../dist/studio-placement.js',import.met
 const brands=(await readFile(new URL('../dist/brands.js',import.meta.url),'utf8')).replaceAll('export ','');
 const theme=(await readFile(new URL('../dist/brand-theme.js',import.meta.url),'utf8')).replaceAll('export ','');
 const picker=(await readFile(new URL('../dist/color-picker.js',import.meta.url),'utf8')).replaceAll('export ','');
+const charts=(await readFile(new URL('../dist/charts.js',import.meta.url),'utf8')).replaceAll('export ','');
 const pages=(await readFile(new URL('../dist/pages.js',import.meta.url),'utf8')).replace(/^import .*?;\r?\n/gm,'').replaceAll('export ','');
 const app=(await readFile(new URL('../dist/app.js',import.meta.url),'utf8')).replace(/^import .*?;\r?\n/gm,'');
 // path: abre o site já nesse endereço, com a página gerada correspondente (ex.: /produto/simples).
 async function setup(storage={},fetchStub,{reducedMotion=true,path='/'}={}){
- const file=path==='/'||path.startsWith('/#')||!/^\/[a-z]/.test(path)?null:new URL(`../dist${path.split('#')[0]}.html`,import.meta.url);
+ const file=path==='/'||path.startsWith('/#')||!/^\/[a-z]/.test(path)?null:new URL(`../dist${path.split(/[?#]/)[0]}.html`,import.meta.url);
  const page=file?await readFile(file,'utf8').catch(()=>readFile(new URL('../dist/404.html',import.meta.url),'utf8')):html;
  const dom=new JSDOM(page,{url:'http://localhost'+path,runScripts:'outside-only',pretendToBeVisual:true});
  const w=dom.window;
@@ -29,7 +30,7 @@ async function setup(storage={},fetchStub,{reducedMotion=true,path='/'}={}){
  const registry=new Map();
  Object.defineProperty(w.document,'modelContext',{value:{registerTool(tool){registry.set(tool.name,tool);}}});
  if(fetchStub)w.fetch=fetchStub;
- w.eval(commerce+'\n'+api+'\n'+placement+'\n'+brands+'\n'+theme+'\n'+picker+'\n'+pages+'\nconst esc=escapeHTML;\n'+app);
+ w.eval(commerce+'\n'+api+'\n'+placement+'\n'+brands+'\n'+theme+'\n'+picker+'\n'+charts+'\n'+pages+'\nconst esc=escapeHTML;\n'+app);
  await new Promise(resolve=>setTimeout(resolve,10));
  return {dom,w,doc:w.document,registry,click(selector){const e=w.document.querySelector(selector);assert(e,`Missing ${selector}`);e.click();},close(){dom.window.close();}};
 }
@@ -760,9 +761,10 @@ test('Painel da duavesso: only the admin gets in, creates a partner brand from a
   await tick(40);assert.match(s.doc.querySelector('#admin-view').textContent,/Área restrita/);
  }finally{s.close();}
  const {calls,fetchStub}=brandsBackend({admin:true});
- const t=await setup(sessionFor('duavesso.co@gmail.com'),fetchStub,{path:'/painel'});try{
+ const t=await setup(sessionFor('duavesso.co@gmail.com'),fetchStub,{path:'/painel?aba=marcas'});try{
   await tick(40);
   t.w.confirm=()=>true;t.w.prompt=()=>'Pix recebido em 08/10';
+  assert(t.doc.querySelector('.adm-tab.on[href="painel?aba=marcas"]'),'aba Marcas aberta');
   const v=t.doc.querySelector('#admin-view');
   assert.equal(v.querySelectorAll('.ad-row').length,3);
   assert(v.querySelector('.ad-row[data-slug="geek"] a[href="minha-marca?marca=geek"]'),'editar a página de qualquer marca');
@@ -783,14 +785,21 @@ test('Painel da duavesso: only the admin gets in, creates a partner brand from a
   t.w.prompt=()=>' parceiro@geek.com ';t.doc.querySelector('.ad-row[data-slug="geek"] [data-act="add-owner"]').click();await tick(40);
   assert.deepEqual(JSON.parse(calls.filter(c=>c.url.includes('/rpc/admin_create_brand')).at(-1).init.body),{p_email:'parceiro@geek.com',p_slug:'geek',p_name:'duavessogeek'},'Adicionar dono liga a conta à marca que já existe');
   assert.match(t.doc.querySelector('#toast').textContent,/vê a aba Minha Marca/);
+  // Pedidos de marca: aba própria; Criar marca leva para a aba Marcas com o formulário preenchido
+  t.click('.adm-tab[href="painel?aba=pedidos-de-marca"]');await tick(40);
+  assert.equal(t.w.location.search,'?aba=pedidos-de-marca');
+  assert.equal(t.doc.querySelector('.adm-badge[data-badge="pedidos-de-marca"]').textContent,'1','pedidos de marca novos no menu');
   const app=t.doc.querySelector('.ad-app[data-app="7"]');assert(app,'pedido de marca na fila');
   assert.match(t.doc.querySelector('#ad-apps-title').textContent,/Pedidos de marca 1 novo/);
   assert.match(app.textContent,/Estúdio Mar Kids.*Ana Souza.*ana@estudiomar\.com.*@estudiomarkids/);
-  app.querySelector('[data-app-act="create"]').click();
+  app.querySelector('[data-app-act="create"]').click();await tick(40);
+  assert.equal(t.w.location.search,'?aba=marcas','Criar marca abre a aba Marcas');
   const add=t.doc.querySelector('#ad-add'),ae=n=>add.elements.namedItem(n);
   assert.deepEqual([ae('email').value,ae('name').value,ae('slug').value],['ana@estudiomar.com','Estúdio Mar Kids','estudio-mar-kids'],'Criar marca preenche o formulário');
+  t.click('.adm-tab[href="painel?aba=pedidos-de-marca"]');await tick(40);
   t.doc.querySelector('.ad-app[data-app="7"] [data-app-act="contacted"]').click();await tick(40);
   assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/admin_set_application_status')).init.body),{p_id:7,p_status:'contacted'});
+  t.click('.adm-tab[href="painel?aba=marcas"]');await tick(40);
   // Excluir loja: marca com peças à venda é barrada; nome errado não apaga; nome certo apaga a marca e as imagens
   const delCalls=()=>calls.filter(c=>c.url.includes('/rpc/admin_delete_brand'));
   t.w.prompt=()=>'duavessogeek';t.doc.querySelector('.ad-row[data-slug="geek"] [data-act="delete"]').click();await tick(40);
@@ -805,4 +814,148 @@ test('Painel da duavesso: only the admin gets in, creates a partner brand from a
   assert.match(t.doc.querySelector('#toast').textContent,/Estúdio Mar foi excluída/);
   t.click('#open-account');await tick(40);assert(t.doc.querySelector('.account-admin[href="painel"]'),'atalho do painel na conta da dona');
  }finally{t.close();}
+});
+
+// Painel em abas (migração 0012): pedidos, financeiro e peças e custos -------------------------------
+function financeBackend(){
+ const base=brandsBackend({admin:true});
+ const today=new Date(Date.now()-3*3600e3).toISOString().slice(0,10);
+ const orders=[{code:'AV-1042',status:'aguardando_pagamento',created_at:'2026-10-07T15:00:00Z',paid_at:null,payment:'Pix',installments:1,shipping:'standard',subtotal_cents:31980,delivery_cents:1990,discount_cents:0,total_cents:33970,coupon_code:null,customer_name:'Bia Costa',customer_email:'bia@exemplo.com',cep:'01001-000',city:'São Paulo',uf:'SP',address:'Rua Dois, 20',
+  items:[{name:'Coração Pixelado',kind:'catalog',base:'black',color:'Preta',size:'M',qty:2,unit_price_cents:15990}],events:[{at:'2026-10-07T15:00:00Z',type:'created',from:null,to:'aguardando_pagamento',source:'checkout'}]}];
+ const report={from:today,to:today,bucket:'day',
+  current:{site_in:33970,manual_in:45000,in:78970,out:41000,profit:37970,orders:1,pieces:2,piece_cost:9000,brand_share:8000,est_margin:16970},
+  previous:{site_in:0,manual_in:30000,in:30000,out:50000,profit:-20000,orders:0,pieces:0,piece_cost:0,brand_share:0,est_margin:0},
+  pending:{orders:1,cents:33970},series:[{start:today,in:78970,out:41000}],
+  out_by_category:[{category:'Produção',cents:38000},{category:'Repasse a marcas',cents:3000}],
+  in_by_source:[{source:'Venda por fora',cents:45000},{source:'Loja online',cents:33970}],
+  to_pay_brands:[{slug:'geek',name:'duavessogeek',earned:8000,paid:3000,due:5000}],
+  entries:[{source:'site',code:'AV-1042',on:today,kind:'in',category:'Venda online',description:'Pedido AV-1042 · 2 peça(s)',method:'Pix',amount_cents:33970},
+   {source:'manual',id:11,on:today,kind:'out',category:'Produção',description:'=Impressão DTF',method:'Pix',amount_cents:38000,brand_slug:null,brand_name:null}]};
+ const pieces={custom_unit_cost_cents:5000,products:[
+  {id:'geek-coracao',name:'Coração Pixelado',price_cents:15990,active:true,brand_slug:'geek',brand_name:'duavessogeek',unit_cost_cents:4500,brand_base_cents:11990},
+  {id:'simples',name:'Oversized Simples',price_cents:9990,active:true,brand_slug:null,brand_name:null,unit_cost_cents:0,brand_base_cents:null}]};
+ const json=body=>({ok:true,status:200,json:async()=>body});
+ const fetchStub=async(url,init={})=>{
+  const u=String(url);
+  if(u.includes('/rpc/admin_list_orders')){base.calls.push({url:u,init});const b=JSON.parse(init.body||'{}');return json({counts:{aguardando_pagamento:1,pago:2},orders:b.p_status&&b.p_status!=='aguardando_pagamento'?[]:orders});}
+  if(u.includes('/rpc/admin_finance_report')){base.calls.push({url:u,init});return json(report);}
+  if(u.includes('/rpc/admin_list_product_finance')){base.calls.push({url:u,init});return json(pieces);}
+  return base.fetchStub(url,init);
+ };
+ return {calls:base.calls,fetchStub};
+}
+const plain=s=>s.replace(/\s+/g,' ').trim();
+
+test('Painel em abas: início, pedidos (abrir e mudar a situação), financeiro (números, gráfico, lançamento, repasse, planilha) e peças e custos',async()=>{
+ const {calls,fetchStub}=financeBackend();
+ const t=await setup(sessionFor('duavesso.co@gmail.com'),fetchStub,{path:'/painel'});try{
+  await tick(60);
+  t.w.confirm=()=>true;
+  assert.deepEqual([...t.doc.querySelectorAll('.adm-side .adm-tab span')].map(s=>s.textContent),['Início','Pedidos','Financeiro','Peças e custos','Marcas','Pedidos de marca']);
+  assert(t.doc.querySelector('.adm-tab.on[href="painel"]'),'abre no Início');
+  assert.equal(t.doc.querySelector('.adm-badge[data-badge="pedidos"]').textContent,'2','pagos para produzir no menu');
+  const home=plain(t.doc.querySelector('#adm-main').textContent);
+  assert.match(home,/Entradas em 7 diasR\$ 789,70▲ 163%/);
+  assert.match(plain(t.doc.querySelector('.adm-todo').textContent),/1aguardando pagamento→2pagos, para produzir/);
+  // Pedidos
+  t.click('.adm-tab[href="painel?aba=pedidos"]');await tick(40);
+  const row=t.doc.querySelector('.adm-order[data-code="AV-1042"]');assert(row,'pedido na lista');
+  assert.match(plain(row.textContent),/AV-1042.*Bia CostaSão Paulo · SP2R\$ 339,70PixAguardando pagamento/);
+  row.click();const det=()=>t.doc.querySelector('.adm-detail[data-detail="AV-1042"]');
+  assert.equal(det().hidden,false,'clique abre o detalhe');
+  assert.match(plain(det().textContent),/2× Coração Pixelado.*TotalR\$ 339,70.*Rua Dois, 20.*bia@exemplo\.com.*Aguardando pagamento/);
+  det().querySelector('[data-to="pago"]').click();await tick(40);
+  assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/admin_set_order_status')).init.body),{p_code:'AV-1042',p_status:'pago'});
+  assert.equal(det().hidden,false,'o detalhe continua aberto depois de atualizar');
+  t.click('.adm-chip[href="painel?aba=pedidos&situacao=pago"]');await tick(40);
+  assert(calls.some(c=>c.url.includes('/rpc/admin_list_orders')&&JSON.parse(c.init.body).p_status==='pago'),'filtra no banco');
+  assert.match(t.doc.querySelector('.adm-empty').textContent,/Nenhum pedido em "Pagamento confirmado"/);
+  // Financeiro
+  t.click('.adm-tab[href="painel?aba=financeiro"]');await tick(60);
+  const main=t.doc.querySelector('#adm-main'),kpis=[...main.querySelectorAll('.adm-kpis:not(.adm-kpis-sm) .adm-kpi')];
+  assert.deepEqual(kpis.map(k=>plain(k.querySelector('strong').textContent)),['R$ 789,70','R$ 410,00','R$ 379,70','R$ 50,00']);
+  assert.match(kpis[0].querySelector('.adm-delta').className,/is-good/);assert.match(kpis[1].querySelector('.adm-delta').className,/is-good/,'saídas caíram: bom sinal');
+  assert.match(plain(kpis[2].textContent),/margem 48%/);
+  assert(main.querySelector('.viz svg path'),'gráfico de colunas');
+  assert.equal(main.querySelectorAll('.viz-table tbody tr').length,1,'mesmos números em tabela');
+  assert.deepEqual([...main.querySelectorAll('.viz-hbars')[0].querySelectorAll('.viz-hl')].map(n=>n.textContent),['Produção','Repasse a marcas']);
+  main.querySelector('.viz-hit').dispatchEvent(new t.w.Event('pointerenter'));
+  const tip=main.querySelector('.viz-tip');assert.equal(tip.hidden,false,'dica ao passar o mouse');
+  assert.match(plain(tip.textContent),/R\$ 789,70Entradas.*R\$ 410,00Saídas.*R\$ 379,70Lucro/);
+  // Novo lançamento: repasse exige a marca; valor em formato brasileiro
+  t.click('#fin-new');const dlg=t.doc.querySelector('.fin-dialog');assert(dlg?.open,'abre o formulário');
+  const ff=dlg.querySelector('.fin-form'),fv=(n,v)=>{ff.elements.namedItem(n).value=v;};
+  const out=dlg.querySelector('input[name=kind][value=out]');out.checked=true;out.dispatchEvent(new t.w.Event('change',{bubbles:true}));
+  assert.deepEqual([...ff.elements.namedItem('category').options].map(o=>o.value).slice(0,2),['Produção','Frete'],'categorias de saída');
+  fv('category','Repasse a marcas');ff.elements.namedItem('category').dispatchEvent(new t.w.Event('change',{bubbles:true}));
+  assert.equal(dlg.querySelector('.fin-brand').hidden,false,'repasse pede a marca');
+  fv('amount','1.234,56');fv('description','Repasse de outubro');
+  ff.dispatchEvent(new t.w.Event('submit',{bubbles:true,cancelable:true}));await tick(20);
+  assert.match(t.doc.querySelector('#toast').textContent,/Escolha a marca do repasse/);
+  fv('brand','geek');ff.dispatchEvent(new t.w.Event('submit',{bubbles:true,cancelable:true}));await tick(40);
+  const entry=JSON.parse(calls.find(c=>c.url.includes('/rpc/admin_add_entry')).init.body);
+  assert.match(entry.p_occurred_on,/^\d{4}-\d{2}-\d{2}$/);
+  assert.deepEqual({...entry,p_occurred_on:'hoje'},{p_kind:'out',p_category:'Repasse a marcas',p_amount_cents:123456,p_occurred_on:'hoje',p_method:'Pix',p_description:'Repasse de outubro',p_brand_slug:'geek'});
+  assert.equal(t.doc.querySelector('.fin-dialog'),null,'fecha ao salvar');await tick(40);
+  // Registrar repasse já vem preenchido com o que falta pagar
+  t.click('#adm-main [data-repasse="geek"]');const rp=t.doc.querySelector('.fin-dialog .fin-form');
+  assert.deepEqual([rp.elements.namedItem('amount').value,rp.elements.namedItem('category').value,rp.elements.namedItem('brand').value],['50,00','Repasse a marcas','geek']);
+  t.doc.querySelector('.fin-dialog [data-close]').click();
+  // Apagar lançamento manual
+  t.click('#adm-main [data-del="11"]');await tick(40);
+  assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/admin_delete_entry')).init.body),{p_id:11});
+  await tick(40);
+  // Planilha: ; e vírgula decimal, fórmula neutralizada
+  let blob=null;t.w.URL.createObjectURL=b=>{blob=b;return 'blob:planilha';};t.w.URL.revokeObjectURL=()=>{};
+  const linkClick=t.w.HTMLAnchorElement.prototype.click;t.w.HTMLAnchorElement.prototype.click=function(){};
+  t.click('#fin-csv');t.w.HTMLAnchorElement.prototype.click=linkClick;assert(blob,'gera a planilha');
+  const csv=await new Promise(r=>{const fr=new t.w.FileReader();fr.onload=()=>r(fr.result);fr.readAsText(blob);});
+  assert.match(csv,/Data;Tipo;Categoria;Descrição;Forma;Origem;Marca;Valor \(R\$\)/);
+  assert.match(csv,/;Entrada;Venda online;Pedido AV-1042 · 2 peça\(s\);Pix;Loja;;339,70/);
+  assert.match(csv,/;Saída;Produção;'=Impressão DTF;Pix;Manual;;380,00/,'texto que começa com = não vira fórmula');
+  // Peças e custos
+  t.click('.adm-tab[href="painel?aba=pecas"]');await tick(40);
+  const tr=t.doc.querySelector('tr[data-id="geek-coracao"]');
+  assert.equal(plain(tr.querySelector('[data-k=brand]').textContent),'R$ 40,00','parte da marca = preço − preço base');
+  assert.equal(plain(tr.querySelector('[data-k=duav]').textContent),'R$ 74,90','duavesso = preço − custo − parte da marca');
+  const cost=tr.querySelector('[name=cost]');cost.value='50,00';cost.dispatchEvent(new t.w.Event('input',{bubbles:true}));
+  assert.equal(plain(tr.querySelector('[data-k=duav]').textContent),'R$ 69,90','recalcula enquanto digita');
+  tr.querySelector('[data-save]').click();await tick(40);
+  assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/admin_set_product_finance')).init.body),{p_product_id:'geek-coracao',p_unit_cost_cents:5000,p_brand_base_cents:11990});
+  assert.equal(t.doc.querySelector('tr[data-id="simples"] [name=base]'),null,'peça da duavesso não tem preço base');
+  const custom=t.doc.querySelector('tr[data-custom] [name=cost]');assert.equal(custom.value,'50,00');
+  custom.value='55';t.doc.querySelector('tr[data-custom] [data-save]').click();await tick(40);
+  assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/admin_set_custom_cost')).init.body),{p_cents:5500});
+ }finally{t.close();}
+});
+
+test('Minha Marca → Vendas: o dono vê vendas, lucro, saldo a receber, gráfico e peças do período, sem dados de clientes',async()=>{
+ const base=brandsBackend();
+ const today=new Date(Date.now()-3*3600e3).toISOString().slice(0,10),ago=n=>new Date(Date.now()-3*3600e3-n*864e5).toISOString().slice(0,10);
+ const sales={bucket:'day',current:{sales:223860,pieces:14,profit:56000,orders:12},previous:{sales:183870,pieces:11,profit:44000,orders:10},
+  series:[{start:ago(1),profit:20000,previous:10000},{start:today,profit:36000,previous:34000}],
+  top:[{product_id:'geek-coracao',name:'Coração Pixelado',qty:9,sales:143910,profit:36000,base_cents:11990,price_cents:15990}],
+  sizes:[{size:'M',qty:6},{size:'G',qty:5}],states:[{uf:'SP',qty:6},{uf:'RJ',qty:4}],
+  balance:{earned:84000,received:28000,last:{on:ago(7),cents:28000,method:'Pix'}}};
+ const fetchStub=async(url,init={})=>{if(String(url).includes('/rpc/brand_sales_report')){base.calls.push({url:String(url),init});return {ok:true,status:200,json:async()=>sales};}return base.fetchStub(url,init);};
+ const s=await setup(sessionFor('dono@exemplo.com'),fetchStub,{path:'/minha-marca?marca=estudio-mar&aba=vendas'});try{
+  await tick(60);
+  const v=s.doc.querySelector('#editor-view');
+  assert.deepEqual([...v.querySelectorAll('.me-tabs a')].map(a=>[a.textContent,a.classList.contains('on')]),[['Minha página',false],['Vendas',true]]);
+  const req=JSON.parse(base.calls.find(c=>c.url.includes('/rpc/brand_sales_report')).init.body);
+  assert.deepEqual(req,{p_slug:'estudio-mar',p_from:ago(29),p_to:today},'30 dias até hoje');
+  assert.deepEqual([...v.querySelectorAll('.adm-kpi strong')].map(n=>plain(n.textContent)),['R$ 2.238,60','14','R$ 560,00','R$ 186,55']);
+  assert.match(plain(v.querySelectorAll('.adm-kpi')[2].textContent),/▲ 27%/,'lucro contra o período anterior');
+  assert.deepEqual([...v.querySelectorAll('.me-bal strong')].map(n=>plain(n.textContent)),['R$ 560,00','R$ 280,00',`${ago(7).split('-').reverse().join('/')}`],'a receber = ganho − recebido');
+  assert(v.querySelector('.viz polyline'),'gráfico do lucro');assert.equal(v.querySelectorAll('.viz-legend span').length,2,'legenda: este período e o anterior');
+  assert.match(plain(v.querySelector('.adm-table tbody').textContent),/Coração Pixelado.*9.*R\$ 1\.439,10.*R\$ 119,90.*R\$ 360,00/);
+  assert.deepEqual([...v.querySelectorAll('.me-ufs span')].map(n=>plain(n.textContent)),['SP 6','RJ 4']);
+  assert(!v.textContent.includes('@'),'nenhum e-mail na tela');
+  v.querySelector('.adm-seg a[href$="periodo=7"]').click();await tick(60);
+  assert.deepEqual(JSON.parse(base.calls.filter(c=>c.url.includes('/rpc/brand_sales_report')).at(-1).init.body),{p_slug:'estudio-mar',p_from:ago(6),p_to:today},'7 dias');
+  v.querySelector('.me-tabs a[href="minha-marca?marca=estudio-mar"]').click();await tick(60);
+  assert(s.doc.querySelector('#me-form'),'volta para o editor da página');
+  s.click('#open-account');await tick(40);s.doc.querySelector('.account-tab[data-acc-tab="brand"]').click();
+  assert(s.doc.querySelector('.acc-brand a[href="minha-marca?marca=estudio-mar&aba=vendas"]'),'atalho de vendas na conta');
+ }finally{s.close();}
 });

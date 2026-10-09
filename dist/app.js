@@ -1,6 +1,7 @@
 import {PRODUCTS,SIZES,CUSTOM,freeShippingMin,setPromos,promoGoals,INSTALLMENTS,installment,customMode,shippingSuggestion,money,escapeHTML as esc,totals,addItem,changeQuantity,normalizeCart,validImageURL,garmentLabel,PRINT_ZONES,PRINT_ZONE_AT,isZone,MAX_PRINTS,printsSummary} from './commerce.js';
 import {CHEST_Y,UNIT} from './studio-placement.js';
-import {online,rpc,uploadDesign,dataURLToBlob,getUser,signIn,signUp,signOut,resetPassword,updatePassword,signInWithGoogle,handleAuthRedirect,fetchProfile,updateProfile,fetchMyOrders,fetchPromos,checkCoupon,fetchBrands,fetchBrand,myBrands,updateBrand,uploadBrandAsset,brandAssetURL,isAdmin,adminListBrands,adminCreateBrand,adminSetBrandStatus,adminSetBrandPlan,adminRemoveOwner,adminDeleteBrand,adminDeleteBrandAssets,applyBrand,adminListApplications,adminSetApplicationStatus} from './api.js';
+import {online,rpc,uploadDesign,dataURLToBlob,getUser,signIn,signUp,signOut,resetPassword,updatePassword,signInWithGoogle,handleAuthRedirect,fetchProfile,updateProfile,fetchMyOrders,fetchPromos,checkCoupon,fetchBrands,fetchBrand,myBrands,updateBrand,uploadBrandAsset,brandAssetURL,isAdmin,adminListBrands,adminCreateBrand,adminSetBrandStatus,adminSetBrandPlan,adminRemoveOwner,adminDeleteBrand,adminDeleteBrandAssets,applyBrand,adminListApplications,adminSetApplicationStatus,adminListOrders,adminSetOrderStatus,adminListProductFinance,adminSetProductFinance,adminSetCustomCost,adminAddEntry,adminDeleteEntry,adminFinanceReport,brandSalesReport} from './api.js';
+import {VIZ,columnsChart,lineChart,hbars,wireCharts} from './charts.js';
 import {BRANDS,brandFromRow} from './brands.js';
 import {SITE,parseRoute,isAppPath,pageMeta,productPath,brandList,findBrand,setBrandList,upsertBrandRow} from './pages.js';
 import {themeCSS,themeStyle,normalizeTheme,DEFAULT_THEME} from './brand-theme.js';
@@ -839,6 +840,32 @@ function renderBrandEditor(container,row,{admin=false}={}){
  preview();sug();
 }
 
+// Vendas da marca (Minha Marca → Vendas): números do período com comparação, saldo a receber,
+// gráfico do lucro contra o período anterior, peças, tamanhos e estados. Nunca dados de clientes.
+const balanceCard=(label,value,sub)=>`<div class="me-bal"><small>${label}</small><strong>${value}</strong><span>${sub}</span></div>`;
+async function renderBrandSales(container,row){
+ const qs=new URLSearchParams(location.search),preset=FIN_PRESETS.some(([k])=>k===qs.get('periodo'))?qs.get('periodo'):'30';
+ const to=brDay(),from=brDay(-(+preset-1));
+ container.innerHTML='<p class="helper me-gate">Carregando as vendas…</p>';
+ let r;
+ try{r=await brandSalesReport(row.slug,from,to);}
+ catch(error){if(shownView==='editor')container.innerHTML=`<div class="adm-card adm-empty"><h2>Não foi possível carregar as vendas</h2><p>${esc(error.message)}</p></div>`;return;}
+ if(shownView!=='editor'||!container.isConnected)return;
+ const cur=r.current,prev=r.previous,ticket=cur.orders?Math.round(cur.sales/cur.orders):0,pticket=prev.orders?Math.round(prev.sales/prev.orders):0;
+ const due=Math.max(0,r.balance.earned-r.balance.received),last=r.balance.last;
+ const href=k=>`minha-marca?marca=${encodeURIComponent(row.slug)}&aba=vendas&periodo=${k}`;
+ const points=r.series.map(s=>({label:bucketLabel(s.start,r.bucket),title:bucketTitle(s.start,r.bucket),values:[+s.profit,+s.previous]}));
+ container.innerHTML=`<div class="me-sales"><header class="adm-top"><div><p class="eyebrow">MINHA MARCA · VENDAS</p><h1 class="me-title">Vendas da ${esc(row.name)}</h1><p class="adm-sub">${longDate(from)} a ${longDate(to)}, comparado com os ${daysBetween(from,to)} dias anteriores. Só entram vendas pagas; canceladas saem da conta. Seu lucro é o preço de venda menos o preço base da duavesso, em cada peça.</p></div>
+<div class="adm-seg" role="group" aria-label="Período">${FIN_PRESETS.map(([k,l])=>`<a class="${k===preset?'on':''}" href="${href(k)}"${k===preset?' aria-current="true"':''}>${l}</a>`).join('')}</div></header>
+<div class="adm-kpis">${kpiHTML('Vendas',money(cur.sales),deltaHTML(cur.sales,prev.sales))}${kpiHTML('Peças vendidas',String(cur.pieces),deltaHTML(cur.pieces,prev.pieces))}${kpiHTML('Seu lucro',money(cur.profit),deltaHTML(cur.profit,prev.profit))}${kpiHTML('Ticket médio',money(ticket),deltaHTML(ticket,pticket))}</div>
+<div class="me-balance">${balanceCard('A receber',money(due),'vendas pagas ainda não repassadas')}${balanceCard('Já recebido',money(r.balance.received),'desde o começo')}${balanceCard('Último repasse',last?longDate(last.on):'nenhum ainda',last?`${money(last.cents)} via ${esc(last.method)}`:'a duavesso combina os repasses com você')}</div>
+<div class="adm-row2"><section class="adm-card"><h2>Seu lucro no período</h2>${+cur.profit||+prev.profit?lineChart({label:'Seu lucro, este período e o anterior',points,series:[{name:'Este período',color:VIZ.current},{name:'Período anterior',color:VIZ.previous,dashed:true}],format:money,axis:axisMoney}):'<p class="viz-empty">Ainda sem vendas pagas neste período. Quando as peças da marca venderem, o gráfico aparece aqui.</p>'}</section>
+<section class="adm-card"><h2>Onde vende mais</h2>${r.states.length?`<div class="me-ufs">${r.states.map(s=>`<span>${esc(s.uf)} <b>${s.qty}</b></span>`).join('')}</div>`:'<p class="viz-empty">Nada neste período.</p>'}<h2 class="adm-gap">Tamanhos</h2>${hbars(r.sizes.map(z=>({label:z.size,value:+z.qty})),v=>plural(v,'peça','peças'))}</section></div>
+<section class="adm-card"><h2>Peças que mais vendem</h2>${r.top.length?`<div class="adm-scroll"><table class="adm-table"><thead><tr><th>Peça</th><th class="num">Vendidas</th><th class="num">Vendas</th><th class="num">Preço base</th><th class="num">Seu lucro</th></tr></thead><tbody>${r.top.map(p=>`<tr><td><b>${esc(p.name)}</b>${p.price_cents?`<small>vendida a ${money(p.price_cents)}</small>`:''}</td><td class="num">${p.qty}</td><td class="num">${money(p.sales)}</td><td class="num">${p.base_cents?money(p.base_cents):'a definir'}</td><td class="num pos">${money(p.profit)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="viz-empty">Nenhuma peça vendida neste período.</p>'}</section>
+<p class="me-privacy">Por privacidade, a marca vê números (vendas, peças, tamanhos e estados), nunca nome, e-mail ou endereço de quem comprou.</p></div>`;
+ wireCharts(container);
+}
+
 async function renderEditorPage(){
  const view=$('#editor-view');
  const user=getUser();
@@ -852,47 +879,252 @@ async function renderEditorPage(){
  const row=await fetchBrand(slug);
  if(shownView!=='editor')return;
  if(!row){view.innerHTML='<div class="me-gate"><h1>Minha Marca</h1><p>Não foi possível abrir esta marca agora. Tente de novo em instantes.</p></div>';return;}
- view.innerHTML=`${mine.length>1?`<label class="me-switch">Marca<select id="me-pick">${mine.map(b=>`<option value="${esc(b.slug)}"${b.slug===slug?' selected':''}>${esc(b.name)}</option>`).join('')}</select></label>`:''}<div id="me-root"></div>`;
- $('#me-pick')?.addEventListener('change',e=>navigate(`/minha-marca?marca=${encodeURIComponent(e.target.value)}`));
- renderBrandEditor($('#me-root'),row,{admin:admin&&!mine.some(b=>b.slug===slug)});
+ const tab=new URLSearchParams(location.search).get('aba')==='vendas'?'vendas':'pagina',base=`minha-marca?marca=${encodeURIComponent(slug)}`;
+ view.innerHTML=`${mine.length>1?`<label class="me-switch">Marca<select id="me-pick">${mine.map(b=>`<option value="${esc(b.slug)}"${b.slug===slug?' selected':''}>${esc(b.name)}</option>`).join('')}</select></label>`:''}<nav class="me-tabs" aria-label="Minha Marca"><a href="${base}" class="${tab==='pagina'?'on':''}"${tab==='pagina'?' aria-current="page"':''}>Minha página</a><a href="${base}&aba=vendas" class="${tab==='vendas'?'on':''}"${tab==='vendas'?' aria-current="page"':''}>Vendas</a></nav><div id="me-root"></div>`;
+ $('#me-pick')?.addEventListener('change',e=>navigate(`/minha-marca?marca=${encodeURIComponent(e.target.value)}${tab==='vendas'?'&aba=vendas':''}`));
+ if(tab==='vendas')renderBrandSales($('#me-root'),row);
+ else renderBrandEditor($('#me-root'),row,{admin:admin&&!mine.some(b=>b.slug===slug)});
 }
+
+// Painel da duavesso (/painel?aba=...) ----------------------------------------------------------------
+// Layout de sistema, com menu lateral (estilo Shopify). Tudo passa por funções do banco que conferem a
+// administradora (migrações 0009 a 0012). O financeiro é livro caixa: vendas pagas do site + lançamentos.
+const ADMIN_TABS=[['inicio','Início'],['pedidos','Pedidos'],['financeiro','Financeiro'],['pecas','Peças e custos'],['marcas','Marcas'],['pedidos-de-marca','Pedidos de marca']];
+const adminTab=()=>{const t=new URLSearchParams(location.search).get('aba');return ADMIN_TABS.some(([k])=>k===t)?t:'inicio';};
+const adminHref=k=>k==='inicio'?'painel':`painel?aba=${k}`;
+const adminStill=tab=>shownView==='admin'&&adminTab()===tab;
+let adminPrefill=null;
+// Datas no horário de Brasília (o banco usa o mesmo)
+const brDay=(offset=0)=>new Date(Date.now()-3*3600e3+offset*864e5).toISOString().slice(0,10);
+const daysBetween=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5)+1;
+const shortDate=iso=>{const [y,m,d]=String(iso).slice(0,10).split('-');return `${d}/${m}`;};
+const longDate=iso=>{const [y,m,d]=String(iso).slice(0,10).split('-');return `${d}/${m}/${y}`;};
+const MONTHS=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function bucketLabel(iso,bucket){const [y,m,d]=String(iso).slice(0,10).split('-');return bucket==='month'?`${MONTHS[+m-1]}/${y.slice(2)}`:`${d}/${m}`;}
+function bucketTitle(iso,bucket){const [y,m,d]=String(iso).slice(0,10).split('-');return bucket==='month'?`${MONTHS[+m-1]} de ${y}`:bucket==='week'?`Semana de ${d}/${m}/${y}`:`${d}/${m}/${y}`;}
+const axisMoney=c=>{const r=c/100;return r>=1000?`R$ ${(r/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})} mil`:`R$ ${Math.round(r).toLocaleString('pt-BR')}`;};
+// Variação contra o período anterior; upGood diz se subir é bom (entradas, lucro) ou ruim (saídas)
+function deltaHTML(cur,prev,{upGood=true}={}){
+ cur=+cur||0;prev=+prev||0;
+ if(!prev&&!cur)return '<span class="adm-delta">sem movimento</span>';
+ if(!prev)return '<span class="adm-delta">novo neste período</span>';
+ const pct=(cur-prev)/Math.abs(prev)*100;
+ if(Math.abs(pct)<0.5)return '<span class="adm-delta">igual ao período anterior</span>';
+ const good=(pct>0)===upGood;
+ return `<span class="adm-delta ${good?'is-good':'is-bad'}">${pct>0?'▲':'▼'} ${Math.abs(pct).toLocaleString('pt-BR',{maximumFractionDigits:0})}%</span> <span class="adm-vs">vs. período anterior</span>`;
+}
+// "R$ 1.234,56", "1234,56", "1.234" ou "45" viram centavos
+function parseMoney(text){
+ let t=String(text||'').replace(/[^\d,.]/g,'');if(!t)return null;
+ if(t.includes(','))t=t.replace(/\./g,'').replace(',','.');else if(/^\d{1,3}(\.\d{3})+$/.test(t))t=t.replace(/\./g,'');
+ const v=Math.round(parseFloat(t)*100);return Number.isFinite(v)?v:null;
+}
+const centsInput=c=>c?(c/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
+const kpiHTML=(label,value,sub='')=>`<div class="adm-card adm-kpi"><small>${label}</small><strong>${value}</strong><span class="adm-kpi-sub">${sub}</span></div>`;
+const plural=(n,one,many)=>`${n} ${n===1?one:many}`;
+const appsList=()=>adminListApplications().then(r=>Array.isArray(r)?r:[],()=>[]);
 
 async function renderAdminPage(){
  const view=$('#admin-view'),user=getUser();
  if(!user){view.innerHTML=`<div class="me-gate"><h1>Painel da duavesso</h1><p>Entre com a conta da duavesso.</p><button type="button" class="button button-blue" id="ad-login">Entrar</button></div>`;$('#ad-login').addEventListener('click',()=>openAuth('login'));return;}
- view.innerHTML='<p class="helper me-gate">Carregando o painel…</p>';
+ if(!view.querySelector('.adm'))view.innerHTML='<p class="helper me-gate">Carregando o painel…</p>';
  if(!await isAdmin()){if(shownView==='admin')view.innerHTML='<div class="me-gate"><h1>Área restrita</h1><p>Este painel é só da conta dona da duavesso.</p></div>';return;}
- let brands=[],apps=[];
- try{[brands,apps]=await Promise.all([adminListBrands(),adminListApplications().then(r=>Array.isArray(r)?r:[],()=>[])]);}catch(error){view.innerHTML=`<div class="me-gate"><h1>Painel da duavesso</h1><p>${esc(error.message)}</p></div>`;return;}
  if(shownView!=='admin')return;
+ const tab=adminTab();
+ view.innerHTML=`<div class="adm"><nav class="adm-side" aria-label="Seções do painel"><a class="adm-logo" href="painel">duavesso<small>PAINEL</small></a>${ADMIN_TABS.map(([k,l])=>`<a class="adm-tab${k===tab?' on':''}" href="${adminHref(k)}"${k===tab?' aria-current="page"':''}><span>${l}</span><b class="adm-badge" data-badge="${k}" hidden></b></a>`).join('')}<span class="adm-sp"></span><a class="adm-out" href="./">Ver a loja <span aria-hidden="true">↗</span></a></nav><main class="adm-main" id="adm-main"><p class="helper">Carregando…</p></main></div>`;
+ adminBadges();
+ const main=$('#adm-main',view);
+ try{await ADMIN_VIEWS[tab](main);}
+ catch(error){if(adminStill(tab))main.innerHTML=`<div class="adm-card adm-empty"><h2>Não foi possível abrir esta parte do painel</h2><p>${esc(error.message)}</p></div>`;}
+}
+// Números do menu: pedidos para produzir ou enviar, e pedidos de marca novos
+async function adminBadges(){
+ const [orders,apps]=await Promise.all([adminListOrders({limit:1}).catch(()=>null),appsList()]);
+ const set=(k,n)=>{const b=$(`.adm-badge[data-badge="${k}"]`);if(b){b.hidden=!n;b.textContent=n?String(n):'';}};
+ const c=orders?.counts||{};
+ set('pedidos',(c.pago||0)+(c.em_producao||0));set('pedidos-de-marca',apps.filter(a=>a.status==='new').length);
+}
+
+// Início: o resumo do dia e o que falta fazer
+async function adminHome(main){
+ const [rep,orders,apps]=await Promise.all([adminFinanceReport(brDay(-6),brDay()),adminListOrders({limit:1}),appsList()]);
+ if(!adminStill('inicio'))return;
+ const c=orders.counts||{},today=rep.series.length?+rep.series[rep.series.length-1].in:0;
+ const todo=[[c.aguardando_pagamento||0,'aguardando pagamento','painel?aba=pedidos&situacao=aguardando_pagamento'],[c.pago||0,'pagos, para produzir','painel?aba=pedidos&situacao=pago'],[c.em_producao||0,'em produção, para enviar','painel?aba=pedidos&situacao=em_producao'],[apps.filter(a=>a.status==='new').length,'pedidos de marca novos','painel?aba=pedidos-de-marca']];
+ main.innerHTML=`<header class="adm-top"><div><p class="eyebrow">${esc(new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}))}</p><h1>Olá, duavesso</h1></div><div class="adm-top-acts"><a class="button me-ghost" href="painel?aba=pedidos">Ver pedidos</a><a class="button button-blue" href="painel?aba=financeiro&novo=1">+ Novo lançamento</a></div></header>
+<div class="adm-kpis">${kpiHTML('Entradas hoje',money(today))}${kpiHTML('Entradas em 7 dias',money(rep.current.in),deltaHTML(rep.current.in,rep.previous.in))}${kpiHTML('Lucro em 7 dias',money(rep.current.profit),deltaHTML(rep.current.profit,rep.previous.profit))}${kpiHTML('Aguardando pagamento',money(rep.pending.cents),`<span class="adm-vs">${plural(+rep.pending.orders,'pedido','pedidos')}</span>`)}</div>
+<section class="adm-card"><h2>Para fazer</h2><ul class="adm-todo">${todo.map(([n,l,href])=>`<li class="${n?'':'is-done'}"><a href="${href}"><b>${n}</b><span>${l}</span><span aria-hidden="true">→</span></a></li>`).join('')}</ul></section>`;
+}
+
+// Pedidos: filtro por situação, busca, detalhe com a linha do tempo e os botões do próximo passo
+const ORDER_FLOW={aguardando_pagamento:[['pago','Marcar como pago'],['cancelado','Cancelar pedido']],pago:[['em_producao','Começar a produção'],['cancelado','Cancelar pedido']],em_producao:[['enviado','Marcar como enviado']],enviado:[['entregue','Marcar como entregue']],entregue:[],cancelado:[['aguardando_pagamento','Reabrir pedido']]};
+const ORDER_PILL={aguardando_pagamento:'warn',pago:'paid',em_producao:'paid',enviado:'ok',entregue:'ok',cancelado:'off'};
+function orderDetailHTML(o){
+ const acts=(ORDER_FLOW[o.status]||[]).map(([to,l])=>`<button type="button" class="button ${to==='cancelado'?'me-ghost ad-danger':'button-blue'}" data-to="${to}">${l}</button>`).join('');
+ return `<div class="adm-od"><div><h3>Peças</h3><ul class="adm-od-items">${o.items.map(i=>`<li><span>${i.qty}× ${esc(i.name)}<small>${esc(i.size)}${i.color?` · ${esc(i.color)}`:''}${i.kind!=='catalog'?' · personalizada':''}</small></span><b>${money(i.unit_price_cents*i.qty)}</b></li>`).join('')}</ul>
+<dl class="adm-od-sum"><div><dt>Subtotal</dt><dd>${money(o.subtotal_cents)}</dd></div>${o.discount_cents?`<div><dt>Descontos${o.coupon_code?` (${esc(o.coupon_code)})`:''}</dt><dd>− ${money(o.discount_cents)}</dd></div>`:''}<div><dt>Entrega ${o.shipping==='express'?'expressa':'padrão'}</dt><dd>${money(o.delivery_cents)}</dd></div><div class="tot"><dt>Total</dt><dd>${money(o.total_cents)}</dd></div></dl></div>
+<div><h3>Entrega</h3><p class="adm-od-addr">${esc(o.customer_name)}<br>${esc(o.address)}<br>${esc(o.city)}${o.uf?` · ${esc(o.uf)}`:''} · CEP ${esc(o.cep)}<br><a href="mailto:${esc(o.customer_email)}">${esc(o.customer_email)}</a></p>
+<h3>Linha do tempo</h3><ol class="adm-tl">${o.events.map(e=>`<li><b>${esc(STATUS_LABEL[e.to]||e.type)}</b><small>${esc(new Date(e.at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}))}${e.source==='painel'?' · pelo painel':''}</small></li>`).join('')}</ol>
+${acts?`<div class="adm-acts">${acts}</div>`:''}</div></div>`;
+}
+function orderRowHTML(o){
+ const pieces=o.items.reduce((s,i)=>s+i.qty,0);
+ return `<tr class="adm-order" data-code="${esc(o.code)}"><td><button type="button" class="adm-link" data-open aria-expanded="false">${esc(o.code)}</button></td><td>${esc(new Date(o.created_at).toLocaleDateString('pt-BR'))}</td><td>${esc(o.customer_name)}<small>${esc(o.city)}${o.uf?` · ${esc(o.uf)}`:''}</small></td><td>${pieces}</td><td><b>${money(o.total_cents)}</b><small>${esc(o.payment)}${o.installments>1?` em ${o.installments}x`:''}</small></td><td><span class="pill ${ORDER_PILL[o.status]||'off'}">${esc(STATUS_LABEL[o.status]||o.status)}</span></td></tr><tr class="adm-detail" data-detail="${esc(o.code)}" hidden><td colspan="6">${orderDetailHTML(o)}</td></tr>`;
+}
+async function adminOrders(main){
+ const qs=new URLSearchParams(location.search),status=STATUS_LABEL[qs.get('situacao')]?qs.get('situacao'):'',search=(qs.get('busca')||'').slice(0,80);
+ let limit=50,open=null;
+ const load=async()=>{
+  const data=await adminListOrders({status:status||null,search:search||null,limit});
+  if(!adminStill('pedidos'))return;
+  const c=data.counts||{},all=Object.values(c).reduce((a,b)=>a+(+b||0),0);
+  const chips=[['','Todos',all],...Object.keys(STATUS_LABEL).map(k=>[k,STATUS_LABEL[k],c[k]||0])];
+  main.innerHTML=`<header class="adm-top"><div><h1>Pedidos</h1><p class="adm-sub">Marque cada pedido conforme ele anda. Só pedidos pagos entram no financeiro e nas vendas das marcas.</p></div></header>
+<div class="adm-filters"><div class="adm-chips" role="group" aria-label="Filtrar por situação">${chips.map(([k,l,n])=>`<a class="adm-chip${k===status?' on':''}" href="painel?aba=pedidos${k?`&situacao=${k}`:''}"${k===status?' aria-current="true"':''}>${l} <b>${n}</b></a>`).join('')}</div>
+<form class="adm-search" id="adm-search" role="search"><input type="search" name="q" value="${esc(search)}" placeholder="Código, nome ou e-mail" maxlength="80" aria-label="Buscar pedidos"><button class="button me-ghost" type="submit">Buscar</button></form></div>
+${data.orders.length?`<div class="adm-card adm-table-card"><table class="adm-table"><thead><tr><th>Pedido</th><th>Data</th><th>Cliente</th><th>Peças</th><th>Total</th><th>Situação</th></tr></thead><tbody>${data.orders.map(orderRowHTML).join('')}</tbody></table></div>${data.orders.length>=limit?'<button type="button" class="button me-ghost adm-more" id="adm-more">Carregar mais</button>':''}`:`<div class="adm-card adm-empty"><h2>${search?'Nenhum pedido encontrado':status?`Nenhum pedido em "${esc(STATUS_LABEL[status])}"`:'Nenhum pedido ainda'}</h2><p>Quando alguém comprar na loja, o pedido aparece aqui.</p></div>`}`;
+  $('#adm-search',main).addEventListener('submit',e=>{e.preventDefault();const q=e.target.elements.namedItem('q').value.trim();navigate(`/painel?aba=pedidos${status?`&situacao=${status}`:''}${q?`&busca=${encodeURIComponent(q)}`:''}`);});
+  $('#adm-more',main)?.addEventListener('click',()=>{limit+=50;load();});
+  const toggle=(code,force)=>{const safe=String(code).replace(/["\\]/g,''),row=$(`.adm-order[data-code="${safe}"]`,main),det=$(`.adm-detail[data-detail="${safe}"]`,main);if(!row||!det)return;const show=force??det.hidden;det.hidden=!show;row.classList.toggle('on',show);$('[data-open]',row).setAttribute('aria-expanded',String(show));open=show?code:null;};
+  $$('.adm-order',main).forEach(r=>r.addEventListener('click',()=>toggle(r.dataset.code)));
+  $$('.adm-detail',main).forEach(r=>r.addEventListener('click',async e=>{
+   const to=e.target.closest('[data-to]')?.dataset.to;if(!to)return;const code=r.dataset.detail;
+   if(to==='cancelado'&&!confirm(`Cancelar o pedido ${code}? Ele sai das vendas e do financeiro.`))return;
+   try{await adminSetOrderStatus(code,to);toast(`Pedido ${code}: ${STATUS_LABEL[to]}.`);open=code;await load();adminBadges();}catch(error){toast(error.message);}
+  }));
+  if(open)toggle(open,true);
+ };
+ await load();
+}
+
+// Peças e custos: custo por peça (camiseta + impressão) e, nas peças de marca, o preço base da duavesso
+async function adminPieces(main){
+ const data=await adminListProductFinance();if(!adminStill('pecas'))return;
+ const split=(price,cost,base,brand)=>{const brandPart=brand&&base?Math.max(0,price-base):0;return {brandPart,duav:price-cost-brandPart};};
+ const row=p=>{const s=split(p.price_cents,p.unit_cost_cents,p.brand_base_cents,p.brand_slug);
+  return `<tr data-id="${esc(p.id)}" data-price="${p.price_cents}" data-brand="${p.brand_slug?'1':''}"${p.active?'':' class="is-off"'}><td><b>${esc(p.name)}</b><small>${p.brand_name?esc(p.brand_name):'duavesso'}${p.active?'':' · fora do catálogo'}</small></td><td>${money(p.price_cents)}</td>
+<td><label class="adm-money"><span>R$</span><input inputmode="decimal" name="cost" value="${centsInput(p.unit_cost_cents)}" placeholder="0,00" aria-label="Custo por peça: ${esc(p.name)}"></label></td>
+<td>${p.brand_slug?`<label class="adm-money"><span>R$</span><input inputmode="decimal" name="base" value="${centsInput(p.brand_base_cents)}" placeholder="0,00" aria-label="Preço base da marca: ${esc(p.name)}"></label>`:'<span class="adm-na">não se aplica</span>'}</td>
+<td data-k="brand">${p.brand_slug?(p.brand_base_cents?money(s.brandPart):'<span class="adm-na">defina o preço base</span>'):'<span class="adm-na">não se aplica</span>'}</td><td data-k="duav"><b>${money(s.duav)}</b></td><td><button type="button" class="button me-ghost" data-save>Salvar</button></td></tr>`;};
+ main.innerHTML=`<header class="adm-top"><div><h1>Peças e custos</h1><p class="adm-sub">O custo de cada peça (camiseta + impressão) e, nas peças de marca, o preço base da duavesso: a marca fica com a diferença entre o preço de venda e o preço base. Esses valores ficam congelados em cada pedido no momento em que ele é marcado como pago.</p></div></header>
+<div class="adm-card adm-table-card"><table class="adm-table adm-pieces"><thead><tr><th>Peça</th><th>Preço de venda</th><th>Custo por peça</th><th>Preço base da marca</th><th>Parte da marca</th><th>Fica com a duavesso</th><th><span class="sr-only">Salvar</span></th></tr></thead><tbody>${data.products.map(row).join('')}
+<tr data-custom><td><b>Peça personalizada</b><small>estúdio · o preço varia</small></td><td><span class="adm-na">varia</span></td><td><label class="adm-money"><span>R$</span><input inputmode="decimal" name="cost" value="${centsInput(data.custom_unit_cost_cents)}" placeholder="0,00" aria-label="Custo de uma peça personalizada"></label></td><td><span class="adm-na">não se aplica</span></td><td><span class="adm-na">não se aplica</span></td><td><span class="adm-na">varia</span></td><td><button type="button" class="button me-ghost" data-save>Salvar</button></td></tr></tbody></table></div>`;
+ const values=tr=>({cost:parseMoney($('[name=cost]',tr)?.value)||0,base:$('[name=base]',tr)?parseMoney($('[name=base]',tr).value):null});
+ $$('tr[data-id]',main).forEach(tr=>tr.addEventListener('input',()=>{const v=values(tr),s=split(+tr.dataset.price,v.cost,v.base,tr.dataset.brand);
+  if(tr.dataset.brand)$('[data-k=brand]',tr).innerHTML=v.base?money(s.brandPart):'<span class="adm-na">defina o preço base</span>';
+  $('[data-k=duav]',tr).innerHTML=`<b>${money(s.duav)}</b>`;}));
+ $$('[data-save]',main).forEach(b=>b.addEventListener('click',async()=>{
+  const tr=b.closest('tr'),v=values(tr);b.disabled=true;
+  try{if(tr.dataset.custom!==undefined)await adminSetCustomCost(v.cost);else await adminSetProductFinance(tr.dataset.id,v.cost,v.base||null);toast('Custos salvos.');}
+  catch(error){toast(error.message);}finally{b.disabled=false;}
+ }));
+}
+
+// Financeiro: livro caixa do período, com comparação, gráfico, categorias, repasses e lançamentos
+const FIN_CATS={in:['Venda por fora','Aporte','Outras entradas'],out:['Produção','Frete','Embalagem','Anúncios','Taxas e tarifas','Ferramentas','Impostos','Repasse a marcas','Outras saídas']};
+const FIN_METHODS=['Pix','Cartão','Dinheiro','Boleto','Transferência','Outro'];
+const FIN_PRESETS=[['7','7 dias'],['30','30 dias'],['90','90 dias'],['365','12 meses']];
+function openEntryForm({brands=[],kind='in',category='',brand='',amount=0}={}){
+ const d=document.createElement('dialog');d.className='fin-dialog';d.setAttribute('aria-labelledby','fin-title');
+ const opts=(k,keep)=>FIN_CATS[k].map(c=>`<option${c===keep?' selected':''}>${c}</option>`).join('');
+ d.innerHTML=`<div class="dialog-heading"><h2 id="fin-title">Novo lançamento</h2><button type="button" class="icon-button" data-close aria-label="Fechar">×</button></div>
+<form class="fin-form"><div class="fin-kind" role="radiogroup" aria-label="Tipo de lançamento"><label><input type="radio" name="kind" value="in"${kind==='in'?' checked':''}><span>Entrada</span></label><label><input type="radio" name="kind" value="out"${kind==='out'?' checked':''}><span>Saída</span></label></div>
+<div class="field-row"><label>Valor<span class="adm-money"><span>R$</span><input name="amount" inputmode="decimal" required placeholder="0,00" value="${centsInput(amount)}" autocomplete="off"></span></label><label>Data<input type="date" name="on" required value="${brDay()}" min="2020-01-01" max="${brDay(366)}"></label></div>
+<div class="field-row"><label>Categoria<select name="category" required>${opts(kind,category)}</select></label><label>Forma de pagamento<select name="method">${FIN_METHODS.map(m=>`<option>${m}</option>`).join('')}</select></label></div>
+<label class="fin-brand"${category==='Repasse a marcas'?'':' hidden'}>Marca do repasse<select name="brand"><option value="">Escolha a marca</option>${brands.map(b=>`<option value="${esc(b.slug)}"${b.slug===brand?' selected':''}>${esc(b.name)}</option>`).join('')}</select></label>
+<label>Descrição<input name="description" maxlength="200" placeholder="Ex.: feira do Centro, 3 camisetas" autocomplete="off"></label>
+<button type="submit" class="button button-blue">Salvar lançamento</button></form>`;
+ document.body.append(d);d.showModal();
+ const form=$('.fin-form',d),f=n=>form.elements.namedItem(n),kindNow=()=>form.querySelector('input[name=kind]:checked').value,close=()=>d.remove();
+ const sync=()=>{const sel=f('category'),keep=sel.value;sel.innerHTML=opts(kindNow(),keep);$('.fin-brand',d).hidden=sel.value!=='Repasse a marcas';};
+ form.addEventListener('change',e=>{if(e.target.name==='kind'||e.target.name==='category')sync();});
+ d.addEventListener('click',e=>{if(e.target.closest('[data-close]'))close();});
+ d.addEventListener('cancel',e=>{e.preventDefault();close();});
+ form.addEventListener('submit',async e=>{
+  e.preventDefault();if(!form.reportValidity())return;
+  const cents=parseMoney(f('amount').value);if(!cents||cents<=0){toast('Digite um valor maior que zero.');f('amount').focus();return;}
+  const cat=f('category').value;if(cat==='Repasse a marcas'&&!f('brand').value){toast('Escolha a marca do repasse.');f('brand').focus();return;}
+  const btn=$('button[type=submit]',form);btn.disabled=true;btn.textContent='Salvando…';
+  try{
+   await adminAddEntry({kind:kindNow(),category:cat,amount:cents,on:f('on').value,method:f('method').value,description:f('description').value.trim(),brand:cat==='Repasse a marcas'?f('brand').value:null});
+   close();toast('Lançamento salvo.');if(shownView==='admin')renderAdminPage();
+  }catch(error){toast(error.message);btn.disabled=false;btn.textContent='Salvar lançamento';}
+ });
+ f('amount').focus();
+}
+// Planilha (CSV com ; e vírgula decimal, que o Excel e o Google Planilhas em português abrem direto)
+function downloadCSV(name,rows){
+ const cell=v=>{let s=String(v??'');if(/^[=+\-@]/.test(s))s="'"+s;return /[;"\n\r]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;};
+ const csv='﻿'+rows.map(r=>r.map(cell).join(';')).join('\r\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=name;
+ document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+}
+async function adminFinance(main){
+ const qs=new URLSearchParams(location.search),custom=/^\d{4}-\d{2}-\d{2}$/.test(qs.get('de')||'')&&/^\d{4}-\d{2}-\d{2}$/.test(qs.get('ate')||'');
+ const preset=custom?'':(FIN_PRESETS.some(([k])=>k===qs.get('periodo'))?qs.get('periodo'):'30');
+ const to=custom?qs.get('ate'):brDay(),from=custom?qs.get('de'):brDay(-(+preset-1)),days=daysBetween(from,to);
+ const [rep,brands]=await Promise.all([adminFinanceReport(from,to),adminListBrands().catch(()=>[])]);
+ if(!adminStill('financeiro'))return;
+ const cur=rep.current,prev=rep.previous,margin=cur.in?Math.round(cur.profit/cur.in*100):0;
+ const owing=rep.to_pay_brands.filter(b=>b.due>0),due=owing.reduce((s,b)=>s+(+b.due),0);
+ const groups=rep.series.map(s=>({label:bucketLabel(s.start,rep.bucket),title:bucketTitle(s.start,rep.bucket),values:[+s.in,+s.out],extra:[['Lucro',money(s.in-s.out)]]}));
+ main.innerHTML=`<header class="adm-top"><div><h1>Financeiro</h1><p class="adm-sub">${longDate(from)} a ${longDate(to)} · comparado com os ${days} dias anteriores</p></div><div class="adm-top-acts"><button type="button" class="button me-ghost" id="fin-csv">Exportar planilha</button><button type="button" class="button button-blue" id="fin-new">+ Novo lançamento</button></div></header>
+<div class="adm-filters"><div class="adm-seg" role="group" aria-label="Período">${FIN_PRESETS.map(([k,l])=>`<a class="${k===preset?'on':''}" href="painel?aba=financeiro&periodo=${k}"${k===preset?' aria-current="true"':''}>${l}</a>`).join('')}</div>
+<form class="adm-range" id="fin-range"><label>De<input type="date" name="de" value="${from}" required></label><label>Até<input type="date" name="ate" value="${to}" required></label><button class="button me-ghost" type="submit">Aplicar</button></form></div>
+<div class="adm-kpis">${kpiHTML('Entradas',money(cur.in),deltaHTML(cur.in,prev.in))}${kpiHTML('Saídas',money(cur.out),deltaHTML(cur.out,prev.out,{upGood:false}))}${kpiHTML('Lucro líquido',money(cur.profit),deltaHTML(cur.profit,prev.profit)+(cur.in?` <span class="adm-vs">· margem ${margin}%</span>`:''))}${kpiHTML('A repassar às marcas',money(due),`<span class="adm-vs">${owing.length?plural(owing.length,'marca','marcas'):'nada pendente'}</span>`)}</div>
+<div class="adm-kpis adm-kpis-sm">${kpiHTML('Vendas pagas na loja',money(cur.site_in),`<span class="adm-vs">${plural(+cur.orders,'pedido','pedidos')} · ${plural(+cur.pieces,'peça','peças')}</span>`)}${kpiHTML('Margem estimada das vendas',money(cur.est_margin),`<span class="adm-vs">vendas − custo das peças (${money(cur.piece_cost)}) − parte das marcas (${money(cur.brand_share)})</span>`)}${kpiHTML('Aguardando pagamento',money(rep.pending.cents),`<span class="adm-vs">${plural(+rep.pending.orders,'pedido','pedidos')}, fora da conta</span>`)}</div>
+<div class="adm-row2"><section class="adm-card"><h2>Entradas e saídas</h2>${columnsChart({label:'Entradas e saídas no período',groups,series:[{name:'Entradas',color:VIZ.in},{name:'Saídas',color:VIZ.out}],format:money,axis:axisMoney})}</section>
+<section class="adm-card"><h2>Para onde foi o dinheiro</h2>${hbars(rep.out_by_category.map(c=>({label:c.category,value:+c.cents})),money,VIZ.out)}<h2 class="adm-gap">De onde veio</h2>${hbars(rep.in_by_source.map(c=>({label:c.source,value:+c.cents})),money)}</section></div>
+${rep.to_pay_brands.length?`<section class="adm-card"><h2>Repasses às marcas</h2><table class="adm-table"><thead><tr><th>Marca</th><th>Ganhou nas vendas pagas</th><th>Já repassado</th><th>A repassar</th><th><span class="sr-only">Ação</span></th></tr></thead><tbody>${rep.to_pay_brands.map(b=>`<tr><td><b>${esc(b.name)}</b></td><td>${money(b.earned)}</td><td>${money(b.paid)}</td><td><b>${money(b.due)}</b></td><td>${b.due>0?`<button type="button" class="button me-ghost" data-repasse="${esc(b.slug)}" data-due="${+b.due}">Registrar repasse</button>`:''}</td></tr>`).join('')}</tbody></table></section>`:''}
+<section class="adm-card"><div class="adm-card-head"><h2>Lançamentos</h2><small>${plural(rep.entries.length,'lançamento','lançamentos')} no período</small></div>${rep.entries.length?`<div class="adm-scroll"><table class="adm-table adm-entries"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Forma</th><th>Origem</th><th class="num">Valor</th><th><span class="sr-only">Apagar</span></th></tr></thead><tbody>${rep.entries.map(e=>`<tr><td>${shortDate(e.on)}</td><td>${esc(e.description||'—')}${e.brand_name?`<small>${esc(e.brand_name)}</small>`:''}</td><td>${esc(e.category)}</td><td>${esc(e.method||'')}</td><td><span class="pill ${e.source==='site'?'paid':'off'}">${e.source==='site'?'Loja':'Manual'}</span></td><td class="num ${e.kind==='in'?'pos':'neg'}">${e.kind==='in'?'+':'−'} ${money(e.amount_cents)}</td><td>${e.source==='manual'?`<button type="button" class="ad-x" data-del="${e.id}" aria-label="Apagar o lançamento: ${esc(e.description||e.category)}">×</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p class="viz-empty">Nenhum lançamento neste período. Use "+ Novo lançamento" para registrar vendas por fora, custos e repasses.</p>'}</section>`;
+ wireCharts(main);
+ $('#fin-range',main).addEventListener('submit',e=>{e.preventDefault();const f=e.target.elements,de=f.namedItem('de').value,ate=f.namedItem('ate').value;if(!de||!ate||ate<de){toast('Escolha um período válido: a data final depois da inicial.');return;}navigate(`/painel?aba=financeiro&de=${de}&ate=${ate}`);});
+ $('#fin-new',main).addEventListener('click',()=>openEntryForm({brands}));
+ $$('[data-repasse]',main).forEach(b=>b.addEventListener('click',()=>openEntryForm({brands,kind:'out',category:'Repasse a marcas',brand:b.dataset.repasse,amount:+b.dataset.due})));
+ $$('[data-del]',main).forEach(b=>b.addEventListener('click',async()=>{if(!confirm('Apagar este lançamento? Ele sai do financeiro.'))return;try{await adminDeleteEntry(+b.dataset.del);toast('Lançamento apagado.');renderAdminPage();}catch(error){toast(error.message);}}));
+ $('#fin-csv',main).addEventListener('click',()=>downloadCSV(`duavesso-financeiro-${from}-a-${to}.csv`,[['Data','Tipo','Categoria','Descrição','Forma','Origem','Marca','Valor (R$)'],...rep.entries.map(e=>[longDate(e.on),e.kind==='in'?'Entrada':'Saída',e.category,e.description||'',e.method||'',e.source==='site'?'Loja':'Manual',e.brand_name||'',(e.amount_cents/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2,useGrouping:false})])]));
+ if(qs.get('novo')){history.replaceState(history.state,'',`/painel?aba=financeiro${custom?`&de=${from}&ate=${to}`:`&periodo=${preset}`}`);openEntryForm({brands});}
+}
+
+// Pedidos de marca: a fila do formulário "Quero minha marca na duavesso"
+async function adminApplications(main){
+ const apps=await appsList();if(!adminStill('pedidos-de-marca'))return;
+ main.innerHTML=`<header class="adm-top"><div><h1>Pedidos de marca</h1><p class="adm-sub">Quem preencheu "Quero minha marca na duavesso" na página de marcas. Para aprovar, use Criar marca: a pessoa precisa ter conta na loja.</p></div></header>${apps.length?adminAppsHTML(apps):'<div class="adm-card adm-empty"><h2>Nenhum pedido ainda</h2><p>Quando alguém pedir para ter a marca na duavesso, o pedido aparece aqui.</p></div>'}`;
+ $$('.ad-app',main).forEach(r=>r.addEventListener('click',async e=>{
+  const a=apps.find(x=>String(x.id)===r.dataset.app),act=e.target.closest('[data-app-act]')?.dataset.appAct;if(!a||!act)return;
+  if(act==='create'){adminPrefill={email:a.email,name:a.brand_name};navigate('/painel?aba=marcas');return;}
+  if(act==='declined'&&!confirm(`Recusar o pedido da ${a.brand_name}?`))return;
+  try{await adminSetApplicationStatus(a.id,act);toast('Pedido atualizado.');renderAdminPage();}catch(error){toast(error.message);}
+ }));
+}
+
+// Marcas: criar marca parceira, donos, plano, suspender e excluir
+async function adminBrands(main){
+ const [brands,apps]=await Promise.all([adminListBrands(),appsList()]);
+ if(!adminStill('marcas'))return;
  const owners=b=>b.owners?.length?b.owners.map(o=>`<span class="ad-owner">${esc(o.name||o.email)}<small>${esc(o.email)}</small><button type="button" class="ad-x" data-act="rm-owner" data-email="${esc(o.email)}" aria-label="Tirar ${esc(o.email)} da marca">×</button></span>`).join(''):'<small class="ad-none">Sem dono ainda</small>';
- view.innerHTML=`<div class="ad-head"><div><p class="eyebrow">PAINEL DA DUAVESSO</p><h1 class="me-title">Marcas parceiras</h1><p class="me-sub">${brands.filter(b=>b.status==='active').length} publicadas · ${brands.filter(b=>b.status!=='active').length} suspensas</p></div></div>
+ main.innerHTML=`<header class="adm-top"><div><h1>Marcas parceiras</h1><p class="adm-sub">${brands.filter(b=>b.status==='active').length} publicadas · ${brands.filter(b=>b.status!=='active').length} suspensas</p></div></header>
 <form class="ad-add" id="ad-add"><label>E-mail da conta<input type="email" name="email" required maxlength="120" placeholder="dono@marca.com.br"></label><label>Nome da marca<input name="name" required maxlength="60" placeholder="Nome que aparece na loja"></label><label>Endereço<input name="slug" required maxlength="40" pattern="[a-z0-9-]{2,40}" placeholder="nome-da-marca"></label><button type="submit" class="button button-blue">Tornar Marca Parceira</button><p class="helper">A pessoa precisa ter criado a conta na loja. Se o endereço já existe (como as marcas antigas), a conta vira dona dessa marca.</p><p class="helper ad-twin" id="ad-twin" role="status" hidden></p></form>
-${adminAppsHTML(apps)}<div class="ad-list">${brands.map(b=>`<article class="ad-row" data-slug="${esc(b.slug)}"><span class="ad-logo" style="${themeCSS(b.theme)}">${b.logo_path?`<img src="${esc(brandAssetURL(b.logo_path))}" alt="">`:esc(b.name.slice(0,4))}</span><div class="ad-main"><b>${esc(b.name)}</b><small>/marcas/${esc(b.slug)} · ${b.products} ${b.products===1?'peça':'peças'}</small><div class="ad-owners">${owners(b)}</div></div><div class="ad-state">${STATUS_PILL(b)}${b.plan==='paid'&&b.paid_at?`<small>Pago em ${new Date(b.paid_at).toLocaleDateString('pt-BR')}${b.paid_note?` · ${esc(b.paid_note)}`:''}</small>`:''}</div><div class="ad-acts"><a class="button me-ghost" href="/marcas/${esc(b.slug)}" target="_blank" rel="noopener">Ver loja</a><a class="button me-ghost" href="minha-marca?marca=${esc(b.slug)}">Editar página</a><button type="button" class="button me-ghost" data-act="add-owner">Adicionar dono</button><button type="button" class="button me-ghost" data-act="plan">${b.plan==='paid'?'Voltar ao grátis':'Marcar plano pago (R$ 400)'}</button><button type="button" class="button me-ghost ${b.status==='active'?'ad-danger':''}" data-act="status">${b.status==='active'?'Suspender':'Reativar'}</button><button type="button" class="button me-ghost ad-danger" data-act="delete">Excluir loja</button></div></article>`).join('')}</div>`;
- const slugify=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40),flat=s=>slugify(s).replace(/-/g,'');
- $('#ad-add').addEventListener('input',e=>{const slugEl=e.target.form.elements.namedItem('slug');if(e.target.name==='name'&&!slugEl.dataset.touched)slugEl.value=slugify(e.target.value);if(e.target.name==='slug')e.target.dataset.touched='1';
+<div class="ad-list">${brands.map(b=>`<article class="ad-row" data-slug="${esc(b.slug)}"><span class="ad-logo" style="${themeCSS(b.theme)}">${b.logo_path?`<img src="${esc(brandAssetURL(b.logo_path))}" alt="">`:esc(b.name.slice(0,4))}</span><div class="ad-main"><b>${esc(b.name)}</b><small>/marcas/${esc(b.slug)} · ${b.products} ${b.products===1?'peça':'peças'}</small><div class="ad-owners">${owners(b)}</div></div><div class="ad-state">${STATUS_PILL(b)}${b.plan==='paid'&&b.paid_at?`<small>Pago em ${new Date(b.paid_at).toLocaleDateString('pt-BR')}${b.paid_note?` · ${esc(b.paid_note)}`:''}</small>`:''}</div><div class="ad-acts"><a class="button me-ghost" href="/marcas/${esc(b.slug)}" target="_blank" rel="noopener">Ver loja</a><a class="button me-ghost" href="minha-marca?marca=${esc(b.slug)}">Editar página</a><a class="button me-ghost" href="minha-marca?marca=${esc(b.slug)}&aba=vendas">Vendas</a><button type="button" class="button me-ghost" data-act="add-owner">Adicionar dono</button><button type="button" class="button me-ghost" data-act="plan">${b.plan==='paid'?'Voltar ao grátis':'Marcar plano pago (R$ 400)'}</button><button type="button" class="button me-ghost ${b.status==='active'?'ad-danger':''}" data-act="status">${b.status==='active'?'Suspender':'Reativar'}</button><button type="button" class="button me-ghost ad-danger" data-act="delete">Excluir loja</button></div></article>`).join('')}</div>`;
+ const slugify=s=>s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40),flat=s=>slugify(s).replace(/-/g,'');
+ $('#ad-add',main).addEventListener('input',e=>{const slugEl=e.target.form.elements.namedItem('slug');if(e.target.name==='name'&&!slugEl.dataset.touched)slugEl.value=slugify(e.target.value);if(e.target.name==='slug')e.target.dataset.touched='1';
   // Nome ou endereço igual ao de uma marca que já existe: avisa antes de criar uma cópia vazia
-  const typed=flat(slugEl.value),twin=typed&&brands.find(b=>flat(b.slug)===typed||flat(b.name)===typed),hint=$('#ad-twin');
+  const typed=flat(slugEl.value),twin=typed&&brands.find(b=>flat(b.slug)===typed||flat(b.name)===typed),hint=$('#ad-twin',main);
   hint.hidden=!twin;if(!twin)return;
   hint.innerHTML=twin.slug===slugEl.value?`Esse endereço já é da <b>${esc(twin.name)}</b>: a conta vira dona dela, nada novo é criado.`
    :`Parece a <b>${esc(twin.name)}</b>, que já existe em /marcas/${esc(twin.slug)}. Para dar um dono a ela, use <b>Adicionar dono</b> na linha dela.`;});
- $('#ad-add').addEventListener('submit',async e=>{e.preventDefault();const f=e.target;if(!f.reportValidity())return;
+ $('#ad-add',main).addEventListener('submit',async e=>{e.preventDefault();const f=e.target;if(!f.reportValidity())return;
   const val=n=>f.elements.namedItem(n).value.trim();
   try{await adminCreateBrand(val('email'),val('slug'),val('name'));
    // Pedido de marca com o mesmo e-mail vira aprovado
    for(const a of apps.filter(x=>x.email===val('email').toLowerCase()&&x.status!=='approved'))await adminSetApplicationStatus(a.id,'approved').catch(()=>{});
    toast('Pronto: a conta agora é Marca Parceira e já vê a aba Minha Marca.');renderAdminPage();}catch(error){toast(error.message);}});
- $$('.ad-app').forEach(r=>r.addEventListener('click',async e=>{
-  const a=apps.find(x=>String(x.id)===r.dataset.app),act=e.target.closest('[data-app-act]')?.dataset.appAct;if(!a||!act)return;
-  if(act==='create'){
-   const f=$('#ad-add'),fe=n=>f.elements.namedItem(n);fe('email').value=a.email;fe('name').value=a.brand_name;delete fe('slug').dataset.touched;
-   fe('name').dispatchEvent(new Event('input',{bubbles:true}));f.scrollIntoView({block:'center'});fe('slug').focus();
-   toast('Confira o endereço e clique em Tornar Marca Parceira. A pessoa precisa ter conta na loja.');return;
-  }
-  if(act==='declined'&&!confirm(`Recusar o pedido da ${a.brand_name}?`))return;
-  try{await adminSetApplicationStatus(a.id,act);toast('Pedido atualizado.');renderAdminPage();}catch(error){toast(error.message);}
- }));
- $$('.ad-row').forEach(r=>r.addEventListener('click',async e=>{
+ if(adminPrefill){
+  const f=$('#ad-add',main),fe=n=>f.elements.namedItem(n);fe('email').value=adminPrefill.email;fe('name').value=adminPrefill.name;adminPrefill=null;
+  fe('name').dispatchEvent(new Event('input',{bubbles:true}));fe('slug').focus();
+  toast('Confira o endereço e clique em Tornar Marca Parceira. A pessoa precisa ter conta na loja.');
+ }
+ $$('.ad-row',main).forEach(r=>r.addEventListener('click',async e=>{
   const b=brands.find(x=>x.slug===r.dataset.slug),act=e.target.closest('[data-act]')?.dataset.act;if(!b||!act)return;
   let done='Atualizado.';
   try{
@@ -914,6 +1146,7 @@ ${adminAppsHTML(apps)}<div class="ad-list">${brands.map(b=>`<article class="ad-r
   }catch(error){toast(error.message);}
  }));
 }
+const ADMIN_VIEWS={inicio:adminHome,pedidos:adminOrders,financeiro:adminFinance,pecas:adminPieces,marcas:adminBrands,'pedidos-de-marca':adminApplications};
 
 // Navegação ------------------------------------------------------------------------
 // Endereços reais (pages.js) sem recarregar a página: links internos viram pushState. O produto abre
@@ -943,7 +1176,8 @@ function route(){
  if(missing){r=parseRoute('/');r.legacy=true;toast(`${missing} Veja a coleção.`);}
  if(r.legacy)history.replaceState(history.state,'',r.path);
  const view=r.product&&shownView?shownView:r.view,brand=r.product&&shownView?shownBrand:r.brand??null;
- if(view!==shownView||brand!==shownBrand||view==='editor')showView(view,brand);
+ // Editor e painel mudam pelo endereço (?marca=, ?aba=) sem trocar de tela: redesenham sempre
+ if(view!==shownView||brand!==shownBrand||view==='editor'||view==='admin')showView(view,brand);
  if(r.product)showProduct(r.product);
  else if($('#product-dialog').open){closingByRoute=true;closeDialog($('#product-dialog'));closingByRoute=false;}
  setMeta(r.product?r:{view,brand});
@@ -1080,7 +1314,7 @@ async function showAccount(tab){
   <label>Endereço e número<input name="address" maxlength="160" value="${esc(p?.address||'')}" autocomplete="street-address" placeholder="Rua, número, complemento"></label>
   <div class="profile-actions"><button type="submit" class="button button-blue">Salvar dados <span>→</span></button>${user.provider==='google'?'':'<button type="button" class="text-button" id="change-password">Trocar senha</button>'}</div>
  </form>`;
- $('#account-content').innerHTML=`<header class="account-id"><span class="account-avatar" aria-hidden="true">${avatarInner(p,user)}</span><div class="account-id-text"><strong>${esc(user.name||firstName(user))}</strong><p>${esc(user.email)}${user.provider==='google'?' · <span class="provider-badge">Google</span>':''}</p></div><button class="account-signout" id="sign-out">Sair</button></header>${admin?'<a class="account-admin" href="painel">Painel da duavesso <span aria-hidden="true">→</span></a>':''}<nav class="account-tabs" role="tablist" aria-label="Seções da conta"><button type="button" role="tab" class="account-tab" data-acc-tab="orders" aria-selected="true">Pedidos${orders.length?`<span class="tab-count">${orders.length}</span>`:''}</button><button type="button" role="tab" class="account-tab" data-acc-tab="profile" aria-selected="false">Perfil</button>${mine.length?'<button type="button" role="tab" class="account-tab" data-acc-tab="brand" aria-selected="false">Minha Marca</button>':''}</nav><section class="account-panel" data-acc-panel="orders">${ordersPanel}</section><section class="account-panel" data-acc-panel="profile" hidden>${profilePanel}</section>${mine.length?`<section class="account-panel" data-acc-panel="brand" hidden>${mine.map(b=>`<article class="acc-brand" style="${themeCSS(b.theme)}"><span class="acc-brand-logo">${b.logo_path?`<img src="${esc(brandAssetURL(b.logo_path))}" alt="">`:esc(b.name.slice(0,4))}</span><div><b>${esc(b.name)}</b><p>/marcas/${esc(b.slug)} · ${b.status==='active'?'publicada':'suspensa'}</p></div><a class="button button-blue" href="minha-marca?marca=${esc(b.slug)}">Editar minha loja <span>→</span></a><a class="text-button" href="marcas/${esc(b.slug)}">Ver a loja</a></article>`).join('')}<p class="panel-note">Na sua loja você troca nome, bio, logo, capa, cores (sólidas ou em degradê) e a peça em destaque. O que você publica entra no ar na hora.</p></section>`:''}`;
+ $('#account-content').innerHTML=`<header class="account-id"><span class="account-avatar" aria-hidden="true">${avatarInner(p,user)}</span><div class="account-id-text"><strong>${esc(user.name||firstName(user))}</strong><p>${esc(user.email)}${user.provider==='google'?' · <span class="provider-badge">Google</span>':''}</p></div><button class="account-signout" id="sign-out">Sair</button></header>${admin?'<a class="account-admin" href="painel">Painel da duavesso <span aria-hidden="true">→</span></a>':''}<nav class="account-tabs" role="tablist" aria-label="Seções da conta"><button type="button" role="tab" class="account-tab" data-acc-tab="orders" aria-selected="true">Pedidos${orders.length?`<span class="tab-count">${orders.length}</span>`:''}</button><button type="button" role="tab" class="account-tab" data-acc-tab="profile" aria-selected="false">Perfil</button>${mine.length?'<button type="button" role="tab" class="account-tab" data-acc-tab="brand" aria-selected="false">Minha Marca</button>':''}</nav><section class="account-panel" data-acc-panel="orders">${ordersPanel}</section><section class="account-panel" data-acc-panel="profile" hidden>${profilePanel}</section>${mine.length?`<section class="account-panel" data-acc-panel="brand" hidden>${mine.map(b=>`<article class="acc-brand" style="${themeCSS(b.theme)}"><span class="acc-brand-logo">${b.logo_path?`<img src="${esc(brandAssetURL(b.logo_path))}" alt="">`:esc(b.name.slice(0,4))}</span><div><b>${esc(b.name)}</b><p>/marcas/${esc(b.slug)} · ${b.status==='active'?'publicada':'suspensa'}</p></div><a class="button button-blue" href="minha-marca?marca=${esc(b.slug)}">Editar minha loja <span>→</span></a><a class="text-button" href="minha-marca?marca=${esc(b.slug)}&aba=vendas">Vendas</a><a class="text-button" href="marcas/${esc(b.slug)}">Ver a loja</a></article>`).join('')}<p class="panel-note">Na sua loja você troca nome, bio, logo, capa, cores (sólidas ou em degradê) e a peça em destaque. O que você publica entra no ar na hora.</p></section>`:''}`;
  const accTabs=$$('.account-tab');
  accTabs.forEach(t=>t.addEventListener('click',()=>{accTabs.forEach(x=>x.setAttribute('aria-selected',String(x===t)));$$('.account-panel').forEach(pl=>{pl.hidden=pl.dataset.accPanel!==t.dataset.accTab;});}));
  if(tab==='profile')$('.account-tab[data-acc-tab="profile"]')?.click();

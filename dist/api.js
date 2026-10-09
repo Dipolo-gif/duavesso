@@ -226,6 +226,16 @@ export const adminSetBrandPlan=(slug,plan,note)=>rpc('admin_set_brand_plan',{p_s
 export const adminRemoveOwner=(slug,email)=>rpc('admin_remove_owner',{p_slug:slug,p_email:email});
 // Excluir loja (migração 0011): o banco confere o nome digitado e recusa marca com peças à venda
 export const adminDeleteBrand=(slug,confirm)=>rpc('admin_delete_brand',{p_slug:slug,p_confirm:confirm});
+// Painel: pedidos, custos e financeiro; Minha Marca: vendas (migração 0012)
+export const adminListOrders=({status=null,search=null,limit=50,offset=0}={})=>rpc('admin_list_orders',{p_status:status,p_search:search,p_limit:limit,p_offset:offset});
+export const adminSetOrderStatus=(code,status)=>rpc('admin_set_order_status',{p_code:code,p_status:status});
+export const adminListProductFinance=()=>rpc('admin_list_product_finance',{});
+export const adminSetProductFinance=(id,cost,base)=>rpc('admin_set_product_finance',{p_product_id:id,p_unit_cost_cents:cost,p_brand_base_cents:base});
+export const adminSetCustomCost=cents=>rpc('admin_set_custom_cost',{p_cents:cents});
+export const adminAddEntry=({kind,category,amount,on,method,description,brand})=>rpc('admin_add_entry',{p_kind:kind,p_category:category,p_amount_cents:amount,p_occurred_on:on,p_method:method,p_description:description||'',p_brand_slug:brand||null});
+export const adminDeleteEntry=id=>rpc('admin_delete_entry',{p_id:id});
+export const adminFinanceReport=(from,to)=>rpc('admin_finance_report',{p_from:from,p_to:to});
+export const brandSalesReport=(slug,from,to)=>rpc('brand_sales_report',{p_slug:slug,p_from:from,p_to:to});
 // Depois de excluir, apaga as imagens da pasta da marca (logo, capas e fotos, inclusive as trocadas).
 // Só apaga nomes no padrão das imagens de marca; devolve quantas foram apagadas.
 export async function adminDeleteBrandAssets(slug){

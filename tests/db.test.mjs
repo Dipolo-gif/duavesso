@@ -30,8 +30,8 @@ async function order(items,{shipping='standard',cust=customer}={}){
 }
 const rejects=(items,re,opts)=>assert.rejects(order(items,opts),re);
 
-test('all migrations apply in order and 0006 to 0011 can be applied twice',async()=>{
- for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
+test('all migrations apply in order and 0006 to 0012 can be applied twice',async()=>{
+ for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
 });
 
 test('active catalog in the database matches dist/commerce.js field by field',async()=>{
@@ -425,5 +425,82 @@ test('excluir loja: só a duavesso, com o nome digitado, e nunca com peças à v
   assert.equal((await db.query(`select count(*)::int as n from public.brand_members where brand_slug='try84'`)).rows[0].n,0,'donos apagados');
   assert.deepEqual((await db.query(`select name from storage.objects where bucket_id='brand-assets' and name like 'try84/%'`)).rows.map(r=>r.name),['try84/logo-a1b2c3d4.webp'],'a administradora lista as imagens');
   assert.equal((await db.query(`delete from storage.objects where bucket_id='brand-assets' and name like 'try84/%' returning name`)).rows.length,1,'e apaga');
+ }finally{await db.exec('rollback');}
+});
+
+// Financeiro e vendas das marcas (migração 0012) ---------------------------------------------------
+const brToday=()=>new Date(Date.now()-3*3600e3).toISOString().slice(0,10);
+const daysAgo=n=>new Date(Date.now()-3*3600e3-n*864e5).toISOString().slice(0,10);
+async function roleIs(sub){await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,true)",[sub]);await db.exec('set local role authenticated');}
+async function rejectsIn(fn,re,why){await db.query('savepoint s');try{await assert.rejects(fn(),re,why);}finally{await db.query('rollback to savepoint s');}}
+
+test('financeiro: pedido pago congela custo e lucro da marca; caixa, comparação, a repassar e vendas da marca sem dados de cliente',async()=>{
+ await brandUsers();
+ await db.exec('begin');
+ try{
+  await db.query(`insert into public.brand_members (brand_slug,user_id) values ('geek',$1)`,[OWNER]);
+  await db.query(`insert into private.product_finance (product_id,unit_cost_cents,brand_base_cents) values ('geek-coracao',4500,11990),('heavy-avesso',5200,null)`);
+  const order=await orderWith([tee('geek-coracao',2),tee('heavy-avesso',1)],{cust:{uf:'SP'}});
+  const id=(await db.query('select id from public.orders where code=$1',[order.code])).rows[0].id;
+  assert.equal((await db.query('select paid_at from public.orders where id=$1',[id])).rows[0].paid_at,null,'aguardando pagamento não tem data de venda');
+  // A administradora marca como pago pelo painel
+  await roleIs(OWNER);
+  await rejectsIn(()=>db.query('select public.admin_set_order_status($1,$2)',[order.code,'pago']),/Área restrita/,'dono de marca não mexe em pedidos');
+  await rejectsIn(()=>db.query('select * from private.sale_lines'),/permission denied/,'esquema privado fechado');
+  await roleIs(ADMIN);
+  await db.query('select public.admin_set_order_status($1,$2)',[order.code,'pago']);
+  await db.exec('reset role');
+  const lines=(await db.query('select product_id,brand_slug,qty,unit_cost_cents,brand_margin_cents from private.sale_lines where order_id=$1 order by product_id',[id])).rows;
+  assert.deepEqual(lines.map(l=>[l.product_id,l.brand_slug,l.qty,l.unit_cost_cents,l.brand_margin_cents]),
+   [['geek-coracao','geek',2,4500,8000],['heavy-avesso',null,1,5200,0]],'lucro da marca = (159,90 − 119,90) × 2; peça da duavesso sem parte de marca');
+  assert.equal((await db.query(`select source from public.order_events where order_id=$1 and type='status_changed'`,[id])).rows[0].source,'painel');
+  // Mudar o preço base depois não muda a venda já feita
+  await db.query(`update private.product_finance set brand_base_cents=13990 where product_id='geek-coracao'`);
+  await db.query(`update public.orders set status='em_producao' where id=$1`,[id]);
+  assert.equal((await db.query(`select brand_margin_cents from private.sale_lines where order_id=$1 and product_id='geek-coracao'`,[id])).rows[0].brand_margin_cents,8000);
+  // Lançamentos manuais
+  await roleIs(ADMIN);
+  const add=(kind,cat,cents,brand=null,on=brToday())=>db.query('select public.admin_add_entry($1,$2,$3,$4::date,$5,$6,$7) as id',[kind,cat,cents,on,'Pix','teste',brand]).then(r=>r.rows[0].id);
+  await add('in','Venda por fora',45000);
+  const prod=await add('out','Produção',38000);
+  await add('out','Repasse a marcas',3000,'geek');
+  await add('in','Venda por fora',10000,null,daysAgo(40));
+  await rejectsIn(()=>add('out','Repasse a marcas',100),/Escolha a marca/,'repasse sem marca');
+  await rejectsIn(()=>add('in','Produção',100),/check|violates/,'categoria de saída como entrada');
+  await rejectsIn(()=>db.query(`select public.admin_set_product_finance('heavy-avesso',100,9000)`),/só para peças de marca/);
+  await rejectsIn(()=>db.query(`select public.admin_set_product_finance('geek-coracao',100,99999)`),/não pode passar do preço/);
+  const rep=(await db.query('select public.admin_finance_report($1::date,$2::date) as r',[daysAgo(29),brToday()])).rows[0].r;
+  assert.equal(rep.current.site_in,order.total_cents);assert.equal(rep.current.in,order.total_cents+45000);
+  assert.equal(rep.current.out,41000);assert.equal(rep.current.profit,order.total_cents+45000-41000);
+  assert.equal(rep.current.est_margin,order.total_cents-(4500*2+5200)-8000,'margem estimada = vendas − custo das peças − parte das marcas');
+  assert.equal(rep.previous.in,10000,'período anterior de mesmo tamanho');
+  assert.deepEqual(rep.to_pay_brands.map(b=>[b.slug,b.earned,b.paid,b.due]),[['geek',8000,3000,5000]]);
+  assert.deepEqual(rep.out_by_category.map(c=>c.category),['Produção','Repasse a marcas']);
+  assert.equal(rep.entries.length,4,'pedido do site + 3 lançamentos do período');
+  assert.equal(rep.series.length,30,'um ponto por dia');
+  assert.equal(rep.series.reduce((s,b)=>s+Number(b.in),0),rep.current.in,'gráfico soma o mesmo que os números');
+  await db.query('select public.admin_delete_entry($1)',[prod]);
+  assert.equal((await db.query('select public.admin_finance_report($1::date,$2::date) as r',[daysAgo(29),brToday()])).rows[0].r.current.out,3000);
+  // Vendas da marca: o dono vê números, nunca dados de quem comprou
+  await roleIs(OTHER);
+  await rejectsIn(()=>db.query('select public.brand_sales_report($1,$2::date,$3::date)',['geek',daysAgo(29),brToday()]),/Só quem cuida da marca/);
+  await roleIs(OWNER);
+  const br=(await db.query('select public.brand_sales_report($1,$2::date,$3::date) as r',['geek',daysAgo(29),brToday()])).rows[0].r;
+  assert.deepEqual(br.current,{sales:31980,pieces:2,profit:8000,orders:1});
+  assert.deepEqual(br.previous,{sales:0,pieces:0,profit:0,orders:0});
+  assert.deepEqual(br.top.map(t=>[t.product_id,t.qty,t.profit]),[['geek-coracao',2,8000]]);
+  assert.deepEqual(br.sizes,[{size:'M',qty:2}]);assert.deepEqual(br.states,[{uf:'SP',qty:2}]);
+  assert.equal(br.balance.earned,8000);assert.equal(br.balance.received,3000);assert.equal(br.balance.last.cents,3000);
+  const raw=JSON.stringify(br);for(const secret of [customer.email,customer.name,customer.address,customer.cep])assert(!raw.includes(secret),`sem ${secret}`);
+  // Cancelado sai da conta
+  await roleIs(ADMIN);await db.query('select public.admin_set_order_status($1,$2)',[order.code,'cancelado']);
+  await roleIs(OWNER);
+  assert.equal((await db.query('select public.brand_sales_report($1,$2::date,$3::date) as r',['geek',daysAgo(29),brToday()])).rows[0].r.current.sales,0);
+  // Pedidos no painel: lista com contagem por situação, itens e linha do tempo
+  await roleIs(ADMIN);
+  const list=(await db.query(`select public.admin_list_orders('cancelado',null,50,0) as r`)).rows[0].r;
+  assert.equal(list.orders.length,1);assert.equal(list.orders[0].code,order.code);assert.equal(list.counts.cancelado,1);
+  assert.deepEqual(list.orders[0].events.map(e=>e.to),['aguardando_pagamento','pago','em_producao','cancelado']);
+  assert.equal((await db.query(`select public.admin_list_orders(null,'cliente teste',50,0) as r`)).rows[0].r.orders.length,1,'busca pelo nome');
  }finally{await db.exec('rollback');}
 });
