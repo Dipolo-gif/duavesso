@@ -30,8 +30,8 @@ async function order(items,{shipping='standard',cust=customer}={}){
 }
 const rejects=(items,re,opts)=>assert.rejects(order(items,opts),re);
 
-test('all migrations apply in order and 0006 to 0012 can be applied twice',async()=>{
- for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
+test('all migrations apply in order and 0006 to 0013 can be applied twice',async()=>{
+ for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql','0013_tecidos_do_fornecedor.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
 });
 
 test('active catalog in the database matches dist/commerce.js field by field',async()=>{

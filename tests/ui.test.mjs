@@ -974,7 +974,7 @@ test('Para você (/para-voce): página própria no menu, arraste e compare, e "C
   range.value='30';range.dispatchEvent(new s.w.Event('input',{bubbles:true}));
   assert.equal(cmp.style.getPropertyValue('--x'),'30%','a linha acompanha o controle');
   assert.match(cmp.querySelector('.pv-l').textContent,/Concorrente.*imagem ilustrativa/);
-  assert.match(v.querySelector('.pv-ours').textContent,/Malha pesada de 210 g\/m²/);
+  assert.match(v.querySelector('.pv-ours').textContent,/100% algodão penteado, 180 g\/m²/);
   v.querySelector('a[href="estudio?modo=ideia"]').click();await new Promise(r=>setTimeout(r,20));
   assert.equal(s.w.location.pathname,'/estudio');assert.equal(s.doc.querySelector('#studio-view').hidden,false);
   assert.equal(s.doc.querySelector('[data-mode="brief"]').getAttribute('aria-pressed'),'true','estúdio abre em Descrever a ideia');

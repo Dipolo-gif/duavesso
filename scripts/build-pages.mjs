@@ -46,7 +46,7 @@ function productLD(p){
  const url=abs(productPath(p.id));
  return {'@type':'Product','@id':url,name:p.name,description:p.description,sku:p.id,
   image:photosOf(p).map(n=>abs(`assets/${n}-1024.jpg`)),brand:{'@type':'Brand',name:brandOf(p)?.name||'duavesso'},
-  color:p.variants?p.variants.map(v=>v.color).join(', '):p.color,material:/suedine/i.test(p.fabric)?'Algodão e poliamida (suedine)':p.fabric,url,
+  color:p.variants?p.variants.map(v=>v.color).join(', '):p.color,material:/algodão/i.test(p.fabric)?'100% algodão':p.fabric,url,
   offers:{'@type':'Offer',price:(p.price/100).toFixed(2),priceCurrency:'BRL',availability:'https://schema.org/PreOrder',itemCondition:'https://schema.org/NewCondition',url}};
 }
 const crumbs=list=>({'@type':'BreadcrumbList',itemListElement:list.map(([name,path],i)=>({'@type':'ListItem',position:i+1,name,item:abs(path)}))});
@@ -121,7 +121,7 @@ function llms(){
  const line=p=>`- [${p.name}](${abs(productPath(p.id))}) · ${money(p.price)}${p.variants?` · ${p.variants.map(v=>v.color.toLowerCase()).join(', ')}`:` · ${p.color.toLowerCase()}`}${brandOf(p)?` · linha ${brandOf(p).name}`:''}: ${p.description}`;
  return `# duavesso
 
-> Loja brasileira de camisetas oversized em suedine premium de 250 g/m² (algodão e poliamida), com estúdio online para criar a própria estampa (texto, imagem ou uma ideia descrita, que a marca desenha). Site em português, preços em reais, pré-lançamento.
+> Loja brasileira de camisetas oversized 100% algodão penteado (180 a 220 g/m²), com estúdio online para criar a própria estampa (texto, imagem ou uma ideia descrita, que a marca desenha). Site em português, preços em reais, pré-lançamento.
 
 ## Peças
 

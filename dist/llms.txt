@@ -1,15 +1,15 @@
 # duavesso
 
-> Loja brasileira de camisetas oversized em suedine premium de 250 g/m² (algodão e poliamida), com estúdio online para criar a própria estampa (texto, imagem ou uma ideia descrita, que a marca desenha). Site em português, preços em reais, pré-lançamento.
+> Loja brasileira de camisetas oversized 100% algodão penteado (180 a 220 g/m²), com estúdio online para criar a própria estampa (texto, imagem ou uma ideia descrita, que a marca desenha). Site em português, preços em reais, pré-lançamento.
 
 ## Peças
 
-- [Heavy · Do Avesso](https://loja-duavesso.vercel.app/produto/heavy-avesso) · R$ 159,90 · preto lavado: Nossa peça mais encorpada, suedine 250 g, com uma estampa para vestir do seu avesso. O modelo também vem liso em preto, off-white e marrom.
-- [Heavy · Dois Lados](https://loja-duavesso.vercel.app/produto/heavy-faces) · R$ 159,90 · marrom: Suedine premium 250 g num marrom terroso, com a estampa Dois Lados nas costas: duas faces do mesmo avesso. Oversized, caimento reto.
-- [Heavy · Eclipse](https://loja-duavesso.vercel.app/produto/heavy-eclipse) · R$ 159,90 · marrom: Suedine premium 250 g em marrom, com a estampa Eclipse no peito. Oversized, encorpada e com caimento reto.
-- [Oversized Simples](https://loja-duavesso.vercel.app/produto/simples) · R$ 119,90 · preto lavado, off white, marrom: A base oversized da duavesso: suedine premium 250 g, gola canelada e caimento reto. Sem estampa, só o dv na manga. Vem em preto, off-white e marrom.
-- [Coração Pixelado](https://loja-duavesso.vercel.app/produto/geek-coracao) · R$ 159,90 · preta · linha duavessogeek: Coração anatômico em pixel art que se desmancha em blocos, com PLAYER 01 no peito. Oversized preta em suedine 250 g.
-- [Carpa Japonesa](https://loja-duavesso.vercel.app/produto/geek-carpa) · R$ 159,90 · off white · linha duavessogeek: Carpa koi em nanquim com o sol laranja, entre a arte japonesa e o traço geek. Oversized off white em suedine 250 g.
+- [Heavy · Do Avesso](https://loja-duavesso.vercel.app/produto/heavy-avesso) · R$ 159,90 · preto lavado: Nossa peça mais encorpada, 100% algodão de 220 g/m², com uma estampa para vestir do seu avesso. O modelo também vem liso em preto, off-white e marrom.
+- [Heavy · Dois Lados](https://loja-duavesso.vercel.app/produto/heavy-faces) · R$ 159,90 · marrom: Algodão de 220 g/m² num marrom terroso, com a estampa Dois Lados nas costas: duas faces do mesmo avesso. Oversized, caimento reto.
+- [Heavy · Eclipse](https://loja-duavesso.vercel.app/produto/heavy-eclipse) · R$ 159,90 · marrom: Algodão de 220 g/m² em marrom, com a estampa Eclipse no peito. Oversized, encorpada e com caimento reto.
+- [Oversized Simples](https://loja-duavesso.vercel.app/produto/simples) · R$ 119,90 · preto lavado, off white, marrom: A base oversized da duavesso: 100% algodão penteado de 180 g/m², gola canelada e caimento reto. Sem estampa, só o dv na manga. Vem em preto, off-white e marrom.
+- [Coração Pixelado](https://loja-duavesso.vercel.app/produto/geek-coracao) · R$ 159,90 · preta · linha duavessogeek: Coração anatômico em pixel art que se desmancha em blocos, com PLAYER 01 no peito. Oversized preta em algodão de 220 g/m².
+- [Carpa Japonesa](https://loja-duavesso.vercel.app/produto/geek-carpa) · R$ 159,90 · off white · linha duavessogeek: Carpa koi em nanquim com o sol laranja, entre a arte japonesa e o traço geek. Oversized off white em algodão de 220 g/m².
 
 Tamanhos P, M, G e GG. Estúdio: criar a estampa na hora (R$ 129,90) ou descrever a ideia para a marca desenhar (R$ 149,90). Frete grátis a partir de R$ 250; Pix ou cartão em até 3x; troca em 30 dias.
 

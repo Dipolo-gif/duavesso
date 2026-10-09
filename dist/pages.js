@@ -22,7 +22,7 @@ export function upsertBrandRow(row){const b=brandFromRow(row);BRAND_LIST=[...BRA
 
 export const SITE='https://loja-duavesso.vercel.app/';
 const SECTIONS=['#inicio','#colecao','#sobre'];
-const HOME_DESCRIPTION='Camisetas oversized em suedine premium de 250 g/m² e um estúdio para criar sua camiseta personalizada: sua frase, sua imagem ou só a ideia, que a gente desenha. Frete grátis a partir de R$ 250.';
+const HOME_DESCRIPTION='Camisetas oversized 100% algodão penteado, de 180 a 220 g/m², e um estúdio para criar sua camiseta personalizada: sua frase, sua imagem ou só a ideia, que a gente desenha. Frete grátis a partir de R$ 250.';
 const HOME_IMAGE={image:'assets/editorial-1536.jpg',imageAlt:'Duas pessoas vestindo camisetas oversized duavesso'};
 
 // Lê o endereço atual. Os links antigos com # (#produto-x, #marca-x, #marcas, #estudio) e as âncoras
@@ -67,7 +67,7 @@ export function pageMeta(r){
  if(r.view==='studio')return {path:'/estudio',title:'Crie sua camiseta personalizada · duavesso Studio',
   description:'Monte sua camiseta oversized na hora: sua frase, sua imagem, até 4 estampas por peça em qualquer lugar da camiseta, com prévia em 3D. Ou só descreva a ideia, que a gente desenha.',...HOME_IMAGE};
  if(r.view==='paravoce')return {path:'/para-voce',title:'Camiseta personalizada a partir de 1 peça · Para você · duavesso',
-  description:'Crie sua camiseta oversized a partir de 1 peça: sua frase, sua imagem ou só a ideia, que a gente desenha. Malha pesada de 210 g/m², prévia em 3D e entrega em casa.',...HOME_IMAGE};
+  description:'Crie sua camiseta oversized a partir de 1 peça: sua frase, sua imagem ou só a ideia, que a gente desenha. 100% algodão penteado de 180 g/m², prévia em 3D e entrega em casa.',...HOME_IMAGE};
  if(r.view==='marcas'){
   const brand=r.brand&&findBrand(r.brand);
   if(brand)return {path:brandPath(brand.slug),title:`${brand.name}${brand.tagline?` · ${brand.tagline}`:''} · duavesso`,description:brand.bio||`Loja da ${brand.name} na duavesso.`,
