@@ -929,3 +929,7 @@ input[type=range]:disabled{opacity:.4}
 @media(prefers-reduced-motion:reduce){.pv-frame{animation:none}.pv-frame:first-child{opacity:1}.pv-cursor{animation:none}}
 @media(max-width:900px){.pv-hero{grid-template-columns:1fr;padding:40px 6% 56px;gap:36px}.pv-win{justify-self:center;order:2}.pv-steps,.pv-bases,.pv-ways{grid-template-columns:1fr}.pv-ideas{grid-template-columns:1fr 1fr;grid-auto-rows:190px}.pv-sec{padding:60px 5%}.pv-tight{padding-top:16px}}
 @media(max-width:600px){.pv-cmp-specs{grid-template-columns:1fr}.pv-way{padding:24px}.pv-way h3{font-size:34px}.pv-acts{flex-direction:column}.pv-acts .button{width:100%;justify-content:center;gap:14px}}
+/* Fotos: sem arrastar e sem o menu de "Salvar" no toque longo (iPhone); o resto da página segue normal */
+img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+a{-webkit-user-drag:none}
+.pv-stage,.pv-frame{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}

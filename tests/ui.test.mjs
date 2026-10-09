@@ -981,3 +981,17 @@ test('Para você (/para-voce): página própria no menu, arraste e compare, e "C
   assert.equal(s.doc.querySelector('#brief-fields').hidden,false);
  }finally{s.close();}
 });
+
+test('fotos protegidas: sem "Salvar imagem" no botão direito e sem arrastar; links e campos seguem normais',async()=>{
+ const s=await setup({},undefined,{path:'/para-voce'});try{
+  await new Promise(r=>setTimeout(r,20));
+  const fire=(el,type)=>{const e=new s.w.MouseEvent(type,{bubbles:true,cancelable:true});el.dispatchEvent(e);return e.defaultPrevented;};
+  assert.equal(fire(s.doc.querySelector('.pv-frame img'),'contextmenu'),true,'foto do topo da Para você');
+  assert.equal(fire(s.doc.querySelector('#product-grid img'),'contextmenu'),true,'foto da coleção');
+  assert.equal(fire(s.doc.querySelector('.pv-frame img'),'dragstart'),true,'não arrasta a foto');
+  assert.equal(fire(s.doc.querySelector('.pv-base'),'dragstart'),true,'nem o cartão com foto (link)');
+  assert.equal(fire(s.doc.querySelector('.brand-card, #product-grid .product-card'),'dragstart'),true,'nem os cartões da loja');
+  assert.equal(fire(s.doc.querySelector('.desktop-nav a[href="para-voce"]'),'contextmenu'),false,'link mantém o menu');
+  assert.equal(fire(s.doc.querySelector('#search'),'contextmenu'),false,'campo de texto mantém o menu');
+ }finally{s.close();}
+});

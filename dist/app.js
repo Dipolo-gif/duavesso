@@ -1200,6 +1200,14 @@ function initParaVoce(){
  }
  $$('[data-pv-scroll]').forEach(b=>b.addEventListener('click',()=>$(`#${b.dataset.pvScroll}`)?.scrollIntoView({behavior:still?'instant':'smooth',block:'start'})));
 }
+// Fotos do site: sem "Salvar imagem" no botão direito e sem arrastar a foto para fora da página (o toque
+// longo do iPhone sai pelo CSS). Não impede print nem as ferramentas do navegador: só tira o atalho fácil.
+// Links e textos continuam com o menu normal.
+const PROTECTED_MEDIA='img,picture,video,canvas,.pv-stage,.pv-cmp';
+document.addEventListener('contextmenu',e=>{if(e.target instanceof Element&&e.target.closest(PROTECTED_MEDIA)&&!e.target.closest('input,textarea,[contenteditable]'))e.preventDefault();});
+// Nada da página vira "fantasma" ao arrastar (foto solta, foto dentro de link, cartão): só campos de texto
+// arrastam. Soltar um arquivo no estúdio continua funcionando, porque esse arraste vem de fora da página.
+document.addEventListener('dragstart',e=>{if(!(e.target instanceof Element&&e.target.closest('input,textarea,[contenteditable],[draggable="true"]')))e.preventDefault();});
 function navigate(url){history.pushState({app:true},'',url);route();}
 function openProduct(id){navigate(productPath(id));}
 document.addEventListener('click',e=>{
