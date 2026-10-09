@@ -65,10 +65,23 @@ $('#search').addEventListener('input',renderCatalog);
 $('#clear-search').addEventListener('click',()=>{$('#search').value='';renderCatalog();$('#search').focus();});
 $('.search-toggle').addEventListener('click',()=>{$('.search-row').hidden=false;location.hash='colecao';setTimeout(()=>$('#search').focus(),100);});
 
+// Peças para "anterior/próxima" na janela: a ordem que a pessoa está vendo (a grade da coleção, com
+// filtro e ordenação, ou a loja da marca). Se a peça não está nessa lista, vale o catálogo inteiro.
+function productSequence(id){
+ let ids=[];
+ if(shownView==='marcas'&&shownBrand)ids=PRODUCTS.filter(x=>x.brand===shownBrand).map(x=>x.id);
+ else if(shownView==='shop')ids=[...new Set($$('#product-grid [data-product]').map(b=>b.dataset.product))];
+ if(!ids.includes(id))ids=PRODUCTS.map(x=>x.id);
+ return ids;
+}
+let pagerFocus=null;
 function showProduct(id){
  const p=PRODUCTS.find(p=>p.id===id);if(!p)return;
+ const seq=productSequence(id),pos=seq.indexOf(id),byId=k=>PRODUCTS.find(x=>x.id===k);
+ const prevP=byId(seq[(pos-1+seq.length)%seq.length]),nextP=byId(seq[(pos+1)%seq.length]);
+ const pager=seq.length>1?`<nav class="detail-pager" aria-label="Outras peças"><button type="button" class="detail-pager-btn prev" data-go="${prevP.id}" aria-label="Peça anterior: ${esc(prevP.name)}"><span class="detail-pager-arrow" aria-hidden="true">‹</span><span class="detail-pager-name">${esc(prevP.name)}</span></button><span class="detail-pager-pos">${pos+1} de ${seq.length}</span><button type="button" class="detail-pager-btn next" data-go="${nextP.id}" aria-label="Próxima peça: ${esc(nextP.name)}"><span class="detail-pager-name">${esc(nextP.name)}</span><span class="detail-pager-arrow" aria-hidden="true">›</span></button></nav>`:'';
  const cat=p.brand==='geek'?'GEEK':p.category==='graphic'?'ESTAMPADAS':p.category==='simples'?'SIMPLES':'ESSENCIAIS';
- $('#product-detail').innerHTML=`<div class="detail-layout"><div class="detail-gallery"><div class="detail-main" id="detail-main"><div class="detail-track" id="detail-track" tabindex="0" aria-label="Fotos do produto. Deslize ou use as setas para ver as outras."></div><span class="detail-count" id="detail-count" aria-hidden="true"></span><div class="detail-dots" id="detail-dots" aria-hidden="true"></div></div><div class="detail-thumbs" id="detail-thumbs" role="group" aria-label="Fotos do produto"></div></div><div class="detail-copy"><span class="eyebrow">DUAVESSO · ${cat}</span><div class="detail-head"><h2>${p.name}</h2><div class="price">${money(p.price)}</div></div><p class="installments">ou ${INSTALLMENTS}x de ${money(installment(p.price))} sem juros</p>${p.variants?`<div class="color-select"><span class="field-label">Cor: <strong id="detail-color-name"></strong></span><div class="detail-swatches" role="group" aria-label="Cor da camiseta">${p.variants.map(v=>`<button type="button" class="detail-swatch" data-base="${v.base}" style="background:${v.swatch}" title="${v.color}"><span class="sr-only">${v.color}</span></button>`).join('')}</div></div>`:`<p class="detail-color"><i class="color-dot" style="background:${p.swatch}"></i> ${p.color}</p>`}<div class="size-head"><span class="field-label" id="detail-size-label">Tamanho</span><button type="button" class="text-link size-guide-button">Guia de medidas</button></div><div class="size-options" role="group" aria-labelledby="detail-size-label">${SIZES.map(s=>`<button type="button" data-size="${s}" aria-pressed="false">${s}</button>`).join('')}</div><div class="detail-cta"><button class="button button-blue" id="add-product" disabled>Selecione um tamanho <span>＋</span></button></div><ul class="trust-row"><li>${freeShippingLine()}</li><li>Troca fácil em 30 dias</li><li>Pix ou cartão em até ${INSTALLMENTS}x</li></ul><p class="detail-desc">${p.description}</p><div class="detail-accs"><details class="detail-acc" open><summary>Tecido e acabamento</summary><dl class="specs"><div><dt>Tecido</dt><dd>${p.fabric}</dd></div><div><dt>Acabamento</dt><dd>${p.finish}</dd></div>${p.print?`<div><dt>Estampa</dt><dd>${p.print}</dd></div>`:''}</dl></details><details class="detail-acc"><summary>Caimento</summary><p>${p.fit}</p></details><details class="detail-acc"><summary>Cuidados</summary><p>${p.care}</p></details></div><p class="helper">Imagem, preço e características para demonstração.</p></div></div>`;
+ $('#product-detail').innerHTML=`${pager}<div class="detail-layout"><div class="detail-gallery"><div class="detail-main" id="detail-main"><button type="button" class="detail-arrow prev" data-step="-1" aria-label="Foto anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" class="detail-arrow next" data-step="1" aria-label="Próxima foto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button><div class="detail-track" id="detail-track" tabindex="0" aria-label="Fotos do produto. Deslize ou use as setas para ver as outras."></div><span class="detail-count" id="detail-count" aria-hidden="true"></span><div class="detail-dots" id="detail-dots" aria-hidden="true"></div></div><div class="detail-thumbs" id="detail-thumbs" role="group" aria-label="Fotos do produto"></div></div><div class="detail-copy"><span class="eyebrow">DUAVESSO · ${cat}</span><div class="detail-head"><h2>${p.name}</h2><div class="price">${money(p.price)}</div></div><p class="installments">ou ${INSTALLMENTS}x de ${money(installment(p.price))} sem juros</p>${p.variants?`<div class="color-select"><span class="field-label">Cor: <strong id="detail-color-name"></strong></span><div class="detail-swatches" role="group" aria-label="Cor da camiseta">${p.variants.map(v=>`<button type="button" class="detail-swatch" data-base="${v.base}" style="background:${v.swatch}" title="${v.color}"><span class="sr-only">${v.color}</span></button>`).join('')}</div></div>`:`<p class="detail-color"><i class="color-dot" style="background:${p.swatch}"></i> ${p.color}</p>`}<div class="size-head"><span class="field-label" id="detail-size-label">Tamanho</span><button type="button" class="text-link size-guide-button">Guia de medidas</button></div><div class="size-options" role="group" aria-labelledby="detail-size-label">${SIZES.map(s=>`<button type="button" data-size="${s}" aria-pressed="false">${s}</button>`).join('')}</div><div class="detail-cta"><button class="button button-blue" id="add-product" disabled>Selecione um tamanho <span>＋</span></button></div><ul class="trust-row"><li>${freeShippingLine()}</li><li>Troca fácil em 30 dias</li><li>Pix ou cartão em até ${INSTALLMENTS}x</li></ul><p class="detail-desc">${p.description}</p><div class="detail-accs"><details class="detail-acc" open><summary>Tecido e acabamento</summary><dl class="specs"><div><dt>Tecido</dt><dd>${p.fabric}</dd></div><div><dt>Acabamento</dt><dd>${p.finish}</dd></div>${p.print?`<div><dt>Estampa</dt><dd>${p.print}</dd></div>`:''}</dl></details><details class="detail-acc"><summary>Caimento</summary><p>${p.fit}</p></details><details class="detail-acc"><summary>Cuidados</summary><p>${p.care}</p></details></div><p class="helper">Imagem, preço e características para demonstração.</p></div></div>`;
  let selected='',activeBase=p.variants?p.variants[0].base:p.base,activePose=0,slides=[];
  const root=$('#product-detail'),track=$('#detail-track',root),thumbsEl=$('#detail-thumbs',root),countEl=$('#detail-count',root),dotsEl=$('#detail-dots',root);
  // Galeria em carrossel: desliza com o dedo (scroll-snap), miniaturas no desktop, contador e pontinhos no celular
@@ -78,6 +91,7 @@ function showProduct(id){
   $$('.detail-thumb',thumbsEl).forEach((b,k)=>{b.classList.toggle('active',k===i);b.setAttribute('aria-pressed',String(k===i));});
   $$('i',dotsEl).forEach((d,k)=>d.classList.toggle('on',k===i));
   countEl.textContent=slides.length>1?`${i+1} / ${slides.length}`:'';
+  $$('.detail-arrow',root).forEach(a=>{a.hidden=slides.length<2;});
   if(scroll&&track.clientWidth)track.scrollTo({left:i*track.clientWidth,behavior:'auto'});
  }
  function renderGallery(){
@@ -91,6 +105,9 @@ function showProduct(id){
  }
  renderGallery();
  thumbsEl.addEventListener('click',e=>{const b=e.target.closest('[data-pose]');if(b)setActive(+b.dataset.pose,true);});
+ $$('.detail-arrow',root).forEach(a=>a.addEventListener('click',()=>{if(slides.length>1)setActive((activePose+(+a.dataset.step)+slides.length)%slides.length,true);}));
+ // Trocar de peça sem fechar a janela (o endereço é trocado, não empilhado no histórico)
+ $$('[data-go]',root).forEach(b=>b.addEventListener('click',()=>{pagerFocus=b.classList.contains('next')?'next':'prev';history.replaceState(history.state,'',productPath(b.dataset.go));route();}));
  let settle=0;track.addEventListener('scroll',()=>{clearTimeout(settle);settle=setTimeout(()=>{const w=track.clientWidth,i=w?Math.round(track.scrollLeft/w):activePose;if(i!==activePose&&slides[i])setActive(i);},60);},{passive:true});
  track.addEventListener('keydown',e=>{const d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;if(d&&slides[activePose+d]){e.preventDefault();setActive(activePose+d,true);}});
  $$('.detail-swatch',root).forEach(b=>b.addEventListener('click',()=>{activeBase=b.dataset.base;activePose=0;renderGallery();}));
@@ -98,6 +115,7 @@ function showProduct(id){
  $('#add-product').addEventListener('click',()=>{if(addCatalogItem(p.id,selected,activeBase)){closeDialog($('#product-dialog'));showCart();}});
  $('.size-guide-button',root).addEventListener('click',showSizeGuide);
  openDialog('#product-dialog');
+ if(pagerFocus){$('#product-dialog').scrollTop=0;$(`.detail-pager-btn.${pagerFocus}`,root)?.focus();pagerFocus=null;}
 }
 function addCatalogItem(id,size,base){
  const p=PRODUCTS.find(x=>x.id===id);if(!p||!SIZES.includes(size))throw new Error('Escolha um produto e um tamanho válidos.');

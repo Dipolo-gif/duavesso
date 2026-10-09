@@ -995,3 +995,30 @@ test('fotos protegidas: sem "Salvar imagem" no botão direito e sem arrastar; li
   assert.equal(fire(s.doc.querySelector('#search'),'contextmenu'),false,'campo de texto mantém o menu');
  }finally{s.close();}
 });
+
+test('janela da peça: setas trocam a foto (dando a volta) e a barra passa para a peça anterior ou a próxima sem fechar',async()=>{
+ const s=await setup();try{
+  const grid=[...s.doc.querySelectorAll('#product-grid button[data-product]')].map(b=>b.dataset.product);
+  s.click(`#product-grid button[data-product="${grid[0]}"]`);await new Promise(r=>setTimeout(r,20));
+  const dlg=s.doc.querySelector('#product-dialog');assert(dlg.open);
+  const count=()=>s.doc.querySelector('#detail-count').textContent;
+  assert.equal(count(),'1 / 3');
+  s.click('.detail-arrow.next');assert.equal(count(),'2 / 3','seta da direita avança a foto');
+  s.click('.detail-arrow.prev');s.click('.detail-arrow.prev');assert.equal(count(),'3 / 3','da primeira, a seta da esquerda vai para a última');
+  assert.equal(s.doc.querySelector('.detail-pager-pos').textContent,`1 de ${grid.length}`);
+  const nextBtn=s.doc.querySelector('.detail-pager-btn.next');
+  assert.match(nextBtn.getAttribute('aria-label'),/^Próxima peça: /);
+  assert.equal(s.doc.querySelector('.detail-pager-btn.prev').dataset.go,grid[grid.length-1],'a anterior da primeira é a última');
+  nextBtn.click();await new Promise(r=>setTimeout(r,20));
+  assert.equal(s.w.location.pathname,`/produto/${grid[1]}`,'endereço da próxima peça');
+  assert(dlg.open,'a janela continua aberta');
+  assert.equal(s.doc.querySelector('.detail-pager-pos').textContent,`2 de ${grid.length}`);
+  assert.equal(s.doc.activeElement,s.doc.querySelector('.detail-pager-btn.next'),'o foco fica no botão de próxima peça');
+ }finally{s.close();}
+ const b=await setup({},undefined,{path:'/marcas/geek'});try{
+  await new Promise(r=>setTimeout(r,20));
+  b.click('#marcas-view [data-product="geek-coracao"]');await new Promise(r=>setTimeout(r,20));
+  assert.equal(b.doc.querySelector('.detail-pager-pos').textContent,'1 de 2','na loja da marca, só as peças dela');
+  assert.equal(b.doc.querySelector('.detail-pager-btn.next').dataset.go,'geek-carpa');
+ }finally{b.close();}
+});
