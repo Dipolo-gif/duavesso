@@ -4,7 +4,8 @@
 //   /produto/<id>          ficha do produto, aberta por cima da loja
 //   /marcas                as marcas da família duavesso
 //   /marcas/<slug>         página de uma marca
-//   /estudio               estúdio para criar a estampa
+//   /estudio               estúdio para criar a estampa (?modo=ideia abre "Descrever a ideia")
+//   /para-voce             camiseta personalizada a partir de 1 peça
 //   /checkout              finalizar compra (fora do Google)
 //   /minha-marca           editor da loja da marca (dono da marca; fora do Google)
 //   /painel                painel da dona do site (fora do Google)
@@ -36,6 +37,7 @@ export function parseRoute(pathname,hash=''){
  if((m=hash.match(/^#produto-([a-z0-9-]+)$/)))return {view:'shop',product:m[1],path:`/produto/${m[1]}`,legacy:true};
  if(p==='/')return {view:'shop',path:'/'+hash};
  if(p==='/estudio')return {view:'studio',path:'/estudio'};
+ if(p==='/para-voce')return {view:'paravoce',path:'/para-voce'};
  if(p==='/checkout')return {view:'checkout',path:'/checkout'};
  if(p==='/minha-marca')return {view:'editor',path:'/minha-marca'};
  if(p==='/painel')return {view:'admin',path:'/painel'};
@@ -64,6 +66,8 @@ export function pageMeta(r){
  if(r.view==='checkout')return {path:'/checkout',title:'Finalizar compra · duavesso',description:'Entrega, pagamento e resumo do seu pedido na duavesso.',noindex:true,...HOME_IMAGE};
  if(r.view==='studio')return {path:'/estudio',title:'Crie sua camiseta personalizada · duavesso Studio',
   description:'Monte sua camiseta oversized na hora: sua frase, sua imagem, até 4 estampas por peça em qualquer lugar da camiseta, com prévia em 3D. Ou só descreva a ideia, que a gente desenha.',...HOME_IMAGE};
+ if(r.view==='paravoce')return {path:'/para-voce',title:'Camiseta personalizada a partir de 1 peça · Para você · duavesso',
+  description:'Crie sua camiseta oversized a partir de 1 peça: sua frase, sua imagem ou só a ideia, que a gente desenha. Malha pesada de 210 g/m², prévia em 3D e entrega em casa.',...HOME_IMAGE};
  if(r.view==='marcas'){
   const brand=r.brand&&findBrand(r.brand);
   if(brand)return {path:brandPath(brand.slug),title:`${brand.name}${brand.tagline?` · ${brand.tagline}`:''} · duavesso`,description:brand.bio||`Loja da ${brand.name} na duavesso.`,
@@ -78,5 +82,5 @@ export function pageMeta(r){
 export const privateRoutes=()=>[{view:'checkout'},{view:'editor'},{view:'admin'}];
 // Todas as páginas públicas (para o gerador e o sitemap).
 export function allRoutes(){
- return [{view:'shop'},{view:'marcas',brand:null},...BRAND_LIST.map(b=>({view:'marcas',brand:b.slug})),{view:'studio'},...PRODUCTS.map(p=>({view:'shop',product:p.id}))];
+ return [{view:'shop'},{view:'marcas',brand:null},...BRAND_LIST.map(b=>({view:'marcas',brand:b.slug})),{view:'studio'},{view:'paravoce'},...PRODUCTS.map(p=>({view:'shop',product:p.id}))];
 }

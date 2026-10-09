@@ -959,3 +959,25 @@ test('Minha Marca → Vendas: o dono vê vendas, lucro, saldo a receber, gráfic
   assert(s.doc.querySelector('.acc-brand a[href="minha-marca?marca=estudio-mar&aba=vendas"]'),'atalho de vendas na conta');
  }finally{s.close();}
 });
+
+test('Para você (/para-voce): página própria no menu, arraste e compare, e "Contar minha ideia" abre o estúdio no modo sob medida',async()=>{
+ const s=await setup({},undefined,{path:'/para-voce'});try{
+  await new Promise(r=>setTimeout(r,20));
+  const v=s.doc.querySelector('#para-voce-view');
+  assert.equal(v.hidden,false,'página visível');assert.equal(s.doc.querySelector('#shop-view').hidden,true,'loja escondida');
+  assert.match(s.doc.title,/^Camiseta personalizada a partir de 1 peça · Para você · duavesso$/);
+  assert(s.doc.querySelector('.desktop-nav a[href="para-voce"]'),'link no menu');assert(s.doc.querySelector('#mobile-menu a[href="para-voce"]'),'link no menu do celular');
+  assert.match(v.querySelector('h1').textContent,/a partir de 1 peça/);
+  assert.equal(v.querySelectorAll('.pv-frame').length,4,'quatro fotos na janela do estúdio');
+  const cmp=v.querySelector('#pv-cmp'),range=cmp.querySelector('input[type=range]');
+  assert.equal(range.getAttribute('aria-label'),'Arraste para comparar a camiseta de concorrente com a da duavesso');
+  range.value='30';range.dispatchEvent(new s.w.Event('input',{bubbles:true}));
+  assert.equal(cmp.style.getPropertyValue('--x'),'30%','a linha acompanha o controle');
+  assert.match(cmp.querySelector('.pv-l').textContent,/Concorrente.*imagem ilustrativa/);
+  assert.match(v.querySelector('.pv-ours').textContent,/Malha pesada de 210 g\/m²/);
+  v.querySelector('a[href="estudio?modo=ideia"]').click();await new Promise(r=>setTimeout(r,20));
+  assert.equal(s.w.location.pathname,'/estudio');assert.equal(s.doc.querySelector('#studio-view').hidden,false);
+  assert.equal(s.doc.querySelector('[data-mode="brief"]').getAttribute('aria-pressed'),'true','estúdio abre em Descrever a ideia');
+  assert.equal(s.doc.querySelector('#brief-fields').hidden,false);
+ }finally{s.close();}
+});

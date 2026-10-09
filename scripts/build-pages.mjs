@@ -58,6 +58,7 @@ function jsonLD(r,m,template){
   return [productLD(m.product),crumbs([['Início','/'],...(brand?[['Marcas','/marcas'],[brand.name,brandPath(brand.slug)]]:[['Coleção','/#colecao']]),[m.product.name,m.path]])];
  }
  if(r.view==='studio')return [webPage('WebPage',m),crumbs([['Início','/'],['Estúdio','/estudio']])];
+ if(r.view==='paravoce')return [webPage('WebPage',m),crumbs([['Início','/'],['Para você','/para-voce']])];
  if(['checkout','editor','admin'].includes(r.view))return [webPage('WebPage',m)];
  if(r.view==='marcas'&&m.brand){
   const own=PRODUCTS.filter(p=>p.brand===m.brand.slug);

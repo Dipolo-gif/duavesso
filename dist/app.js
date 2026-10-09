@@ -1158,12 +1158,13 @@ function setMeta(r){
  $('link[rel="canonical"]')?.setAttribute('href',SITE+m.path.slice(1));
 }
 function showView(view,brand){
- const VIEWS={shop:'#shop-view',studio:'#studio-view',marcas:'#marcas-view',checkout:'#checkout-view',editor:'#editor-view',admin:'#admin-view'};
+ const VIEWS={shop:'#shop-view',studio:'#studio-view',paravoce:'#para-voce-view',marcas:'#marcas-view',checkout:'#checkout-view',editor:'#editor-view',admin:'#admin-view'};
  for(const [k,sel] of Object.entries(VIEWS))$(sel).hidden=k!==view;
  document.documentElement.classList.toggle('studio',view==='studio');document.documentElement.classList.toggle('checkout-mode',view==='checkout');
  shownView=view;shownBrand=brand;
  if(view==='marcas')renderMarcas(brand);
- if(view==='studio')renderDesign();
+ if(view==='studio'){renderDesign();if(new URLSearchParams(location.search).get('modo')==='ideia')setMode('brief');}
+ if(view==='paravoce')initParaVoce();
  if(view==='checkout')renderCheckout();
  if(view==='editor')renderEditorPage();
  if(view==='admin')renderAdminPage();
@@ -1182,6 +1183,22 @@ function route(){
  else if($('#product-dialog').open){closingByRoute=true;closeDialog($('#product-dialog'));closingByRoute=false;}
  setMeta(r.product?r:{view,brand});
  if(r.section)requestAnimationFrame(()=>$(r.section).scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'}));
+}
+// Para você (/para-voce): a linha do "arraste e compare" e o atalho "Ver como funciona"
+let pvReady=false;
+function initParaVoce(){
+ if(pvReady)return;pvReady=true;
+ const c=$('#pv-cmp'),range=$('input',c),still=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ const set=v=>{v=Math.min(100,Math.max(0,+v));c.style.setProperty('--x',`${v}%`);range.value=String(Math.round(v));};
+ // O controle deslizante cobre a foto inteira: clicar, arrastar (mouse ou dedo) e as setas do teclado movem a linha
+ let touched=false;range.addEventListener('input',()=>{touched=true;set(range.value);});
+ // A linha balança uma vez quando aparece na tela, para mostrar que dá para arrastar
+ if(!still&&typeof IntersectionObserver==='function'){
+  const io=new IntersectionObserver(es=>{if(!es.some(e=>e.isIntersecting))return;io.disconnect();let t=0;
+   const hint=setInterval(()=>{if(touched||++t>38){clearInterval(hint);if(!touched)set(50);return;}set(50+Math.sin(t/6)*14);},16);},{threshold:.5});
+  io.observe(c);
+ }
+ $$('[data-pv-scroll]').forEach(b=>b.addEventListener('click',()=>$(`#${b.dataset.pvScroll}`)?.scrollIntoView({behavior:still?'instant':'smooth',block:'start'})));
 }
 function navigate(url){history.pushState({app:true},'',url);route();}
 function openProduct(id){navigate(productPath(id));}

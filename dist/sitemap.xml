@@ -21,6 +21,10 @@
     <image:image><image:loc>https://loja-duavesso.vercel.app/assets/editorial-1536.jpg</image:loc></image:image>
   </url>
   <url>
+    <loc>https://loja-duavesso.vercel.app/para-voce</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/editorial-1536.jpg</image:loc></image:image>
+  </url>
+  <url>
     <loc>https://loja-duavesso.vercel.app/produto/heavy-avesso</loc>
     <image:image><image:loc>https://loja-duavesso.vercel.app/assets/tee-porta-1-1024.jpg</image:loc></image:image>
     <image:image><image:loc>https://loja-duavesso.vercel.app/assets/tee-porta-2-1024.jpg</image:loc></image:image>

@@ -2,7 +2,7 @@ import {readFile,access,readdir} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import assert from 'node:assert/strict';
 // Endereços limpos (Vercel cleanUrls): 'produto/x' é o arquivo dist/produto/x.html.
-const page=rel=>{rel=rel.split('#')[0].replace(/^\//,'');return rel&&!/\.[a-z0-9]+$/i.test(rel)?rel+'.html':rel;};
+const page=rel=>{rel=rel.split(/[?#]/)[0].replace(/^\//,'');return rel&&!/\.[a-z0-9]+$/i.test(rel)?rel+'.html':rel;};
 const exists=async rel=>{const p=page(rel);if(p)await access(`dist/${p}`);};
 const html=await readFile('dist/index.html','utf8');
 const app=await readFile('dist/app.js','utf8');

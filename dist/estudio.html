@@ -28,10 +28,10 @@
   <div class="announcement"><span>FEITO PARA VESTIR. LIVRE PARA CRIAR.</span><span>Pré-lançamento · sem cobrança por enquanto</span></div>
   <header class="header">
     <a href="#inicio" class="wordmark" aria-label="duavesso, início"><img src="assets/logo-duavesso.png" alt="duavesso" width="800" height="138" decoding="async"></a>
-    <nav class="desktop-nav" aria-label="Principal"><a href="#colecao">Coleção</a><a href="estudio">Personalizar estampa <span class="nav-label">STUDIO</span></a><a href="marcas">Marcas</a><a href="#sobre">A duavesso</a></nav>
+    <nav class="desktop-nav" aria-label="Principal"><a href="#colecao">Coleção</a><a href="para-voce">Para você</a><a href="estudio">Personalizar estampa <span class="nav-label">STUDIO</span></a><a href="marcas">Marcas</a><a href="#sobre">A duavesso</a></nav>
     <div class="header-actions"><button class="icon-button search-toggle" aria-label="Buscar camisetas"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button><button class="account-button" id="open-auth">Entrar</button><button class="account-button" id="open-account" hidden></button><button class="bag-button" id="open-cart" aria-label="Abrir sacola">Sacola <span id="cart-count">0</span></button><button class="icon-button mobile-menu-toggle" aria-label="Abrir menu" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M3 8h18M3 16h18"/></svg></button></div>
   </header>
-  <nav id="mobile-menu" class="mobile-menu" aria-label="Navegação móvel" hidden><a href="#colecao">Coleção</a><a href="estudio">Personalizar estampa</a><a href="marcas">Marcas</a><a href="#sobre">A duavesso</a><button class="text-button" id="mobile-account">Entrar</button></nav>
+  <nav id="mobile-menu" class="mobile-menu" aria-label="Navegação móvel" hidden><a href="#colecao">Coleção</a><a href="para-voce">Para você</a><a href="estudio">Personalizar estampa</a><a href="marcas">Marcas</a><a href="#sobre">A duavesso</a><button class="text-button" id="mobile-account">Entrar</button></nav>
   <main id="main">
     <div id="shop-view">
       <section class="hero" id="inicio" aria-labelledby="hero-title">
@@ -61,9 +61,98 @@
           <fieldset><legend>03. O ajuste final</legend><label class="range-label" for="design-scale">Tamanho da estampa <output id="scale-output">80%</output></label><input id="design-scale" type="range" min="45" max="100" value="80"><label class="range-label" for="design-y">Posição vertical <output id="position-output">Centro</output></label><input id="design-y" type="range" min="-25" max="25" value="0"><label class="range-label" for="design-x">Posição horizontal <output id="x-output">Centro</output></label><input id="design-x" type="range" min="-30" max="30" value="0"><label class="range-label" for="design-rotation">Rotação <output id="rotation-output">0°</output></label><input id="design-rotation" type="range" min="-15" max="15" value="0"></fieldset>
           <div class="custom-purchase"><div><span><span id="custom-label">Sua camiseta personalizada</span><small id="custom-breakdown">Camiseta base R$ 89,90 + estampa R$ 40,00</small></span><strong id="custom-price">R$ 129,90</strong></div><button type="submit" class="button button-blue">Adicionar à sacola <span>＋</span></button><p class="helper" id="custom-helper">Personalização inclusa: frente, costas, mangas ou lateral, com até 4 estampas.</p></div>
         </form></div></section>
+    <section id="para-voce-view" class="pv" hidden aria-labelledby="pv-title">
+      <div class="pv-hero">
+        <div class="pv-win" aria-hidden="true">
+          <div class="pv-win-bar"><i></i><i></i><i></i><span>duavesso · estúdio</span></div>
+          <div class="pv-win-tools"><b class="on">Frente</b><b>Costas</b><b>Mangas</b><b>Texto</b><b>Imagem</b></div>
+          <div class="pv-stage">
+            <figure class="pv-frame"><img src="assets/tee-porta-1-800.webp" srcset="assets/tee-porta-1-400.webp 400w, assets/tee-porta-1-800.webp 800w" sizes="(max-width:900px) 88vw, 40vw" alt="" width="800" height="1200" loading="lazy"><span class="pv-sel" style="left:33%;top:23%;width:31%;height:32%"><i></i><i></i><i></i><i></i></span></figure>
+            <figure class="pv-frame"><img src="assets/tee-eclipse-1-800.webp" srcset="assets/tee-eclipse-1-400.webp 400w, assets/tee-eclipse-1-800.webp 800w" sizes="(max-width:900px) 88vw, 40vw" alt="" width="800" height="1200" loading="lazy"><span class="pv-sel" style="left:32%;top:18%;width:35%;height:29%"><i></i><i></i><i></i><i></i></span></figure>
+            <figure class="pv-frame"><img src="assets/geek-coracao-1-800.webp" srcset="assets/geek-coracao-1-400.webp 400w, assets/geek-coracao-1-800.webp 800w" sizes="(max-width:900px) 88vw, 40vw" alt="" width="800" height="1200" loading="lazy"><span class="pv-sel" style="left:47%;top:20%;width:21%;height:37%"><i></i><i></i><i></i><i></i></span></figure>
+            <figure class="pv-frame"><img src="assets/tee-faces-1-800.webp" srcset="assets/tee-faces-1-400.webp 400w, assets/tee-faces-1-800.webp 800w" sizes="(max-width:900px) 88vw, 40vw" alt="" width="800" height="1200" loading="lazy"><span class="pv-sel" style="left:50%;top:20%;width:13%;height:12%"><i></i><i></i><i></i><i></i></span></figure>
+            <svg class="pv-cursor" viewBox="0 0 24 24"><path d="M3 2l7.5 19 2.6-7.9L21 10.5z" fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="pv-hero-copy">
+          <p class="eyebrow">PARA VOCÊ · CAMISETA PERSONALIZADA</p>
+          <h1 id="pv-title"><span class="pv-from">a partir de</span> <span class="pv-big">1 peça</span><span class="sr-only">: camiseta personalizada feita para você</span></h1>
+          <p class="pv-lead">A duavesso produz e entrega para você.</p>
+          <p class="pv-sub">Você cria a estampa; a gente imprime na nossa oversized de malha pesada, embala e envia.</p>
+          <div class="pv-acts"><a class="button button-light" href="estudio">Criar minha peça <span aria-hidden="true">→</span></a><button type="button" class="button pv-ghost" data-pv-scroll="pv-como">Ver como funciona</button></div>
+          <ul class="pv-trust"><li>Sem pedido mínimo</li><li>Pix ou até 3x sem juros</li><li>Prévia em 3D</li></ul>
+        </div>
+      </div>
+
+      <div class="pv-sec" id="pv-como">
+        <div class="pv-head"><p class="eyebrow">COMO FUNCIONA</p><h2>Da ideia à sua casa em três passos.</h2></div>
+        <ol class="pv-steps">
+          <li class="pv-step"><div class="pv-step-img pv-flat"><img src="assets/tee-flat-duavesso-640.webp" srcset="assets/tee-flat-duavesso-640.webp 640w, assets/tee-flat-duavesso-1000.webp 1000w" sizes="(max-width:900px) 70vw, 22vw" alt="Camiseta oversized preta lisa da duavesso" width="640" height="960" loading="lazy"></div><div class="pv-step-tx"><small>01</small><h3>Escolha a base</h3><p>Oversized preta ou branca, em malha pesada de 210 g/m², do P ao GG.</p></div></li>
+          <li class="pv-step"><div class="pv-step-img pv-blue" aria-hidden="true"><div class="pv-mini-tools"><b class="on">Texto</b><b>Imagem</b><b>Frente</b><b>Costas</b></div><div class="pv-tee"><img src="assets/tee-white-800.webp" alt="" width="800" height="800" loading="lazy"><div class="pv-print"><i></i><i></i><i></i><i></i>SUA<br>IDEIA</div></div><div class="pv-view3d"><b class="on">3D</b><b>Frente</b><b>Costas</b></div></div><div class="pv-step-tx"><small>02</small><h3>Personalize</h3><p>Escreva uma frase ou envie uma imagem. Até 4 estampas por peça, na frente, nas costas, nas mangas ou na lateral, com prévia em 3D.</p></div></li>
+          <li class="pv-step"><div class="pv-step-img pv-photo"><img src="assets/tee-simples-branco-1-800.webp" srcset="assets/tee-simples-branco-1-400.webp 400w, assets/tee-simples-branco-1-800.webp 800w" sizes="(max-width:900px) 88vw, 30vw" alt="Modelo vestindo a camiseta oversized branca da duavesso" width="800" height="1200" loading="lazy"></div><div class="pv-step-tx"><small>03</small><h3>Receba em casa</h3><p>A gente produz em 3 dias úteis e envia. Você acompanha tudo pelo código do pedido.</p></div></li>
+        </ol>
+      </div>
+
+      <div class="pv-sec pv-tight">
+        <div class="pv-head"><p class="eyebrow">ARRASTE E COMPARE</p><h2>A diferença você vê.</h2><p>Arraste a linha: à esquerda, uma camiseta de concorrente; à direita, a oversized da duavesso.</p></div>
+        <div class="pv-cmp" id="pv-cmp">
+          <img src="assets/compare-duavesso-640.webp" srcset="assets/compare-duavesso-640.webp 640w, assets/compare-duavesso-1000.webp 1000w" sizes="(max-width:700px) 92vw, 640px" alt="Camiseta oversized preta da duavesso, com o dv pequeno no peito" width="1000" height="1000" loading="lazy">
+          <div class="pv-cmp-theirs"><img src="assets/compare-concorrente-640.webp" srcset="assets/compare-concorrente-640.webp 640w, assets/compare-concorrente-1000.webp 1000w" sizes="(max-width:700px) 92vw, 640px" alt="Camiseta de concorrente, desbotada e com a estampa rachada (imagem ilustrativa)" width="1000" height="1000" loading="lazy"></div>
+          <span class="pv-cmp-tag pv-l">Concorrente<small>imagem ilustrativa</small></span><span class="pv-cmp-tag pv-r">duavesso</span>
+          <div class="pv-cmp-line" aria-hidden="true"><span class="pv-cmp-knob">‹›</span></div>
+          <input type="range" min="0" max="100" value="50" step="1" aria-label="Arraste para comparar a camiseta de concorrente com a da duavesso">
+        </div>
+        <div class="pv-cmp-specs">
+          <div class="pv-spec"><h3>Concorrente</h3><dl><dt>Tecido</dt><dd>Malha leve, em geral de 140 a 160 g/m²</dd><dt>Caimento</dt><dd>Corte reto, ombro no lugar do ombro</dd><dt>Toque</dt><dd>Sem acabamento especial</dd></dl></div>
+          <div class="pv-spec pv-ours"><h3>duavesso</h3><dl><dt>Tecido</dt><dd>Malha pesada de 210 g/m²</dd><dt>Caimento</dt><dd>Oversized: ombro caído e corpo amplo</dd><dt>Toque</dt><dd>Lavagem enzimática: macia desde a primeira vez</dd></dl></div>
+        </div>
+      </div>
+
+      <div class="pv-sec pv-tight">
+        <div class="pv-head"><p class="eyebrow">AS BASES</p><h2>O caimento que você já conhece.</h2><p>Ombro caído, corpo amplo e uma malha que segura a estampa.</p></div>
+        <div class="pv-bases">
+          <a class="pv-base" href="estudio"><img src="assets/tee-simples-preto-1-800.webp" srcset="assets/tee-simples-preto-1-400.webp 400w, assets/tee-simples-preto-1-800.webp 800w" sizes="(max-width:900px) 92vw, 30vw" alt="Modelo vestindo a oversized preta" width="800" height="1200" loading="lazy"><span class="pv-base-lab"><span><b>Oversized preta</b><small>malha pesada · P a GG</small></span><span class="pv-go">Criar →</span></span></a>
+          <a class="pv-base" href="estudio"><img src="assets/tee-simples-branco-1-800.webp" srcset="assets/tee-simples-branco-1-400.webp 400w, assets/tee-simples-branco-1-800.webp 800w" sizes="(max-width:900px) 92vw, 30vw" alt="Modelo vestindo a oversized branca" width="800" height="1200" loading="lazy"><span class="pv-base-lab"><span><b>Oversized branca</b><small>malha pesada · P a GG</small></span><span class="pv-go">Criar →</span></span></a>
+          <div class="pv-base pv-more"><div><div class="pv-sw"><i style="background:#161719"></i><i style="background:#f4f2ec"></i></div><h3>Sua estampa a partir de R$ 129,90</h3><p>Frete grátis a partir de R$ 250 e Pix ou até 3x sem juros.</p><a class="button button-blue" href="estudio">Abrir o estúdio <span aria-hidden="true">→</span></a></div></div>
+        </div>
+      </div>
+
+      <div class="pv-sec pv-gray">
+        <div class="pv-head"><p class="eyebrow">DOIS JEITOS DE CRIAR</p><h2>Faça você ou deixe com a gente.</h2></div>
+        <div class="pv-ways">
+          <div class="pv-way"><small>VOCÊ CRIA</small><h3>Do seu jeito</h3><p class="pv-price">R$ 129,90 <span>por peça</span></p><ul><li>Frase ou imagem sua (PNG, JPG ou WebP até 5 MB)</li><li>Frente, costas, mangas ou lateral, com prévia em 3D</li><li>Vai direto para a produção</li></ul><a class="button button-blue" href="estudio">Criar minha peça <span aria-hidden="true">→</span></a></div>
+          <div class="pv-way pv-dark"><small>A GENTE DESENHA</small><h3>Estampa sob medida</h3><p class="pv-price">R$ 149,90 <span>por peça</span></p><ul><li>Você conta a ideia; a equipe cria a arte</li><li>Você aprova a prévia antes da produção</li><li>Ideal para presente, evento ou turma</li></ul><a class="button button-light" href="estudio?modo=ideia">Contar minha ideia <span aria-hidden="true">→</span></a></div>
+        </div>
+      </div>
+
+      <div class="pv-sec">
+        <div class="pv-head"><p class="eyebrow">IDEIAS PARA CRIAR</p><h2>Uma peça, um motivo.</h2><p>Nada de quantidade mínima: dá para fazer uma só, do jeito que você imaginou.</p></div>
+        <ul class="pv-ideas">
+          <li class="pv-idea pv-big"><img src="assets/tee-porta-1-800.webp" alt="" width="800" height="1200" loading="lazy"><b>Arte autoral<small>sua ilustração, sua foto</small></b></li>
+          <li class="pv-idea"><img src="assets/tee-eclipse-1-800.webp" alt="" width="800" height="1200" loading="lazy"><b>Presente com significado<small>aniversário, dia dos pais e das mães</small></b></li>
+          <li class="pv-idea pv-txt"><span>A frase<br>que é<br>a sua cara</span></li>
+          <li class="pv-idea pv-big"><img src="assets/tee-faces-1-800.webp" alt="" width="800" height="1200" loading="lazy"><b>Banda, time ou turma<small>uma para cada, sem pedido mínimo</small></b></li>
+          <li class="pv-idea"><img src="assets/geek-coracao-1-800.webp" alt="" width="800" height="1200" loading="lazy"><b>Sua paixão<small>games, música, filmes</small></b></li>
+          <li class="pv-idea"><img src="assets/tee-simples-marrom-1-800.webp" alt="" width="800" height="1200" loading="lazy"><b>Evento ou encontro<small>a lembrança que dura</small></b></li>
+        </ul>
+      </div>
+
+      <div class="pv-sec pv-tight">
+        <div class="pv-head"><p class="eyebrow">DÚVIDAS</p><h2>Antes de criar.</h2></div>
+        <div class="pv-faq">
+          <details open><summary>Tem pedido mínimo?</summary><p>Não. Você pode fazer uma peça só, e cada uma do seu jeito.</p></details>
+          <details><summary>Quanto tempo leva?</summary><p>As peças do estúdio somam 3 dias úteis de produção ao prazo de entrega. Na estampa sob medida, a produção começa quando você aprova a prévia.</p></details>
+          <details><summary>Que arquivo eu posso enviar?</summary><p>Imagens PNG, JPG ou WebP de até 5 MB. No estúdio você ajusta tamanho, posição e rotação.</p></details>
+          <details><summary>Quais tamanhos?</summary><p>Do P ao GG, no caimento oversized da duavesso. O guia de medidas está no rodapé da loja.</p></details>
+          <details><summary>Posso trocar?</summary><p>Como cada peça é feita sob demanda, a troca vale para defeito de fabricação ou erro de produção. Por isso você vê a prévia antes.</p></details>
+        </div>
+      </div>
+
+      <div class="pv-final"><p class="eyebrow">FAÇA O SEU PEDIDO</p><h2>Sua ideia.<br>Sua camiseta.</h2><p>Abra o estúdio, crie em poucos minutos e receba em casa.</p><a class="button button-light" href="estudio">Criar minha peça <span aria-hidden="true">→</span></a></div>
+    </section>
     <section id="marcas-view" class="marcas-view section" hidden></section>
   <section id="editor-view" class="brand-editor-page" hidden aria-label="Minha Marca"></section><section id="admin-view" class="admin-page" hidden aria-label="Painel da duavesso"></section><section id="checkout-view" class="checkout-page" hidden aria-labelledby="checkout-title"><h1 id="checkout-title" class="checkout-title">Finalizar compra</h1><div id="checkout-content"></div></section></main>
-  <footer><div class="footer-top"><div class="footer-brand"><a href="#inicio" class="wordmark"><img src="assets/logo-duavesso.png" alt="duavesso" width="800" height="138" decoding="async"></a><p>VISTA O QUE FAZ SENTIDO PARA VOCÊ.</p></div><nav aria-label="Rodapé"><div><span class="footer-heading">Loja</span><a href="#colecao">Coleção</a><a href="estudio">Personalizar</a><a href="marcas">Marcas</a><button class="text-button" id="footer-size-guide">Guia de medidas</button><button class="text-button" id="view-orders">Meus pedidos</button></div><div><span class="footer-heading">Ajuda</span><button class="text-button" id="open-help">Dúvidas frequentes</button><button class="text-button" id="open-returns">Trocas e devoluções</button><button class="text-button" id="open-shipping">Entregas e prazos</button><button class="text-button" id="open-contact">Fale com a gente</button><button class="text-button" id="open-privacy">Privacidade</button></div><!--gerado:rodape--><div><span class="footer-heading">Peças</span><a href="produto/heavy-avesso">Heavy · Do Avesso</a><a href="produto/heavy-faces">Heavy · Dois Lados</a><a href="produto/heavy-eclipse">Heavy · Eclipse</a><a href="produto/simples">Oversized Simples</a><a href="produto/geek-coracao">Coração Pixelado</a><a href="produto/geek-carpa">Carpa Japonesa</a></div><div><span class="footer-heading">Marcas</span><a href="marcas/geek">duavessogeek</a><a href="marcas/rua">Teste</a></div><!--/gerado:rodape--></nav><form class="newsletter" id="newsletter"><label for="newsletter-email">Novidades e drops, sem spam.</label><div><input type="text" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="email" id="newsletter-email" name="email" placeholder="seu@email.com" required maxlength="120" autocomplete="off"><button type="submit" class="button button-light">Quero</button></div><p>Só novidades e lançamentos. Nada de spam.</p></form></div><div class="footer-bottom"><span>© 2026 DUAVESSO. Pré-lançamento.</span><span>Pix · Cartão em até 3x · Pré-lançamento: sem cobrança por enquanto</span><span>FEITO DO NOSSO JEITO.</span></div></footer>
+  <footer><div class="footer-top"><div class="footer-brand"><a href="#inicio" class="wordmark"><img src="assets/logo-duavesso.png" alt="duavesso" width="800" height="138" decoding="async"></a><p>VISTA O QUE FAZ SENTIDO PARA VOCÊ.</p></div><nav aria-label="Rodapé"><div><span class="footer-heading">Loja</span><a href="#colecao">Coleção</a><a href="para-voce">Para você</a><a href="estudio">Personalizar</a><a href="marcas">Marcas</a><button class="text-button" id="footer-size-guide">Guia de medidas</button><button class="text-button" id="view-orders">Meus pedidos</button></div><div><span class="footer-heading">Ajuda</span><button class="text-button" id="open-help">Dúvidas frequentes</button><button class="text-button" id="open-returns">Trocas e devoluções</button><button class="text-button" id="open-shipping">Entregas e prazos</button><button class="text-button" id="open-contact">Fale com a gente</button><button class="text-button" id="open-privacy">Privacidade</button></div><!--gerado:rodape--><div><span class="footer-heading">Peças</span><a href="produto/heavy-avesso">Heavy · Do Avesso</a><a href="produto/heavy-faces">Heavy · Dois Lados</a><a href="produto/heavy-eclipse">Heavy · Eclipse</a><a href="produto/simples">Oversized Simples</a><a href="produto/geek-coracao">Coração Pixelado</a><a href="produto/geek-carpa">Carpa Japonesa</a></div><div><span class="footer-heading">Marcas</span><a href="marcas/geek">duavessogeek</a><a href="marcas/rua">Teste</a></div><!--/gerado:rodape--></nav><form class="newsletter" id="newsletter"><label for="newsletter-email">Novidades e drops, sem spam.</label><div><input type="text" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="email" id="newsletter-email" name="email" placeholder="seu@email.com" required maxlength="120" autocomplete="off"><button type="submit" class="button button-light">Quero</button></div><p>Só novidades e lançamentos. Nada de spam.</p></form></div><div class="footer-bottom"><span>© 2026 DUAVESSO. Pré-lançamento.</span><span>Pix · Cartão em até 3x · Pré-lançamento: sem cobrança por enquanto</span><span>FEITO DO NOSSO JEITO.</span></div></footer>
   <dialog id="product-dialog" class="product-dialog"><button class="close-dialog icon-button" aria-label="Fechar detalhes">×</button><div id="product-detail"></div></dialog>
   <dialog id="cart-dialog" class="cart-dialog"><div class="dialog-heading"><h2>Sua sacola <span id="cart-title-count"></span></h2><button class="close-dialog icon-button" aria-label="Fechar sacola">×</button></div><div id="cart-content"></div></dialog>
   
