@@ -30,8 +30,8 @@ async function order(items,{shipping='standard',cust=customer}={}){
 }
 const rejects=(items,re,opts)=>assert.rejects(order(items,opts),re);
 
-test('all migrations apply in order and 0006 to 0013 can be applied twice',async()=>{
- for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql','0013_tecidos_do_fornecedor.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
+test('all migrations apply in order and 0006 to 0014 can be applied twice',async()=>{
+ for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql','0013_tecidos_do_fornecedor.sql','0014_codigo_de_pedido_sem_colisao.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
 });
 
 test('active catalog in the database matches dist/commerce.js field by field',async()=>{
@@ -502,5 +502,14 @@ test('financeiro: pedido pago congela custo e lucro da marca; caixa, comparaçã
   assert.equal(list.orders.length,1);assert.equal(list.orders[0].code,order.code);assert.equal(list.counts.cancelado,1);
   assert.deepEqual(list.orders[0].events.map(e=>e.to),['aguardando_pagamento','pago','em_producao','cancelado']);
   assert.equal((await db.query(`select public.admin_list_orders(null,'cliente teste',50,0) as r`)).rows[0].r.orders.length,1,'busca pelo nome');
+ }finally{await db.exec('rollback');}
+});
+
+test('código de pedido: relógio real + 8 caracteres, sem repetir mesmo com muitos pedidos na mesma transação',async()=>{
+ await db.exec('begin');
+ try{
+  const codes=[];for(let i=0;i<200;i++)codes.push((await orderWith([tee('simples')],{cust:{email:`c${i}@example.com`}})).code);
+  assert(codes.every(c=>/^AV-[0-9A-F]{11,}-[0-9A-F]{8}$/.test(c)),codes[0]);
+  assert.equal(new Set(codes).size,200,'nenhum código repetido');
  }finally{await db.exec('rollback');}
 });
