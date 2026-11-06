@@ -40,7 +40,7 @@ jobs:
           if [ -n "$DB_URL" ] && [ -n "$FRASE" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"
           else echo "::warning::Backup pulado: cadastre SUPABASE_DB_URL e BACKUP_PASSPHRASE nos segredos do repositório."; echo "ok=false" >> "$GITHUB_OUTPUT"; fi
       - if: steps.segredos.outputs.ok == 'true'
-        uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
         with:
           version: latest
       - name: Exportar papéis, estrutura e dados
