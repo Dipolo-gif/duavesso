@@ -63,7 +63,7 @@ function renderHome(){
   $('#promo-big').textContent=`${all?'':'até '}−${max}%`;$('#promo-count').textContent=`${promos.length} ${promos.length===1?'peça':'peças'} em promoção`;
   $('#promo-row').innerHTML=promos.map(p=>productCardHTML(p)).join('');}
  const brands=brandList();
- $('#brand-grid').innerHTML=brands.map(b=>{const n=PRODUCTS.filter(p=>p.brand===b.slug).length;return `<a class="brand-card b2-card mk-brand" href="marcas/${esc(b.slug)}"${b.static?.theme?` data-theme="${b.static.theme}"`:''} style="${themeCSS(b.theme)}"><span class="b2-card-logo">${brandLogoHTML(b)}</span>${b.edition?`<span class="mk-brand-ed">${esc(editionName(b.edition))}</span>`:''}<span class="b2-card-name">${esc(b.name)}</span><span class="brand-kicker">${esc(b.tagline)}</span><span class="brand-ver">${n?`${n} ${n===1?'camisa':'camisas'} · `:''}Ver a loja <span aria-hidden="true">↗</span></span></a>`;}).join('')+`<a class="mk-brand mk-brand-join" href="marcas"><span class="mk-brand-plus" aria-hidden="true">＋</span><span class="b2-card-name">Sua marca aqui</span><span class="brand-kicker">A gente produz, embala e entrega. Você cria.</span><span class="brand-ver">Quero vender na duavesso <span aria-hidden="true">↗</span></span></a>`;
+ $('#brand-grid').innerHTML=brands.map(b=>{const n=PRODUCTS.filter(p=>p.brand===b.slug).length;return `<a class="brand-card b2-card mk-brand" href="${esc(b.static?.exclusive||`marcas/${b.slug}`)}"${b.static?.theme?` data-theme="${b.static.theme}"`:''} style="${themeCSS(b.theme)}"><span class="b2-card-logo">${brandLogoHTML(b)}</span>${b.edition?`<span class="mk-brand-ed">${esc(editionName(b.edition))}</span>`:''}<span class="b2-card-name">${esc(b.name)}</span><span class="brand-kicker">${esc(b.tagline)}</span><span class="brand-ver">${n?`${n} ${n===1?'camisa':'camisas'} · `:''}${b.static?.exclusive?'Visitar o site':'Ver a loja'} <span aria-hidden="true">↗</span></span></a>`;}).join('')+`<a class="mk-brand mk-brand-join" href="marcas"><span class="mk-brand-plus" aria-hidden="true">＋</span><span class="b2-card-name">Sua marca aqui</span><span class="brand-kicker">A gente produz, embala e entrega. Você cria.</span><span class="brand-ver">Quero vender na duavesso <span aria-hidden="true">↗</span></span></a>`;
  renderFilters();renderCatalog();
 }
 // Prateleiras: setas rolam a fileira; clicar numa edição filtra "Todas as camisas" e desce até ela
@@ -638,7 +638,7 @@ function brandLinksHTML(b){
 function brandHeaderHTML(b){
  return `<header class="b2-head"><div class="b2-cover">${b.cover?`<img src="${brandImg(b.cover)}" alt="" width="1800" height="600" fetchpriority="high">`:''}</div>
 <div class="b2-id"><span class="b2-logo">${brandLogoHTML(b)}</span><div class="b2-titles"><h1 class="b2-name">${esc(b.name)}</h1><span class="b2-seal">✓ marca duavesso</span></div></div>
-${b.tagline?`<p class="b2-tag">${esc(b.tagline)}</p>`:''}${b.bio?`<p class="b2-bio">${esc(b.bio)}</p>`:''}${brandLinksHTML(b)}</header>`;
+${b.tagline?`<p class="b2-tag">${esc(b.tagline)}</p>`:''}${b.bio?`<p class="b2-bio">${esc(b.bio)}</p>`:''}${brandLinksHTML(b)}${b.static?.exclusive?`<a class="b2-site" href="${esc(b.static.exclusive)}">Entrar no site da ${esc(b.name)} <span aria-hidden="true">↗</span></a>`:''}</header>`;
 }
 function brandFeaturedHTML(b){
  const f=b.featured,p=f&&PRODUCTS.find(x=>x.id===f.id);if(!p)return '';
