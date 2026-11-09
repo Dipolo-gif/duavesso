@@ -24,7 +24,8 @@ const pic=(name,alt,sizes,lazy=true)=>`<picture><source type="image/webp" srcset
 const price=p=>discountOf(p)?`<s>${money(p.compareAt)}</s><b>${money(p.price)}</b>`:`<b>${money(p.price)}</b>`;
 // Entradas suaves conforme a página desce (desligadas com movimento reduzido)
 const io='IntersectionObserver' in window&&!still()?new IntersectionObserver(es=>es.forEach(en=>{if(en.isIntersecting){en.target.classList.remove('pre');en.target.classList.add('in');io.unobserve(en.target);}}),{rootMargin:'0px 0px -8% 0px'}):null;
-function reveal(els){els.forEach(el=>{if(io){el.classList.add('pre');io.observe(el);}else el.classList.add('in');});}
+// Só os cartões da vitrine entram assim; se o navegador não avisar a tempo, aparecem mesmo assim
+function reveal(els){els.forEach(el=>{if(io){el.classList.add('pre');io.observe(el);}else el.classList.add('in');});if(io)setTimeout(()=>els.forEach(el=>{if(el.classList.contains('pre')){el.classList.remove('pre');el.classList.add('in');io.unobserve(el);}}),2500);}
 let toastTimer;
 function toast(msg){const t=$('#ml-toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('on'),3800);}
 function openDialog(d){if(!d.open)d.showModal();document.documentElement.classList.add('ml-lock');}
@@ -248,7 +249,6 @@ $('#ml-news').addEventListener('submit',async e=>{
 // Menu no celular, entradas da vitrine e números do manifesto ----------------------------------------------
 $('#ml-menu-btn').addEventListener('click',()=>{const m=$('#ml-mobile'),open=m.hidden;m.hidden=!open;$('#ml-menu-btn').setAttribute('aria-expanded',String(open));});
 $$('#ml-mobile a').forEach(a=>a.addEventListener('click',()=>{$('#ml-mobile').hidden=true;$('#ml-menu-btn').setAttribute('aria-expanded','false');}));
-reveal($$('.ml-drop-copy, .ml-drop-media, .ml-man-copy, .ml-man-photo, .ml-specs > div'));
 window.addEventListener('scroll',()=>$('#ml-nav').classList.toggle('scrolled',scrollY>24),{passive:true});
 
 // Do banco: frete grátis atual e o Instagram da marca
