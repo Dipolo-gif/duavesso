@@ -19,6 +19,17 @@ const still=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
 // O drop atual vem primeiro na vitrine
 const items=PRODUCTS.filter(p=>p.brand===BRAND).sort((a,b)=>DROP.includes(b.id)-DROP.includes(a.id));
 const byId=id=>items.find(p=>p.id===id);
+// Entre coleções (estampas em reformulação): sem peças à venda, o site vira a espera do próximo drop
+const between=!items.length;
+if(between){
+ document.body.classList.add('ml-between');
+ $('.ml-ticker-track').innerHTML=['[DROP_02] em produção','Estampas novas em breve','Entre na lista e saiba primeiro','[DROP_02] em produção','Estampas novas em breve','Entre na lista e saiba primeiro'].map(t=>`<span>${t}</span>`).join('');
+ const cta=$('.ml-ctas .ml-btn-primary');cta.textContent='Entrar na lista';cta.href='marileus#lista';
+ const sec=$('.ml-ctas .ml-btn-ghost');sec.textContent='Conhecer a marca';sec.href='marileus#manifesto';
+ $('.ml-lead').textContent='As estampas da Marileus estão sendo redesenhadas. O próximo drop sai em lote pequeno: quem está na lista fica sabendo antes de abrir.';
+ $$('a[href="marileus#drop"]').forEach(a=>{a.href='marileus#lista';});
+ $('#drop').hidden=true;
+}
 const photos=(p,base)=>{const v=p.variants?(p.variants.find(x=>x.base===base)||p.variants[0]):null;return v?v.photos:(p.photos||[]);};
 const pic=(name,alt,sizes,lazy=true)=>`<picture><source type="image/webp" srcset="assets/${name}-400.webp 400w, assets/${name}-800.webp 800w, assets/${name}-1024.webp 1024w" sizes="${sizes}"><img src="assets/${name}-1024.jpg" alt="${esc(alt)}" width="1024" height="1536" decoding="async"${lazy?' loading="lazy"':''}></picture>`;
 const price=p=>discountOf(p)?`<s>${money(p.compareAt)}</s><b>${money(p.price)}</b>`:`<b>${money(p.price)}</b>`;
@@ -77,7 +88,12 @@ function startDrop(){clearInterval(dropTimer);if(!still())dropTimer=setInterval(
 $('#ml-drop-card').addEventListener('click',e=>{const d=e.target.closest('[data-dot]');if(d){dropIdx=+d.dataset.dot;renderDropCard();startDrop();}});
 $('#ml-drop-card').addEventListener('mouseenter',()=>clearInterval(dropTimer));
 $('#ml-drop-card').addEventListener('mouseleave',startDrop);
-renderDropCard();startDrop();
+if(between)$('#ml-drop-card').innerHTML=`<span class="ml-corner tl"></span><span class="ml-corner tr"></span><span class="ml-corner bl"></span><span class="ml-corner br"></span>
+<p class="ml-badge"><span class="ml-live" aria-hidden="true"></span>[DROP_02] EM PRODUÇÃO</p>
+<div class="ml-wait"><img src="assets/marileus-mark.png" alt="" width="234" height="226"><span class="ml-wait-scan" aria-hidden="true"></span></div>
+<div class="ml-drop-info"><div><span class="ml-mini">PRÓXIMO DROP</span><h3>Estampas em reformulação</h3></div></div>
+<a class="ml-btn ml-btn-primary ml-wide" href="marileus#lista">Avise-me no lançamento</a>`;
+else{renderDropCard();startDrop();}
 
 // Vitrine ---------------------------------------------------------------------------------------------
 let filter='all';
@@ -104,10 +120,13 @@ $('#ml-products').addEventListener('click',e=>{
  if(a){const p=byId(a.dataset.add);if(add(p,a.dataset.size)){a.classList.add('ok');setTimeout(()=>a.classList.remove('ok'),700);toast(`${p.name} · ${a.dataset.size} no carrinho.`);}}
 });
 $('#ml-search-open').addEventListener('click',()=>{$('#estampas').scrollIntoView({behavior:still()?'instant':'smooth'});setTimeout(()=>$('#ml-search').focus({preventScroll:true}),still()?0:450);});
-renderFilters();renderProducts();
+if(between){$('#ml-filters').hidden=true;$('#ml-search-wrap').hidden=true;$('#ml-results').hidden=true;
+ $('#ml-products').innerHTML=`<div class="ml-empty ml-soon"><img src="assets/marileus-mark.png" alt="" width="80" height="77"><p class="ml-tag">[DROP_02] em produção</p><h3>As estampas estão sendo redesenhadas.</h3><p>A coleção anterior saiu da loja. As novas estampas chegam no próximo drop, em lote pequeno.</p><a class="ml-btn ml-btn-primary" href="marileus#lista">Entrar na lista</a></div>`;}
+else{renderFilters();renderProducts();}
 
 // Drop exclusivo ----------------------------------------------------------------------------------------
 (function renderDrop(){
+ if(between)return;
  const list=DROP.map(byId).filter(Boolean);if(!list.length)return;
  $('#ml-drop-media').innerHTML=list.map((p,i)=>`<button type="button" class="ml-drop-tile t${i}" data-quick="${p.id}" aria-label="Ver ${esc(p.name)}">${pic(photos(p)[0],p.name,'(max-width:900px) 50vw, 28vw')}</button>`).join('');
  $('#ml-drop-list').innerHTML=list.map(p=>`<li><button type="button" data-quick="${p.id}"><span>${esc(p.name)}</span><span class="ml-price">${price(p)}</span></button></li>`).join('');

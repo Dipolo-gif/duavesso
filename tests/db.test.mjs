@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
 import {PGlite} from '@electric-sql/pglite';
-import {PRODUCTS} from '../dist/commerce.js';
+import {PRODUCTS,ARCHIVE} from '../dist/commerce.js';
 
 const MIG=new URL('../supabase/migrations/',import.meta.url);
 const MIGRATIONS=readdirSync(MIG).filter(f=>/^\d{4}_.+\.sql$/.test(f)).sort();
@@ -30,14 +30,18 @@ async function order(items,{shipping='standard',cust=customer}={}){
 }
 const rejects=(items,re,opts)=>assert.rejects(order(items,opts),re);
 
-test('all migrations apply in order and 0006 to 0016 can be applied twice',async()=>{
- for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql','0013_tecidos_do_fornecedor.sql','0014_codigo_de_pedido_sem_colisao.sql','0015_dono_exclui_marca.sql','0016_marketplace_edicoes_promocao.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
+test('all migrations apply in order and 0006 to 0017 can be applied twice',async()=>{
+ for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql','0013_tecidos_do_fornecedor.sql','0014_codigo_de_pedido_sem_colisao.sql','0015_dono_exclui_marca.sql','0016_marketplace_edicoes_promocao.sql','0017_colecao_em_reformulacao.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
 });
 
 test('active catalog in the database matches dist/commerce.js field by field',async()=>{
+ // Coleção em reformulação (0017): nada à venda, como no site
+ assert.deepEqual((await db.query('select id from public.products where active')).rows,PRODUCTS,'nenhuma peça ativa');
+ // Daqui em diante os testes usam a coleção anterior como peças de exemplo: volta ela e confere campo a campo
+ await db.query('update public.products set active=true where id = any($1)',[ARCHIVE.map(p=>p.id)]);
  const rows=(await db.query('select * from public.products where active order by sort_order')).rows;
- assert.deepEqual(rows.map(r=>r.id),PRODUCTS.map(p=>p.id));
- for(const p of PRODUCTS){
+ assert.deepEqual(rows.map(r=>r.id),ARCHIVE.map(p=>p.id));
+ for(const p of ARCHIVE){
   const r=rows.find(x=>x.id===p.id);
   for(const [col,key] of [['name','name'],['category','category'],['color','color'],['base','base'],['price_cents','price'],['tag','tag'],['graphic','graphic'],['graphic_class','graphicClass'],['description','description'],['print','print'],['fabric','fabric'],['finish','finish'],['fit','fit'],['care','care']])
    assert.equal(r[col],p[key]??'',`${p.id}.${col}`);
@@ -48,14 +52,14 @@ test('active catalog in the database matches dist/commerce.js field by field',as
 
 test('color variants in the database match the site and old products are inactive',async()=>{
  const rows=(await db.query('select product_id,base,color from public.product_variants where active order by product_id,base')).rows;
- const site=PRODUCTS.flatMap(p=>(p.variants||[]).map(v=>({product_id:p.id,base:v.base,color:v.color}))).sort((a,b)=>(a.product_id+a.base).localeCompare(b.product_id+b.base));
+ const site=ARCHIVE.flatMap(p=>(p.variants||[]).map(v=>({product_id:p.id,base:v.base,color:v.color}))).sort((a,b)=>(a.product_id+a.base).localeCompare(b.product_id+b.base));
  assert.deepEqual(rows,site);
  const old=(await db.query(`select id from public.products where id in ('off-line','sol-sol','essencial-preta','essencial-branca') and active`)).rows;
  assert.deepEqual(old,[]);
 });
 
 test('every product and every color sold on the site can be ordered at the database price',async()=>{
- for(const p of PRODUCTS){
+ for(const p of ARCHIVE){
   for(const v of p.variants||[{base:p.base,color:p.color}]){
    const {result,items}=await order([{kind:'catalog',product_id:p.id,base:v.base,size:'M',qty:2}]);
    assert.equal(result.subtotal_cents,p.price*2,p.id);
@@ -106,7 +110,7 @@ async function asAnon(sql){
  finally{await db.exec('rollback');}
 }
 test('public key sees only active catalog and variants and cannot read orders',async()=>{
- assert.deepEqual((await asAnon('select id from public.products order by sort_order')).map(r=>r.id),PRODUCTS.map(p=>p.id));
+ assert.deepEqual((await asAnon('select id from public.products order by sort_order')).map(r=>r.id),ARCHIVE.map(p=>p.id));
  assert.equal((await asAnon('select count(*)::int as n from public.product_variants'))[0].n,3);
  for(const sql of ['select * from public.orders','select * from public.order_items',`insert into public.product_variants values ('simples','black','X')`])
   await assert.rejects(asAnon(sql),/permission denied/,sql);
