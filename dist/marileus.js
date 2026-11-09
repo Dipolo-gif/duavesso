@@ -2,7 +2,7 @@
 // Usa o mesmo catálogo (commerce.js) e o mesmo banco (place_order, cupons, newsletter) da duavesso,
 // com carrinho e checkout próprios. As peças são as da marca geek (Marileus) no catálogo.
 import {PRODUCTS,SIZES,money,installment,INSTALLMENTS,discountOf,totals,normalizeCart,setPromos,freeShippingMin,escapeHTML as esc} from './commerce.js';
-import {online,rpc,checkCoupon,fetchPromos,fetchBrand} from './api.js';
+import {online,rpc,checkCoupon,fetchPromos,fetchBrand,getUser} from './api.js';
 
 const BRAND='geek';
 // Filtros da vitrine: cada estampa numa categoria (troque aqui quando entrarem estampas novas)
@@ -10,7 +10,9 @@ const CATS=[['all','Todos'],['gaming','Gaming e pixel'],['anime','Anime e Japão
 const CAT_OF={'geek-coracao':'gaming','geek-carpa':'anime','heavy-avesso':'autorais','heavy-faces':'autorais','heavy-eclipse':'autorais','simples':'basicas'};
 const DROP=['geek-coracao','geek-carpa'];
 const SIZE_GUIDE=[['P',54,70],['M',57,73],['G',60,76],['GG',63,79]];
-const CART_KEY='marileus.cart.v1';
+// A sacola é a mesma da duavesso: o que entra aqui aparece lá, e vice-versa. Este site mostra e finaliza
+// só as peças da Marileus; as de outras lojas continuam na sacola da duavesso.
+const CART_KEY='duavesso.cart.v1';
 
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const still=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -30,9 +32,10 @@ $$('dialog').forEach(d=>{
 });
 
 // Carrinho ----------------------------------------------------------------------------------------
-let cart=read();
-function read(){try{return normalizeCart(JSON.parse(localStorage.getItem(CART_KEY))||[]).filter(i=>i.brand===BRAND);}catch{return [];}}
-function save(){try{localStorage.setItem(CART_KEY,JSON.stringify(cart.map(({id,base,size,qty})=>({id,base,size,qty}))));}catch{}paintCount();}
+let others=[],cart=read();
+const mine=i=>i.id!=='custom'&&i.brand===BRAND;
+function read(){let all=[];try{all=normalizeCart(JSON.parse(localStorage.getItem(CART_KEY))||[]);}catch{}others=all.filter(i=>!mine(i));return all.filter(mine);}
+function save(){try{localStorage.setItem(CART_KEY,JSON.stringify([...others,...cart]));}catch{}paintCount();}
 function paintCount(){const n=cart.reduce((s,i)=>s+i.qty,0),el=$('#ml-count');if(el.textContent!==String(n)){el.textContent=n;el.classList.remove('bump');void el.offsetWidth;el.classList.add('bump');}$('#ml-cart-open').setAttribute('aria-label',`Abrir carrinho, ${n} ${n===1?'peça':'peças'}`);}
 function add(p,size,base){
  const b=p.variants?(base||p.variants[0].base):p.base,key=p.variants?`${p.id}-${b}-${size}`:`${p.id}-${size}`;
@@ -47,9 +50,10 @@ window.addEventListener('storage',e=>{if(e.key===CART_KEY){cart=read();paintCoun
 // Hero: título que "decodifica" uma vez e o card do drop atual -------------------------------------------
 function decode(el){
  const final=el.textContent;if(still())return;
- const glyphs='▓▒░<>/\\[]{}#*+=01MARILEUS';let frame=0;const total=final.length+14;
- el.setAttribute('aria-label',final);
- const tick=()=>{el.textContent=[...final].map((c,i)=>c===' '?' ':i<frame-12?c:glyphs[(Math.random()*glyphs.length)|0]).join('');if(frame++<total)requestAnimationFrame(tick);else{el.textContent=final;el.removeAttribute('aria-label');}};
+ // Letras e números de largura parecida, e altura travada: o título não pula enquanto decodifica
+ const glyphs='ABCDEFGHKLMNOPRSTUVXZ0123456789';let frame=0;const total=final.length+14;
+ el.style.minHeight=`${el.offsetHeight}px`;el.setAttribute('aria-label',final);
+ const tick=()=>{el.textContent=[...final].map((c,i)=>c===' '?' ':i<frame-12?c:glyphs[(Math.random()*glyphs.length)|0]).join('');if(frame++<total)requestAnimationFrame(tick);else{el.textContent=final;el.removeAttribute('aria-label');el.style.minHeight='';}};
  tick();
 }
 decode($('[data-decode]'));
@@ -134,7 +138,7 @@ const state={shipping:'standard',coupon:null};
 function sums(){return totals(cart,state.shipping,{coupon:state.coupon?.discount||0});}
 function renderDrawer(){
  const box=$('#ml-drawer-body');
- if(!cart.length){box.innerHTML=`<div class="ml-empty"><img src="assets/marileus-mark.png" alt="" width="80" height="77"><p>Seu carrinho está vazio.</p><button type="button" class="ml-btn ml-btn-ghost" data-close data-go="estampas">Explorar estampas</button></div>`;return;}
+ if(!cart.length){box.innerHTML=`<div class="ml-empty"><img src="assets/marileus-mark.png" alt="" width="80" height="77"><p>Nenhuma peça da Marileus no carrinho.</p><button type="button" class="ml-btn ml-btn-ghost" data-close data-go="estampas">Explorar estampas</button>${othersNote()}</div>`;return;}
  if(state.coupon){state.coupon=null;}
  const t=sums(),min=freeShippingMin(),left=min!==null?Math.max(0,min-(t.subtotal-t.promo)):null;
  box.innerHTML=`<ul class="ml-lines">${cart.map(i=>`<li><span class="ml-line-img">${pic(photos(byId(i.id),i.base)[0],'','72px')}</span><div><b>${esc(i.name)}</b><small>${esc(i.color)} · ${i.size}</small><div class="ml-qty"><button type="button" data-q="-1" data-k="${esc(i.key)}" aria-label="Menos uma ${esc(i.name)}">−</button><span>${i.qty}</span><button type="button" data-q="1" data-k="${esc(i.key)}" aria-label="Mais uma ${esc(i.name)}"${i.qty>=10?' disabled':''}>+</button></div></div><div class="ml-line-end"><span>${money(i.price*i.qty)}</span><button type="button" class="ml-link" data-rm="${esc(i.key)}">Remover</button></div></li>`).join('')}</ul>
@@ -144,8 +148,9 @@ ${left!==null?`<div class="ml-ship-goal"><p>${left?`Faltam <b>${money(left)}</b>
 <label><input type="radio" name="ml-ship" value="express"${state.shipping==='express'?' checked':''}><span><b>Expressa</b><small>2 a 4 dias úteis</small></span><em>${money(2490)}</em></label></fieldset>
 <p class="ml-drawer-note">O cupom de desconto entra na etapa de pagamento.</p>
 <div class="ml-sum"><div><span>Subtotal</span><span>${money(t.subtotal)}</span></div>${t.promo?`<div><span>Promoção</span><span>−${money(t.promo)}</span></div>`:''}<div><span>Frete</span><span>${t.delivery?money(t.delivery):'Grátis'}</span></div><div class="ml-total"><span>Total</span><span>${money(t.total)}</span></div></div>
-<button type="button" class="ml-btn ml-btn-primary ml-wide" id="ml-go-checkout">Finalizar pedido</button>`;
+<button type="button" class="ml-btn ml-btn-primary ml-wide" id="ml-go-checkout">Finalizar pedido</button>${othersNote()}`;
 }
+function othersNote(){const n=others.reduce((s,i)=>s+i.qty,0);return n?`<p class="ml-drawer-note">Você também tem ${n} ${n===1?'peça':'peças'} de outras lojas na sacola da duavesso. <a class="ml-link" href="checkout">Finalizar tudo na duavesso</a></p>`:'';}
 $('#ml-drawer').addEventListener('click',e=>{
  const q=e.target.closest('[data-q]'),rm=e.target.closest('[data-rm]'),go=e.target.closest('[data-go]');
  if(q){const it=cart.find(i=>i.key===q.dataset.k);it.qty+=+q.dataset.q;cart=cart.filter(i=>i.qty>0);save();renderDrawer();}
@@ -159,6 +164,8 @@ $('#ml-cart-open').addEventListener('click',()=>{renderDrawer();openDialog($('#m
 // Checkout em etapas -----------------------------------------------------------------------------------
 const UFS='AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ');
 let step=1;const ship={};
+const user=getUser();
+if(user){ship.name=user.name||'';ship.email=user.email||'';const a=$('#ml-account');a.textContent=`Olá, ${(user.name||user.email).split(/[\s@]/)[0]}`;a.title='Sua conta duavesso';}
 function openCheckout(){if(!cart.length)return;step=1;renderCheckout();openDialog($('#ml-checkout'));}
 function summaryHTML(){
  const t=sums();
@@ -171,7 +178,7 @@ function renderCheckout(result){
  const head=`<div class="ml-co-head"><img src="assets/marileus-logo.png" alt="Marileus" width="1152" height="226"><h2 id="ml-co-title" class="ml-sr">Finalizar pedido</h2><button type="button" class="ml-icon" data-close aria-label="Fechar">×</button></div>${stepsHTML()}`;
  if(step===1){
   box.innerHTML=`${head}<div class="ml-co-grid"><form class="ml-co-form" id="ml-co-ship" novalidate>
-<p class="ml-co-pre">Pré-lançamento: o pedido fica registrado e nenhum valor é cobrado por enquanto.</p>
+<p class="ml-co-pre">${user?`Comprando com a sua conta duavesso (${esc(user.email)}): o pedido aparece em Minha conta.`:'O pedido fica registrado na duavesso. Entrando na sua conta, ele aparece em Minha conta.'} Pré-lançamento: nenhum valor é cobrado por enquanto.</p>
 <div class="ml-row2"><label>Nome completo<input name="name" required maxlength="100" autocomplete="name" value="${esc(ship.name||'')}"></label><label>E-mail<input name="email" type="email" required maxlength="120" autocomplete="email" value="${esc(ship.email||'')}"></label></div>
 <div class="ml-row3"><label>CEP<input name="cep" required inputmode="numeric" maxlength="9" placeholder="00000-000" autocomplete="postal-code" value="${esc(ship.cep||'')}"></label><label>Estado<select name="uf" required><option value="">UF</option>${UFS.map(u=>`<option${u===ship.uf?' selected':''}>${u}</option>`).join('')}</select></label><label>Cidade<input name="city" required maxlength="80" autocomplete="address-level2" value="${esc(ship.city||'')}"></label></div>
 <div class="ml-row2 wide"><label>Rua<input name="street" required maxlength="120" autocomplete="address-line1" value="${esc(ship.street||'')}"></label><label>Número<input name="number" required maxlength="10" value="${esc(ship.number||'')}"></label></div>
@@ -217,7 +224,7 @@ function renderCheckout(result){
  box.innerHTML=`${head}<div class="ml-done"><div class="ml-done-mark" aria-hidden="true"><img src="assets/marileus-mark.png" alt="" width="120" height="116"><span class="ml-scan"></span></div>
 <p class="ml-done-code" data-decode>[PEDIDO #${esc(r.code||'')} CONFIRMADO]</p>
 <p>${money(r.total_cents??0)} · ${esc(r.pay==='Cartão'?`Cartão em ${r.inst}x de ${money(Math.ceil((r.total_cents||0)/(r.inst||1)))}`:r.pay||'')}</p>
-<p class="ml-small">Guarde o código. Você acompanha o pedido na duavesso, em “Consultar status”, com o código e o e-mail ${esc(ship.email||'')}. Pré-lançamento: nenhum valor é cobrado por enquanto.</p>
+<p class="ml-small">${user?'O pedido já está em Minha conta, na duavesso.':`Guarde o código: você acompanha o pedido na duavesso, em Consultar status, com o código e o e-mail ${esc(ship.email||'')}.`} Pré-lançamento: nenhum valor é cobrado por enquanto.</p>
 <div class="ml-ctas"><button type="button" class="ml-btn ml-btn-primary" data-close>Voltar às estampas</button><a class="ml-btn ml-btn-ghost" href="/">Acompanhar na duavesso</a></div></div>`;
  decode($('.ml-done-code',box));
 }

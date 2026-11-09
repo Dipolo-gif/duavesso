@@ -638,7 +638,7 @@ function brandLinksHTML(b){
 function brandHeaderHTML(b){
  return `<header class="b2-head"><div class="b2-cover">${b.cover?`<img src="${brandImg(b.cover)}" alt="" width="1800" height="600" fetchpriority="high">`:''}</div>
 <div class="b2-id"><span class="b2-logo">${brandLogoHTML(b)}</span><div class="b2-titles"><h1 class="b2-name">${esc(b.name)}</h1><span class="b2-seal">✓ marca duavesso</span></div></div>
-${b.tagline?`<p class="b2-tag">${esc(b.tagline)}</p>`:''}${b.bio?`<p class="b2-bio">${esc(b.bio)}</p>`:''}${brandLinksHTML(b)}</header>`;
+${b.tagline?`<p class="b2-tag">${esc(b.tagline)}</p>`:''}${b.bio?`<p class="b2-bio">${esc(b.bio)}</p>`:''}${brandLinksHTML(b)}${b.static?.exclusive?`<a class="b2-site" href="${esc(b.static.exclusive)}">Entrar no site da ${esc(b.name)} <span aria-hidden="true">↗</span></a>`:''}</header>`;
 }
 function brandFeaturedHTML(b){
  const f=b.featured,p=f&&PRODUCTS.find(x=>x.id===f.id);if(!p)return '';
