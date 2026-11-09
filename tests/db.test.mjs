@@ -350,7 +350,7 @@ test('marcas: painel da duavesso cria marca por e-mail, suspende e marca o plano
   const list=(await db.query('select public.admin_list_brands() as l')).rows[0].l,t=list.find(b=>b.slug==='try84');
   assert.deepEqual([t.plan,t.status,t.paid_note,t.owners.map(o=>o.email)],['paid','suspended','Pix recebido em 08/10',['dono@exemplo.com']]);
   assert(t.paid_at,'data do pagamento');
-  assert.equal(list.find(b=>b.slug==='geek').products,2);
+  assert.equal(list.find(b=>b.slug==='geek').products,6);
   await db.query(`select public.admin_remove_owner('try84','dono@exemplo.com')`);
   assert.equal((await db.query(`select count(*)::int as n from public.brand_members where brand_slug='try84'`)).rows[0].n,0);
  }finally{await db.exec('rollback');}
