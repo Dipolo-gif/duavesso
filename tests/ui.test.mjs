@@ -236,7 +236,7 @@ test('Marcas: sem o banco, o hub mostra só as marcas no ar e a geek abre sua p�
  s.w.location.hash='marcas';await new Promise(r=>setTimeout(r,10));
  assert.equal(s.doc.querySelector('#marcas-view').hidden,false,'tela Marcas visível');
  assert.equal(s.doc.querySelector('#shop-view').hidden,true,'loja escondida');
- assert.deepEqual([...s.doc.querySelectorAll('#marcas-view .brand-card')].map(a=>a.getAttribute('href')),['marcas/geek'],'só a geek: TRY84 e SolFáDó saíram da loja');
+ assert.deepEqual([...s.doc.querySelectorAll('#marcas-view .brand-card')].map(a=>a.getAttribute('href')),['marileus'],'só a Marileus (geek), e o cartão leva direto ao site dela: TRY84 e SolFáDó saíram da loja');
  s.w.location.hash='marca-geek';await new Promise(r=>setTimeout(r,10));
  assert.equal(s.doc.querySelectorAll('#marcas-view .product-grid .product-card').length,6,'Marileus (geek): 6 peças com o cartão da página inicial');
  assert(s.doc.querySelector('#marcas-view .product-card .product-visual.poses .pose'),'geek: card com poses (Frente/Costas/Lado)');assert(s.doc.querySelector('#marcas-view .product-card .product-add'),'botão de adicionar como na página inicial');
