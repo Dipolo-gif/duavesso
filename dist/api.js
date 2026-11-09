@@ -223,6 +223,8 @@ export const adminListBrands=()=>rpc('admin_list_brands',{});
 export const adminCreateBrand=(email,slug,name)=>rpc('admin_create_brand',{p_email:email,p_slug:slug,p_name:name});
 export const adminSetBrandStatus=(slug,status)=>rpc('admin_set_brand_status',{p_slug:slug,p_status:status});
 export const adminSetBrandPlan=(slug,plan,note)=>rpc('admin_set_brand_plan',{p_slug:slug,p_plan:plan,p_note:note||null});
+// Edição da marca (migração 0016): Geek, Arte, Esporte… vazio tira a marca de todas
+export const adminSetBrandEdition=(slug,edition)=>rpc('admin_set_brand_edition',{p_slug:slug,p_edition:edition||null});
 export const adminRemoveOwner=(slug,email)=>rpc('admin_remove_owner',{p_slug:slug,p_email:email});
 // Excluir loja (migração 0011): o banco confere o nome digitado e recusa marca com peças à venda
 export const adminDeleteBrand=(slug,confirm)=>rpc('admin_delete_brand',{p_slug:slug,p_confirm:confirm});

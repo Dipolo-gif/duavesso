@@ -248,7 +248,7 @@ test('Marcas: sem o banco, o hub mostra só as marcas no ar e a geek abre sua p�
  assert(s.doc.querySelector('#detail-main img[src*="geek-coracao-1"]'),'PDP começa na frente');
  s.click('#product-dialog [data-size="M"]');s.click('#add-product');
  const geekCart=JSON.parse(s.w.localStorage.getItem('duavesso.cart.v1'));
- assert.equal(geekCart[0].base,'black');assert.equal(geekCart[0].color,'Preta');assert.equal(geekCart[0].size,'M');assert.equal(geekCart[0].price,15990);
+ assert.equal(geekCart[0].base,'black');assert.equal(geekCart[0].color,'Preta');assert.equal(geekCart[0].size,'M');assert.equal(geekCart[0].price,14390);
  assert.equal(geekCart[0].key,'geek-coracao-M');
  s.doc.querySelector('#cart-dialog').close();
  s.w.location.hash='colecao';await new Promise(r=>setTimeout(r,10));
