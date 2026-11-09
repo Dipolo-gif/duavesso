@@ -55,12 +55,14 @@ function renderCatalog(){
 // Página inicial do marketplace: edições, novidades, promoções e marcas
 function renderHome(){
  const eds=EDITIONS.map(e=>{const items=PRODUCTS.filter(p=>editionOf(p)===e.slug);const brands=brandList().filter(b=>b.edition===e.slug);return {...e,items,brands};});
- $('#edition-grid').innerHTML=eds.map(e=>{const p=e.items.at(-1),ph=p&&photosOf(p);const soon=!e.items.length;
-  return `<button type="button" class="mk-ed${soon?' is-soon':''}" data-edition="${esc(e.slug)}"${soon?' aria-disabled="true"':''}><span class="mk-ed-img">${ph?photoPicture(ph[0],'','(max-width:700px) 92vw, 31vw','loading="lazy"'):''}</span><span class="mk-ed-info"><span class="mk-ed-name">${esc(e.name)}</span><span class="mk-ed-blurb">${esc(e.blurb)}</span><span class="mk-ed-meta">${soon?'Em breve':`${e.items.length} ${e.items.length===1?'camisa':'camisas'} · ${e.brands.map(b=>esc(b.name)).join(', ')}`}</span></span>${soon?'':'<span class="mk-ed-go" aria-hidden="true">→</span>'}</button>`;}).join('');
+ $('#edition-grid').innerHTML=eds.map(e=>{const p=e.items.at(-1),ph=p&&photosOf(p),soon=!e.items.length;
+  // Edição com marca mas sem peça (entre coleções): mostra a imagem da marca e avisa que a coleção vem aí
+  const art=!ph&&e.brands.map(b=>b.static?.cardImage).find(Boolean),bare=soon&&!art;
+  return `<button type="button" class="mk-ed${soon?' is-soon':''}${bare?' is-bare':''}" data-edition="${esc(e.slug)}"${soon?' aria-disabled="true"':''}><span class="mk-ed-img">${ph?photoPicture(ph[0],'','(max-width:700px) 92vw, 31vw','loading="lazy"'):art?`<img src="${esc(art)}" alt="" loading="lazy">`:''}</span><span class="mk-ed-info"><span class="mk-ed-name">${esc(e.name)}</span><span class="mk-ed-blurb">${esc(e.blurb)}</span><span class="mk-ed-meta">${soon?(e.brands.length?`Nova coleção da ${e.brands.map(b=>esc(b.name)).join(' e da ')} em breve`:'Em breve'):`${e.items.length} ${e.items.length===1?'camisa':'camisas'} · ${e.brands.map(b=>esc(b.name)).join(', ')}`}</span></span>${soon?'':'<span class="mk-ed-go" aria-hidden="true">→</span>'}</button>`;}).join('');
  // Sem peças à venda (coleção em reformulação): o aviso de nova coleção ocupa o lugar das Novidades
  const empty=!PRODUCTS.length;
  $('#new-row').hidden=empty;$('#new-soon').hidden=!empty;$$('#novidades .mk-shelf-nav').forEach(n=>n.hidden=empty);
- $('#new-title').textContent=empty?'Nova coleção em breve':'Novidades';
+ $('#new-title').textContent=empty?'Nova coleção em breve':'Novidades';$('#new-eyebrow').textContent=empty?'PRÓXIMO LANÇAMENTO':'ACABARAM DE CHEGAR';
  $('#new-row').innerHTML=[...PRODUCTS].reverse().slice(0,10).map(p=>productCardHTML(p)).join('');
  const promos=PRODUCTS.filter(p=>discountOf(p)>0).sort((a,b)=>discountOf(b)-discountOf(a)||a.price-b.price);
  $('#promocoes').hidden=!promos.length;$$('.nav-promo, #mobile-menu a[href="#promocoes"]').forEach(a=>a.hidden=!promos.length);
@@ -1276,7 +1278,7 @@ let shownView=null,shownBrand,closingByRoute=false;
 function setMeta(r){
  const m=pageMeta(r);document.title=m.title;
  $('meta[name="description"]')?.setAttribute('content',m.description);
- $('link[rel="canonical"]')?.setAttribute('href',SITE+m.path.slice(1));
+ let canon=$('link[rel="canonical"]');if(!canon){canon=document.createElement('link');canon.rel='canonical';document.head.append(canon);}canon.setAttribute('href',SITE+m.path.slice(1));
 }
 function showView(view,brand){
  const VIEWS={shop:'#shop-view',studio:'#studio-view',paravoce:'#para-voce-view',marcas:'#marcas-view',checkout:'#checkout-view',editor:'#editor-view',admin:'#admin-view'};
