@@ -52,6 +52,30 @@ function toast(message){$('#toast').textContent=message;$('#toast').classList.ad
 function saveCart(){try{localStorage.setItem(CART_KEY,JSON.stringify(cart));}catch{toast('Sacola atualizada nesta sessão. O navegador não permitiu salvá-la.');}updateCartCount();}
 function updateCartCount(){const count=totals(cart).count;$('#cart-count').textContent=count;$('#open-cart').setAttribute('aria-label',`Abrir sacola, ${count} ${count===1?'peça':'peças'}`);}
 function openDialog(id){const d=$(id);if(!d.open)d.showModal();}
+// Confirmação no visual da loja (no lugar do confirm/prompt do navegador). Devolve true, o texto digitado
+// ou null se cancelar. field.match: o botão só libera quando o texto digitado for igual (sem maiúsculas).
+function ask({title,text='',ok='Confirmar',cancel='Cancelar',danger=false,field=null}){
+ return new Promise(resolve=>{
+  const d=document.createElement('dialog');d.className='ask-dialog';d.setAttribute('aria-labelledby','ask-title');
+  const norm=v=>String(v||'').trim().toLowerCase();
+  d.innerHTML=`<div class="dialog-heading"><h2 id="ask-title">${esc(title)}</h2><button type="button" class="icon-button" data-close aria-label="Fechar">×</button></div>
+<form class="ask-body" novalidate>${text?`<p class="ask-text">${text}</p>`:''}${field?`<label class="ask-field">${field.label}<input name="v" autocomplete="off" spellcheck="false"${field.type?` type="${field.type}"`:''} value="${esc(field.value||'')}" placeholder="${esc(field.placeholder||'')}"></label>`:''}
+<div class="ask-actions"><button type="button" class="button me-ghost" data-close>${esc(cancel)}</button><button type="submit" class="button ${danger?'button-danger':'button-blue'}">${esc(ok)}</button></div></form>`;
+  document.body.append(d);d.showModal();
+  const form=$('form',d),input=field?form.elements.namedItem('v'):null,go=$('button[type=submit]',d);
+  const done=v=>{d.remove();resolve(v);};
+  const sync=()=>{if(field?.match!=null)go.disabled=norm(input.value)!==norm(field.match);else if(field?.required)go.disabled=!input.value.trim();};
+  input?.addEventListener('input',sync);sync();
+  d.addEventListener('click',e=>{if(e.target.closest('[data-close]'))done(null);});
+  d.addEventListener('cancel',e=>{e.preventDefault();done(null);});
+  form.addEventListener('submit',e=>{e.preventDefault();if(go.disabled)return;done(input?input.value.trim():true);});
+  (input||go).focus();
+ });
+}
+// Excluir marca: mesma caixa no painel e na Minha Marca
+const askDeleteBrand=(name,extra='')=>ask({title:'Excluir loja',danger:true,ok:'Excluir para sempre',
+ text:`A <strong>${esc(name)}</strong> será excluída para sempre: somem a página, as cores, as imagens e os donos. Não dá para desfazer.${extra}`,
+ field:{label:`Para confirmar, digite <strong>${esc(name)}</strong>`,match:name}});
 function closeDialog(dialog){dialog.close();}
 $$('dialog').forEach(d=>{
  $('.close-dialog',d).addEventListener('click',()=>closeDialog(d));
@@ -858,9 +882,8 @@ function renderBrandEditor(container,row,{admin=false,canDelete=false,isAdminUse
  });
  // Excluir a loja: confere o nome; o dono apaga as imagens antes (depois perderia a permissão) e a marca depois
  $('#me-delete',container)?.addEventListener('click',async()=>{
-  const typed=prompt(`Excluir a ${row.name} para sempre? Somem a página, as cores, as imagens e os donos, e não dá para desfazer.\n\nPara confirmar, digite o nome da marca: ${row.name}`);
+  const typed=await askDeleteBrand(row.name);
   if(typed===null)return;
-  if(typed.trim().toLowerCase()!==row.name.trim().toLowerCase()){toast('O nome não confere. Nada foi excluído.');return;}
   const btn=$('#me-delete',container);btn.disabled=true;btn.textContent='Excluindo…';
   try{
    if(isAdminUser){await adminDeleteBrand(row.slug,typed);await deleteBrandAssets(row.slug).catch(()=>0);}
@@ -1021,7 +1044,7 @@ ${data.orders.length?`<div class="adm-card adm-table-card"><table class="adm-tab
   $$('.adm-order',main).forEach(r=>r.addEventListener('click',()=>toggle(r.dataset.code)));
   $$('.adm-detail',main).forEach(r=>r.addEventListener('click',async e=>{
    const to=e.target.closest('[data-to]')?.dataset.to;if(!to)return;const code=r.dataset.detail;
-   if(to==='cancelado'&&!confirm(`Cancelar o pedido ${code}? Ele sai das vendas e do financeiro.`))return;
+   if(to==='cancelado'&&!await ask({title:'Cancelar pedido',text:`O pedido <strong>${esc(code)}</strong> sai das vendas e do financeiro.`,ok:'Cancelar pedido',cancel:'Voltar',danger:true}))return;
    try{await adminSetOrderStatus(code,to);toast(`Pedido ${code}: ${STATUS_LABEL[to]}.`);open=code;await load();adminBadges();}catch(error){toast(error.message);}
   }));
   if(open)toggle(open,true);
@@ -1113,7 +1136,7 @@ ${rep.to_pay_brands.length?`<section class="adm-card"><h2>Repasses às marcas</h
  $('#fin-range',main).addEventListener('submit',e=>{e.preventDefault();const f=e.target.elements,de=f.namedItem('de').value,ate=f.namedItem('ate').value;if(!de||!ate||ate<de){toast('Escolha um período válido: a data final depois da inicial.');return;}navigate(`/painel?aba=financeiro&de=${de}&ate=${ate}`);});
  $('#fin-new',main).addEventListener('click',()=>openEntryForm({brands}));
  $$('[data-repasse]',main).forEach(b=>b.addEventListener('click',()=>openEntryForm({brands,kind:'out',category:'Repasse a marcas',brand:b.dataset.repasse,amount:+b.dataset.due})));
- $$('[data-del]',main).forEach(b=>b.addEventListener('click',async()=>{if(!confirm('Apagar este lançamento? Ele sai do financeiro.'))return;try{await adminDeleteEntry(+b.dataset.del);toast('Lançamento apagado.');renderAdminPage();}catch(error){toast(error.message);}}));
+ $$('[data-del]',main).forEach(b=>b.addEventListener('click',async()=>{if(!await ask({title:'Apagar lançamento',text:'Ele sai do financeiro e não dá para desfazer.',ok:'Apagar',danger:true}))return;try{await adminDeleteEntry(+b.dataset.del);toast('Lançamento apagado.');renderAdminPage();}catch(error){toast(error.message);}}));
  $('#fin-csv',main).addEventListener('click',()=>downloadCSV(`duavesso-financeiro-${from}-a-${to}.csv`,[['Data','Tipo','Categoria','Descrição','Forma','Origem','Marca','Valor (R$)'],...rep.entries.map(e=>[longDate(e.on),e.kind==='in'?'Entrada':'Saída',e.category,e.description||'',e.method||'',e.source==='site'?'Loja':'Manual',e.brand_name||'',(e.amount_cents/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2,useGrouping:false})])]));
  if(qs.get('novo')){history.replaceState(history.state,'',`/painel?aba=financeiro${custom?`&de=${from}&ate=${to}`:`&periodo=${preset}`}`);openEntryForm({brands});}
 }
@@ -1125,7 +1148,7 @@ async function adminApplications(main){
  $$('.ad-app',main).forEach(r=>r.addEventListener('click',async e=>{
   const a=apps.find(x=>String(x.id)===r.dataset.app),act=e.target.closest('[data-app-act]')?.dataset.appAct;if(!a||!act)return;
   if(act==='create'){adminPrefill={email:a.email,name:a.brand_name};navigate('/painel?aba=marcas');return;}
-  if(act==='declined'&&!confirm(`Recusar o pedido da ${a.brand_name}?`))return;
+  if(act==='declined'&&!await ask({title:'Recusar pedido de marca',text:`Recusar o pedido da <strong>${esc(a.brand_name)}</strong>?`,ok:'Recusar',danger:true}))return;
   try{await adminSetApplicationStatus(a.id,act);toast('Pedido atualizado.');renderAdminPage();}catch(error){toast(error.message);}
  }));
 }
@@ -1160,20 +1183,19 @@ async function adminBrands(main){
   const b=brands.find(x=>x.slug===r.dataset.slug),act=e.target.closest('[data-act]')?.dataset.act;if(!b||!act)return;
   let done='Atualizado.';
   try{
-   if(act==='add-owner'){const email=prompt(`E-mail da conta que vai cuidar da ${b.name} (a pessoa precisa ter criado a conta na loja):`);if(!email?.trim())return;await adminCreateBrand(email.trim(),b.slug,b.name);done='Pronto: essa conta agora vê a aba Minha Marca.';}
+   if(act==='add-owner'){const email=await ask({title:'Adicionar dono',text:`A conta vai poder editar a página da <strong>${esc(b.name)}</strong>. A pessoa precisa ter criado a conta na loja.`,ok:'Adicionar',field:{label:'E-mail da conta',type:'email',placeholder:'nome@exemplo.com',required:true}});if(!email)return;await adminCreateBrand(email.trim(),b.slug,b.name);done='Pronto: essa conta agora vê a aba Minha Marca.';}
    if(act==='delete'){
     if(b.products>0){toast(`A ${b.name} tem ${b.products} ${b.products===1?'peça':'peças'} à venda. Tire as peças do catálogo antes de excluir, ou só suspenda a loja.`);return;}
-    const typed=prompt(`Excluir a ${b.name} para sempre? Somem a página, as cores, as imagens e os donos, e não dá para desfazer. Para só esconder a loja, use Suspender.\n\nPara confirmar, digite o nome da marca: ${b.name}`);
+    const typed=await askDeleteBrand(b.name,' Para só esconder a loja, use Suspender.');
     if(typed===null)return;
-    if(typed.trim().toLowerCase()!==b.name.trim().toLowerCase()){toast('O nome não confere. Nada foi excluído.');return;}
     await adminDeleteBrand(b.slug,typed);
     // As imagens vão depois: se falhar, a loja já foi excluída e os arquivos só ficam órfãos
     await adminDeleteBrandAssets(b.slug).catch(()=>0);
     done=`A ${b.name} foi excluída.`;
    }
-   if(act==='status'){if(b.status==='active'&&!confirm(`Suspender a ${b.name}? A loja sai do ar até você reativar.`))return;await adminSetBrandStatus(b.slug,b.status==='active'?'suspended':'active');}
-   if(act==='plan'){if(b.plan==='paid'){if(!confirm(`Voltar a ${b.name} para o plano grátis?`))return;await adminSetBrandPlan(b.slug,'free');}else{const note=prompt(`Plano pago da ${b.name} (R$ 400, pagamento único). Anote como foi pago (opcional):`,'Pix recebido');if(note===null)return;await adminSetBrandPlan(b.slug,'paid',note);}}
-   if(act==='rm-owner'){const email=e.target.closest('[data-email]').dataset.email;if(!confirm(`Tirar ${email} da ${b.name}?`))return;await adminRemoveOwner(b.slug,email);}
+   if(act==='status'){if(b.status==='active'&&!await ask({title:'Suspender loja',text:`A <strong>${esc(b.name)}</strong> sai do ar até você reativar. Nada é apagado.`,ok:'Suspender',danger:true}))return;await adminSetBrandStatus(b.slug,b.status==='active'?'suspended':'active');}
+   if(act==='plan'){if(b.plan==='paid'){if(!await ask({title:'Voltar ao plano grátis',text:`A <strong>${esc(b.name)}</strong> volta para o plano grátis.`,ok:'Voltar ao grátis'}))return;await adminSetBrandPlan(b.slug,'free');}else{const note=await ask({title:'Marcar plano pago',text:`Plano pago da <strong>${esc(b.name)}</strong>: R$ 400, pagamento único.`,ok:'Marcar como pago',field:{label:'Como foi pago (opcional)',value:'Pix recebido'}});if(note===null)return;await adminSetBrandPlan(b.slug,'paid',note);}}
+   if(act==='rm-owner'){const email=e.target.closest('[data-email]').dataset.email;if(!await ask({title:'Tirar dono',text:`<strong>${esc(email)}</strong> deixa de editar a <strong>${esc(b.name)}</strong>.`,ok:'Tirar',danger:true}))return;await adminRemoveOwner(b.slug,email);}
    toast(done);brandsLoaded=null;renderAdminPage();
   }catch(error){toast(error.message);}
  }));

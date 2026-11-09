@@ -763,7 +763,9 @@ test('Painel da duavesso: only the admin gets in, creates a partner brand from a
  const {calls,fetchStub}=brandsBackend({admin:true});
  const t=await setup(sessionFor('duavesso.co@gmail.com'),fetchStub,{path:'/painel?aba=marcas'});try{
   await tick(40);
-  t.w.confirm=()=>true;t.w.prompt=()=>'Pix recebido em 08/10';
+  // Caixa de confirmação da loja (no lugar do confirm/prompt do navegador): digita (se houver campo) e confirma
+  const askBox=()=>t.doc.querySelector('dialog.ask-dialog[open]');
+  const answer=async v=>{await tick(10);const d=askBox();assert(d,'abre a caixa de confirmação da loja');const i=d.querySelector('input');if(i&&v!=null){i.value=v;i.dispatchEvent(new t.w.Event('input',{bubbles:true}));}d.querySelector('button[type=submit]').click();await tick(40);};
   assert(t.doc.querySelector('.adm-tab.on[href="painel?aba=marcas"]'),'aba Marcas aberta');
   const v=t.doc.querySelector('#admin-view');
   assert.equal(v.querySelectorAll('.ad-row').length,3);
@@ -778,11 +780,11 @@ test('Painel da duavesso: only the admin gets in, creates a partner brand from a
   delete fe('slug').dataset.touched;typeName('Ação & Reação');assert.equal(v.querySelector('#ad-twin').hidden,true);
   f.dispatchEvent(new t.w.Event('submit',{bubbles:true,cancelable:true}));await tick(40);
   const create=calls.find(c=>c.url.includes('/rpc/admin_create_brand'));assert.deepEqual(JSON.parse(create.init.body),{p_email:'nova@marca.com',p_slug:'acao-reacao',p_name:'Ação & Reação'});
-  t.doc.querySelector('.ad-row[data-slug="try84"] [data-act="status"]').click();await tick(40);
+  t.doc.querySelector('.ad-row[data-slug="try84"] [data-act="status"]').click();await answer();
   assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/admin_set_brand_status')).init.body),{p_slug:'try84',p_status:'suspended'});
-  t.doc.querySelector('.ad-row[data-slug="try84"] [data-act="plan"]').click();await tick(40);
+  t.doc.querySelector('.ad-row[data-slug="try84"] [data-act="plan"]').click();await answer('Pix recebido em 08/10');
   assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/admin_set_brand_plan')).init.body),{p_slug:'try84',p_plan:'paid',p_note:'Pix recebido em 08/10'});
-  t.w.prompt=()=>' parceiro@geek.com ';t.doc.querySelector('.ad-row[data-slug="geek"] [data-act="add-owner"]').click();await tick(40);
+  t.doc.querySelector('.ad-row[data-slug="geek"] [data-act="add-owner"]').click();await answer(' parceiro@geek.com ');
   assert.deepEqual(JSON.parse(calls.filter(c=>c.url.includes('/rpc/admin_create_brand')).at(-1).init.body),{p_email:'parceiro@geek.com',p_slug:'geek',p_name:'duavessogeek'},'Adicionar dono liga a conta à marca que já existe');
   assert.match(t.doc.querySelector('#toast').textContent,/vê a aba Minha Marca/);
   // Pedidos de marca: aba própria; Criar marca leva para a aba Marcas com o formulário preenchido
@@ -802,12 +804,15 @@ test('Painel da duavesso: only the admin gets in, creates a partner brand from a
   t.click('.adm-tab[href="painel?aba=marcas"]');await tick(40);
   // Excluir loja: marca com peças à venda é barrada; nome errado não apaga; nome certo apaga a marca e as imagens
   const delCalls=()=>calls.filter(c=>c.url.includes('/rpc/admin_delete_brand'));
-  t.w.prompt=()=>'duavessogeek';t.doc.querySelector('.ad-row[data-slug="geek"] [data-act="delete"]').click();await tick(40);
-  assert.match(t.doc.querySelector('#toast').textContent,/tem 2 peças à venda/);assert.equal(delCalls().length,0,'nem chega a perguntar');
-  t.w.prompt=()=>'Estudio';t.doc.querySelector('.ad-row[data-slug="estudio-mar"] [data-act="delete"]').click();await tick(40);
-  assert.match(t.doc.querySelector('#toast').textContent,/não confere/);assert.equal(delCalls().length,0);
-  t.w.prompt=()=>'estúdio mar ';t.doc.querySelector('.ad-row[data-slug="estudio-mar"] [data-act="delete"]').click();await tick(40);
-  assert.deepEqual(JSON.parse(delCalls()[0].init.body),{p_slug:'estudio-mar',p_confirm:'estúdio mar '});
+  t.doc.querySelector('.ad-row[data-slug="geek"] [data-act="delete"]').click();await tick(40);
+  assert.match(t.doc.querySelector('#toast').textContent,/tem 2 peças à venda/);assert.equal(askBox(),null,'nem chega a perguntar');assert.equal(delCalls().length,0);
+  t.doc.querySelector('.ad-row[data-slug="estudio-mar"] [data-act="delete"]').click();await tick(10);
+  {const d=askBox(),i=d.querySelector('input'),go=d.querySelector('button[type=submit]');
+   assert.match(d.textContent,/Excluir loja.*Estúdio Mar.*não dá para desfazer/s);assert.equal(go.disabled,true,'sem o nome, o botão fica travado');
+   i.value='Estudio';i.dispatchEvent(new t.w.Event('input',{bubbles:true}));assert.equal(go.disabled,true,'nome errado não libera');
+   d.querySelector('[data-close]').click();await tick(20);assert.equal(askBox(),null,'Cancelar fecha');assert.equal(delCalls().length,0);}
+  t.doc.querySelector('.ad-row[data-slug="estudio-mar"] [data-act="delete"]').click();await answer('estúdio mar ');
+  assert.deepEqual(JSON.parse(delCalls()[0].init.body),{p_slug:'estudio-mar',p_confirm:'estúdio mar'});
   assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/storage/v1/object/list/brand-assets')).init.body),{prefix:'estudio-mar',limit:1000});
   const rm=calls.find(c=>c.init.method==='DELETE'&&c.url.endsWith('/storage/v1/object/brand-assets'));
   assert.deepEqual(JSON.parse(rm.init.body),{prefixes:['estudio-mar/logo-a1b2c3d4.webp','estudio-mar/cover-b2c3d4e5f6.webp']},'apaga só as imagens da marca');

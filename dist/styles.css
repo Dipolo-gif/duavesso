@@ -566,6 +566,7 @@ input[type=range]:disabled{opacity:.4}
 .button.ad-danger{color:#b42318}
 .me-card.me-danger{border-color:#f1c4bf}
 .me-card.me-danger h2{color:#b42318}
+.ask-dialog{width:460px;max-width:94vw}.ask-body{padding:22px 28px 26px;display:grid;gap:18px}.ask-text{font-size:14px;line-height:1.6;color:var(--muted)}.ask-text strong,.ask-field strong{color:var(--ink)}.ask-field{display:grid;gap:7px;font-size:13px}.ask-field input{width:100%;background:#fff}.ask-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}.ask-actions .button{min-height:46px;gap:0;padding:12px 20px}.button-danger{background:#b42318;color:#fff}.button-danger:hover{background:#912018}
 /* Minha conta: aba Minha Marca e atalho do painel */
 .account-admin{display:flex;justify-content:space-between;align-items:center;margin:0 0 14px;padding:12px 14px;border-radius:12px;background:var(--ink);color:#fff;font-weight:700}
 .acc-brand{display:grid;grid-template-columns:52px 1fr auto auto;gap:14px;align-items:center;padding:14px;border-radius:14px;background:var(--brand-paint);color:var(--brand-text);margin-bottom:10px}
