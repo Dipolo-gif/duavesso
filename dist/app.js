@@ -54,7 +54,7 @@ function renderCatalog(){
 // Página inicial do marketplace: edições, novidades, promoções e marcas
 function renderHome(){
  const eds=EDITIONS.map(e=>{const items=PRODUCTS.filter(p=>editionOf(p)===e.slug);const brands=brandList().filter(b=>b.edition===e.slug);return {...e,items,brands};});
- $('#edition-grid').innerHTML=eds.map(e=>{const p=e.items[0],ph=p&&photosOf(p);const soon=!e.items.length;
+ $('#edition-grid').innerHTML=eds.map(e=>{const p=e.items.at(-1),ph=p&&photosOf(p);const soon=!e.items.length;
   return `<button type="button" class="mk-ed${soon?' is-soon':''}" data-edition="${esc(e.slug)}"${soon?' aria-disabled="true"':''}><span class="mk-ed-img">${ph?photoPicture(ph[0],'','(max-width:700px) 92vw, 31vw','loading="lazy"'):''}</span><span class="mk-ed-info"><span class="mk-ed-name">${esc(e.name)}</span><span class="mk-ed-blurb">${esc(e.blurb)}</span><span class="mk-ed-meta">${soon?'Em breve':`${e.items.length} ${e.items.length===1?'camisa':'camisas'} · ${e.brands.map(b=>esc(b.name)).join(', ')}`}</span></span>${soon?'':'<span class="mk-ed-go" aria-hidden="true">→</span>'}</button>`;}).join('');
  $('#new-row').innerHTML=[...PRODUCTS].reverse().slice(0,10).map(p=>productCardHTML(p)).join('');
  const promos=PRODUCTS.filter(p=>discountOf(p)>0).sort((a,b)=>discountOf(b)-discountOf(a)||a.price-b.price);

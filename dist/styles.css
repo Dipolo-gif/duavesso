@@ -972,7 +972,7 @@ a{-webkit-user-drag:none}
 .mk-shelf-nav{display:flex;align-items:center;gap:10px}
 .mk-arrow{width:42px;height:42px;border:1px solid var(--line);border-radius:50%;font-size:18px;display:grid;place-items:center;transition:border-color .2s,background .2s}
 .mk-arrow:hover{border-color:var(--ink);background:#fff}
-.mk-row{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 66px)/4);gap:22px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:4px}
+.mk-row{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 66px)/4);gap:22px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:4px}
 .mk-row::-webkit-scrollbar{display:none}.mk-row>*{scroll-snap-align:start}
 .product-brand{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding-top:14px;margin-bottom:-10px}
 .product-off{position:absolute;top:15px;right:15px;background:var(--sale);color:#fff;font-size:11px;font-weight:800;letter-spacing:.04em;padding:5px 8px}
