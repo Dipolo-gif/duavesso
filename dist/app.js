@@ -49,6 +49,7 @@ function renderCatalog(){
  $('#product-grid').innerHTML=products.map(p=>productCardHTML(p)).join('');
  $('#product-count').textContent=`${products.length} ${products.length===1?'peça':'peças'}`;
  $('#empty-search').hidden=products.length>0;
+ $('#empty-search').innerHTML=PRODUCTS.length?'Nenhuma peça encontrada. Experimente outro nome ou filtro.':'A nova coleção chega em breve. <a href="#novidades">Entre na lista</a> para saber primeiro.';
  wirePoseHovers();
 }
 // Página inicial do marketplace: edições, novidades, promoções e marcas
@@ -56,9 +57,14 @@ function renderHome(){
  const eds=EDITIONS.map(e=>{const items=PRODUCTS.filter(p=>editionOf(p)===e.slug);const brands=brandList().filter(b=>b.edition===e.slug);return {...e,items,brands};});
  $('#edition-grid').innerHTML=eds.map(e=>{const p=e.items.at(-1),ph=p&&photosOf(p);const soon=!e.items.length;
   return `<button type="button" class="mk-ed${soon?' is-soon':''}" data-edition="${esc(e.slug)}"${soon?' aria-disabled="true"':''}><span class="mk-ed-img">${ph?photoPicture(ph[0],'','(max-width:700px) 92vw, 31vw','loading="lazy"'):''}</span><span class="mk-ed-info"><span class="mk-ed-name">${esc(e.name)}</span><span class="mk-ed-blurb">${esc(e.blurb)}</span><span class="mk-ed-meta">${soon?'Em breve':`${e.items.length} ${e.items.length===1?'camisa':'camisas'} · ${e.brands.map(b=>esc(b.name)).join(', ')}`}</span></span>${soon?'':'<span class="mk-ed-go" aria-hidden="true">→</span>'}</button>`;}).join('');
+ // Sem peças à venda (coleção em reformulação): o aviso de nova coleção ocupa o lugar das Novidades
+ const empty=!PRODUCTS.length;
+ $('#new-row').hidden=empty;$('#new-soon').hidden=!empty;$$('#novidades .mk-shelf-nav').forEach(n=>n.hidden=empty);
+ $('#new-title').textContent=empty?'Nova coleção em breve':'Novidades';
  $('#new-row').innerHTML=[...PRODUCTS].reverse().slice(0,10).map(p=>productCardHTML(p)).join('');
  const promos=PRODUCTS.filter(p=>discountOf(p)>0).sort((a,b)=>discountOf(b)-discountOf(a)||a.price-b.price);
- $('#promocoes').hidden=!promos.length;
+ $('#promocoes').hidden=!promos.length;$$('.nav-promo, #mobile-menu a[href="#promocoes"]').forEach(a=>a.hidden=!promos.length);
+ $('#colecao').classList.toggle('is-empty',empty);
  if(promos.length){const max=Math.max(...promos.map(discountOf)),all=promos.length===PRODUCTS.length;
   $('#promo-big').textContent=`${all?'':'até '}−${max}%`;$('#promo-count').textContent=`${promos.length} ${promos.length===1?'peça':'peças'} em promoção`;
   $('#promo-row').innerHTML=promos.map(p=>productCardHTML(p)).join('');}
@@ -72,7 +78,7 @@ $('#shop-view').addEventListener('click',e=>{
  const arrow=e.target.closest('[data-shelf]');
  if(arrow){const row=$(`#${arrow.dataset.shelf}`);row.scrollBy({left:+arrow.dataset.dir*Math.max(240,row.clientWidth*.8),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});return;}
  const ed=e.target.closest('[data-edition]');
- if(ed){if(ed.classList.contains('is-soon')){toast(`${editionName(ed.dataset.edition)} chega em breve. Tem uma marca assim? Fale com a gente em Marcas.`);return;}
+ if(ed){if(ed.classList.contains('is-soon')){const names=brandList().filter(b=>b.edition===ed.dataset.edition).map(b=>b.name);toast(names.length?`A ${editionName(ed.dataset.edition)} volta com a nova coleção da ${names.join(' e da ')}. Entre na lista para saber primeiro.`:`${editionName(ed.dataset.edition)} chega em breve. Tem uma marca assim? Fale com a gente em Marcas.`);return;}
   filter=`ed:${ed.dataset.edition}`;renderFilters();renderCatalog();$('#colecao').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});return;}
  const card=e.target.closest('.mk-row button[data-product]');
  if(card){shelfIds=$$('button[data-product]',card.closest('.mk-row')).map(b=>b.dataset.product);openProduct(card.dataset.product);}
@@ -199,6 +205,7 @@ $('#open-returns').addEventListener('click',()=>showInfo('Trocas e devoluções'
 $('#open-shipping').addEventListener('click',()=>showInfo('Entregas e prazos',`<p>Valores e prazos demonstrativos.</p><h3>Padrão</h3><p>R$ 14,90 · 5 a 8 dias úteis.${freeShippingMin()===null?'':` Grátis em pedidos a partir de ${money(freeShippingMin())} em produtos.`}</p><h3>Expressa</h3><p>R$ 24,90 · 2 a 3 dias úteis.</p><h3>Personalizadas</h3><p>Peças do estúdio somam 3 dias úteis de produção ao prazo de entrega. Estampas sob medida entram em produção após a aprovação da prévia.</p><h3>Acompanhamento</h3><p>Em uma loja real, o código de rastreio seria enviado por e-mail assim que a peça saísse para entrega.</p>`));
 $('#open-contact').addEventListener('click',()=>showInfo('Fale com a gente','<p>Canal de atendimento demonstrativo.</p><h3>Como funcionaria</h3><p>Atendimento por WhatsApp e e-mail, de segunda a sexta, das 9h às 18h. Dúvidas sobre tamanho, prazo ou estampa respondidas em até um dia útil.</p><h3>Por enquanto</h3><p>Esta versão não envia nem recebe mensagens. Consulte as dúvidas frequentes para as respostas mais comuns.</p>'));
 async function submitSubscribe(form,demo,ok){if(!form.reportValidity())return;if(form.elements.namedItem('website')?.value){form.reset();return;}if(!online()){form.reset();toast(demo);return;}const button=$('button[type=submit]',form);button.disabled=true;try{await rpc('subscribe_newsletter',{p_email:form.elements.namedItem('email').value});form.reset();toast(ok);}catch(error){toast(error.message);}finally{button.disabled=false;}}
+subscribeForm('#soon-form','Anotado! Te avisamos quando a nova coleção chegar (demonstração).','Pronto! Você vai saber primeiro quando a nova coleção chegar.');
 function subscribeForm(sel,demo,ok){const form=$(sel);if(form)form.addEventListener('submit',e=>{e.preventDefault();submitSubscribe(form,demo,ok);});}
 subscribeForm('#newsletter','Cadastro demonstrativo: nenhum e-mail foi enviado ou guardado.','Pronto! Você está na lista. Sem spam, só novidades.');
 $('#marcas-view').addEventListener('submit',e=>{const form=e.target.closest('.brand-notify');if(form){e.preventDefault();submitSubscribe(form,'Anotado! Te avisamos quando a linha lançar (demonstração).','Pronto! Te avisamos quando a linha lançar.');}});
@@ -709,11 +716,21 @@ function loadBrandsFromDB(){
  brandsLoaded??=fetchBrands().then(rows=>{if(Array.isArray(rows)&&rows.length){setBrandList(rows);brandsVersion++;}});
  return brandsLoaded;
 }
+// Página Marcas: o marketplace. Cada marca num cartão grande (imagem + identidade); as edições logo abaixo do título.
+function marcasHubHTML(){
+ const brands=brandList();
+ const eds=EDITIONS.map(e=>({...e,brands:brands.filter(b=>b.edition===e.slug)}));
+ const visual=b=>{const img=b.cover?brandAssetURL(b.cover):b.static?.cardImage||'';return `<span class="mh-visual">${img?`<img src="${esc(img)}" alt="" loading="lazy" decoding="async">`:`<span class="mh-visual-logo">${brandLogoHTML(b)}</span>`}</span>`;};
+ return `<div class="editor-heading"><a href="#inicio" class="text-link">← Voltar</a><span class="eyebrow">MARCAS · MARKETPLACE DUAVESSO</span></div>
+<header class="mh-hero"><div class="marcas-intro"><h1>As marcas da duavesso.</h1><p>Cada marca tem estampas, identidade e loja próprias. A duavesso produz sob demanda, embala e entrega para o Brasil inteiro.</p></div>
+<ul class="mh-eds" aria-label="Edições">${eds.map(e=>`<li class="${e.brands.length?'':'is-soon'}"><b>${esc(e.name)}</b><span>${e.brands.length?e.brands.map(b=>esc(b.name)).join(', '):'Em breve'}</span></li>`).join('')}</ul></header>
+<div class="mh-list">${brands.map(b=>`<a class="brand-card b2-card mh-card" href="${esc(b.static?.exclusive||`marcas/${b.slug}`)}"${b.static?.theme?` data-theme="${b.static.theme}"`:''} style="${themeCSS(b.theme)}">${visual(b)}<span class="mh-info"><span class="mh-tags">${b.edition?`<span>${esc(editionName(b.edition))}</span>`:''}${b.static?.exclusive?'<span class="mh-site">Site exclusivo</span>':''}</span><span class="b2-card-logo">${brandLogoHTML(b)}</span><span class="b2-card-name">${esc(b.name)}</span><span class="brand-kicker">${esc(b.tagline)}</span><p>${esc(b.bio)}</p><span class="mh-cta">${b.static?.exclusive?'Entrar no site':'Ver a loja'} <span aria-hidden="true">→</span></span></span></a>`).join('')}</div>${brandJoinHTML()}`;
+}
 let countdownTimer=0;
 function renderMarcas(slug){
  const view=$('#marcas-view');clearInterval(countdownTimer);
  if(!slug){
-  view.innerHTML=`<div class="editor-heading"><a href="#inicio" class="text-link">← Voltar</a><span class="eyebrow">MARCAS · A FAMÍLIA DUAVESSO</span></div><div class="marcas-intro"><h1>As linhas da duavesso.</h1><p>Marcas com identidade própria e a mesma pegada: produzidas e entregues pela duavesso, na base oversized que você já conhece. Cada uma tem a sua loja.</p></div><div class="marcas-grid">${brandList().map(b=>`<a class="brand-card b2-card" href="${esc(b.static?.exclusive||`marcas/${b.slug}`)}"${b.static?.theme?` data-theme="${b.static.theme}"`:''} style="${themeCSS(b.theme)}"><span class="b2-card-logo">${brandLogoHTML(b)}</span><span class="brand-kicker">${esc(b.tagline)}</span><span class="b2-card-name">${esc(b.name)}</span><p>${esc(b.bio)}</p><span class="brand-ver">${b.static?.exclusive?'Entrar no site':'Ver a loja'} <span aria-hidden="true">↗</span></span></a>`).join('')}</div>${brandJoinHTML()}`;
+  view.innerHTML=marcasHubHTML();
   const seen=brandsVersion;loadBrandsFromDB().then(()=>{if(brandsVersion!==seen&&shownView==='marcas'&&!shownBrand)renderMarcas(null);});
   return;
  }

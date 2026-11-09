@@ -270,3 +270,8 @@ dialog.closing{animation:ml-pop .22s reverse ease-in both}
 }
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}.ml-ticker-track{flex-wrap:wrap;width:auto}html{scroll-behavior:auto}}
 @media(hover:none){.ml-view{opacity:1;transform:none}.ml-shot-alt{display:none}}
+/* Entre coleções: espera do próximo drop */
+.ml-wait{position:relative;display:grid;place-items:center;aspect-ratio:4/5;max-height:52vh;overflow:hidden;background:radial-gradient(circle at 50% 45%,rgba(0,68,255,.28),transparent 60%),repeating-linear-gradient(0deg,transparent 0 3px,rgba(255,255,255,.025) 3px 4px),var(--panel2)}
+.ml-wait img{width:46%;filter:drop-shadow(0 0 30px rgba(0,68,255,.6))}
+.ml-wait-scan{position:absolute;left:0;right:0;height:28%;background:linear-gradient(transparent,rgba(61,109,255,.22),transparent);animation:ml-scan 3.6s ease-in-out infinite}
+.ml-soon{gap:14px;padding:70px 20px;border:1px dashed #3f3f46}.ml-soon h3{font:800 clamp(34px,4vw,54px)/.95 var(--display);text-transform:uppercase;color:#fff;max-width:640px}.ml-soon p:not(.ml-tag){max-width:520px}.ml-soon img{opacity:.9;width:72px;filter:drop-shadow(0 0 18px rgba(0,68,255,.6))}

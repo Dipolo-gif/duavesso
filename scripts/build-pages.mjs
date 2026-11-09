@@ -73,7 +73,7 @@ function jsonLD(r,m,template){
 }
 
 const FOOTER_START='<!--gerado:rodape-->',FOOTER_END='<!--/gerado:rodape-->';
-const footerLinks=()=>`${FOOTER_START}<div><span class="footer-heading">Peças</span>${PRODUCTS.map(p=>`<a href="${productPath(p.id).slice(1)}">${text(p.name)}</a>`).join('')}</div><div><span class="footer-heading">Marcas</span>${brandList().map(b=>`<a href="${brandPath(b.slug).slice(1)}">${text(b.name)}</a>`).join('')}</div>${FOOTER_END}`;
+const footerLinks=()=>`${FOOTER_START}<div><span class="footer-heading">Peças</span>${PRODUCTS.length?PRODUCTS.map(p=>`<a href="${productPath(p.id).slice(1)}">${text(p.name)}</a>`).join(''):'<a href="#novidades">Nova coleção em breve</a>'}</div><div><span class="footer-heading">Marcas</span>${brandList().map(b=>`<a href="${brandPath(b.slug).slice(1)}">${text(b.name)}</a>`).join('')}</div>${FOOTER_END}`;
 
 function render(template,r){
  const m=pageMeta(r),url=abs(m.path),[w,h]=imageSize(m.image),ld=JSON.parse(template.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)[1]);
@@ -125,7 +125,7 @@ function llms(){
 
 ## Peças
 
-${PRODUCTS.map(line).join('\n')}
+${PRODUCTS.length?PRODUCTS.map(line).join('\n'):'Nova coleção em breve: as estampas estão sendo reformuladas. As peças voltam a aparecer aqui quando a coleção for lançada.'}
 
 Tamanhos P, M, G e GG. Estúdio: criar a estampa na hora (R$ 129,90) ou descrever a ideia para a marca desenhar (R$ 149,90). Frete grátis a partir de R$ 250; Pix ou cartão em até 3x; troca em 30 dias.
 

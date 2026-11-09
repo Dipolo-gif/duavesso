@@ -13,7 +13,8 @@ const charts=(await readFile(new URL('../dist/charts.js',import.meta.url),'utf8'
 const pages=(await readFile(new URL('../dist/pages.js',import.meta.url),'utf8')).replace(/^import .*?;\r?\n/gm,'').replaceAll('export ','');
 const app=(await readFile(new URL('../dist/app.js',import.meta.url),'utf8')).replace(/^import .*?;\r?\n/gm,'');
 // path: abre o site já nesse endereço, com a página gerada correspondente (ex.: /produto/simples).
-async function setup(storage={},fetchStub,{reducedMotion=true,path='/'}={}){
+// catalog: 'archive' (padrão) usa as peças da coleção anterior como exemplo de compra; 'live' é a loja como está (sem peças).
+async function setup(storage={},fetchStub,{reducedMotion=true,path='/',catalog='archive'}={}){
  const file=path==='/'||path.startsWith('/#')||!/^\/[a-z]/.test(path)?null:new URL(`../dist${path.split(/[?#]/)[0]}.html`,import.meta.url);
  const page=file?await readFile(file,'utf8').catch(()=>readFile(new URL('../dist/404.html',import.meta.url),'utf8')):html;
  const dom=new JSDOM(page,{url:'http://localhost'+path,runScripts:'outside-only',pretendToBeVisual:true});
@@ -30,7 +31,7 @@ async function setup(storage={},fetchStub,{reducedMotion=true,path='/'}={}){
  const registry=new Map();
  Object.defineProperty(w.document,'modelContext',{value:{registerTool(tool){registry.set(tool.name,tool);}}});
  if(fetchStub)w.fetch=fetchStub;
- w.eval(commerce+'\n'+api+'\n'+placement+'\n'+brands+'\n'+theme+'\n'+picker+'\n'+charts+'\n'+pages+'\nconst esc=escapeHTML;\n'+app);
+ w.eval(commerce+'\n'+(catalog==='archive'?'setProducts(ARCHIVE);\n':'')+api+'\n'+placement+'\n'+brands+'\n'+theme+'\n'+picker+'\n'+charts+'\n'+pages+'\nconst esc=escapeHTML;\n'+app);
  await new Promise(resolve=>setTimeout(resolve,10));
  return {dom,w,doc:w.document,registry,click(selector){const e=w.document.querySelector(selector);assert(e,`Missing ${selector}`);e.click();},close(){dom.window.close();}};
 }
@@ -1031,4 +1032,25 @@ test('janela da peça: setas trocam a foto (dando a volta) e a barra passa para 
   assert.equal(b.doc.querySelector('.detail-pager-pos').textContent,'5 de 6','na loja da marca, só as peças dela');
   assert.equal(b.doc.querySelector('.detail-pager-btn.next').dataset.go,'geek-carpa');
  }finally{b.close();}
+});
+
+test('nova coleção: sem peças à venda, a página inicial mostra o aviso com lista, esconde promoções e as edições ficam em breve',async()=>{
+ const s=await setup({},undefined,{catalog:'live'});try{
+  const d=s.doc;
+  assert.equal(d.querySelector('#new-soon').hidden,false,'aviso de nova coleção no lugar das novidades');
+  assert.equal(d.querySelector('#new-row').hidden,true);assert.equal(d.querySelector('#new-title').textContent,'Nova coleção em breve');
+  assert.equal(d.querySelector('#promocoes').hidden,true,'sem promoções');assert.equal(d.querySelector('.desktop-nav .nav-promo').hidden,true,'link de promoções escondido');
+  assert.equal(d.querySelectorAll('#edition-grid .mk-ed.is-soon').length,3,'as 3 edições em breve');
+  assert.equal(d.querySelectorAll('#product-grid .product-card').length,0);
+  assert.match(d.querySelector('#empty-search').textContent,/nova coleção chega em breve/);
+  assert(d.querySelector('#colecao').classList.contains('is-empty'),'sem filtros nem busca');
+  assert(d.querySelector('#soon-form input[type=email][required]'),'lista de espera');
+ }finally{s.close();}
+ const m=await setup({},undefined,{catalog:'live',path:'/marcas'});try{
+  await new Promise(r=>setTimeout(r,20));
+  const card=m.doc.querySelector('#marcas-view .mh-card');
+  assert.equal(card.getAttribute('href'),'marileus','cartão da Marileus vai direto ao site');
+  assert.match(card.textContent,/Site exclusivo/);assert.match(card.textContent,/Edição Geek/);
+  assert.match(m.doc.querySelector('#marcas-view .mh-eds').textContent,/Edição Geek.*Marileus.*Edição Arte.*Em breve/s,'edições com as marcas');
+ }finally{m.close();}
 });
