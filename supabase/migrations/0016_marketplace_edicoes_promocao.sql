@@ -14,8 +14,10 @@ begin;
 -- 2) Preço antigo -------------------------------------------------------------------------------
 alter table public.products add column if not exists compare_at_cents integer;
 alter table public.products drop constraint if exists products_compare_at_check;
+-- Só valores positivos: o site mostra o desconto quando o preço "de" é maior que o "por" (discountOf).
+-- Comparar com price_cents aqui quebraria a 0006 aplicada de novo (ela volta os preços antigos).
 alter table public.products add constraint products_compare_at_check
-  check (compare_at_cents is null or compare_at_cents > price_cents);
+  check (compare_at_cents is null or compare_at_cents > 0);
 
 -- 1) e 2) Peças: Marileus e 10% ----------------------------------------------------------------
 update public.products set compare_at_cents = null;

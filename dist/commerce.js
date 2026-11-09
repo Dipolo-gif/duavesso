@@ -12,6 +12,8 @@ export const PRODUCTS=[
  {id:'geek-carpa',name:'Carpa Japonesa',brand:'geek',category:'graphic',color:'Off white',base:'white',swatch:'#efece3',photos:['geek-carpa-1','geek-carpa-2','geek-carpa-3'],price:14390,compareAt:15990,tag:'ESTAMPA GEEK',graphic:'',graphicClass:'',description:'Carpa koi em nanquim com o sol laranja, entre a arte japonesa e o traço geek. Oversized off white em algodão de 220 g/m².',print:'Serigrafia à base d’água, toque leve, resistente a lavagens',...HEAVY_SPEC}
 ]
 export function setProducts(list){PRODUCTS.splice(0,PRODUCTS.length,...list);}
+// Preço "de/por": compareAt é o preço antigo (riscado). Devolve o desconto em % (0 se não está em promoção).
+export const discountOf=p=>p&&p.compareAt>p.price?Math.round((1-p.price/p.compareAt)*100):0;
 export const INSTALLMENTS=3;
 export const installment=cents=>Math.ceil(cents/INSTALLMENTS);
 export const CUSTOM={create:{name:'Sua camiseta · Studio',price:12990},brief:{name:'Sua camiseta · Estampa sob medida',price:14990}};
