@@ -21,6 +21,9 @@ const byId=id=>items.find(p=>p.id===id);
 const photos=(p,base)=>{const v=p.variants?(p.variants.find(x=>x.base===base)||p.variants[0]):null;return v?v.photos:(p.photos||[]);};
 const pic=(name,alt,sizes,lazy=true)=>`<picture><source type="image/webp" srcset="assets/${name}-400.webp 400w, assets/${name}-800.webp 800w, assets/${name}-1024.webp 1024w" sizes="${sizes}"><img src="assets/${name}-1024.jpg" alt="${esc(alt)}" width="1024" height="1536" decoding="async"${lazy?' loading="lazy"':''}></picture>`;
 const price=p=>discountOf(p)?`<s>${money(p.compareAt)}</s><b>${money(p.price)}</b>`:`<b>${money(p.price)}</b>`;
+// Entradas suaves conforme a página desce (desligadas com movimento reduzido)
+const io='IntersectionObserver' in window&&!still()?new IntersectionObserver(es=>es.forEach(en=>{if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}}),{rootMargin:'0px 0px -8% 0px'}):null;
+function reveal(els){els.forEach(el=>{if(io){el.classList.add('pre');io.observe(el);}else el.classList.add('in');});}
 let toastTimer;
 function toast(msg){const t=$('#ml-toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('on'),3800);}
 function openDialog(d){if(!d.open)d.showModal();document.documentElement.classList.add('ml-lock');}
@@ -32,8 +35,8 @@ $$('dialog').forEach(d=>{
 });
 
 // Carrinho ----------------------------------------------------------------------------------------
-let others=[],cart=read();
 const mine=i=>i.id!=='custom'&&i.brand===BRAND;
+let others=[],cart=read();
 function read(){let all=[];try{all=normalizeCart(JSON.parse(localStorage.getItem(CART_KEY))||[]);}catch{}others=all.filter(i=>!mine(i));return all.filter(mine);}
 function save(){try{localStorage.setItem(CART_KEY,JSON.stringify([...others,...cart]));}catch{}paintCount();}
 function paintCount(){const n=cart.reduce((s,i)=>s+i.qty,0),el=$('#ml-count');if(el.textContent!==String(n)){el.textContent=n;el.classList.remove('bump');void el.offsetWidth;el.classList.add('bump');}$('#ml-cart-open').setAttribute('aria-label',`Abrir carrinho, ${n} ${n===1?'peça':'peças'}`);}
@@ -242,8 +245,6 @@ $('#ml-news').addEventListener('submit',async e=>{
 // Menu no celular, entradas da vitrine e números do manifesto ----------------------------------------------
 $('#ml-menu-btn').addEventListener('click',()=>{const m=$('#ml-mobile'),open=m.hidden;m.hidden=!open;$('#ml-menu-btn').setAttribute('aria-expanded',String(open));});
 $$('#ml-mobile a').forEach(a=>a.addEventListener('click',()=>{$('#ml-mobile').hidden=true;$('#ml-menu-btn').setAttribute('aria-expanded','false');}));
-const io='IntersectionObserver' in window&&!still()?new IntersectionObserver(es=>es.forEach(en=>{if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}}),{rootMargin:'0px 0px -8% 0px'}):null;
-function reveal(els){els.forEach(el=>{if(io){el.classList.add('pre');io.observe(el);}else el.classList.add('in');});}
 reveal($$('.ml-drop-copy, .ml-drop-media, .ml-man-copy, .ml-man-photo, .ml-specs > div'));
 window.addEventListener('scroll',()=>$('#ml-nav').classList.toggle('scrolled',scrollY>24),{passive:true});
 
