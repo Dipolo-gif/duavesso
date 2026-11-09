@@ -1,6 +1,6 @@
 import {PRODUCTS,SIZES,CUSTOM,freeShippingMin,setPromos,promoGoals,INSTALLMENTS,installment,customMode,shippingSuggestion,money,escapeHTML as esc,totals,addItem,changeQuantity,normalizeCart,validImageURL,garmentLabel,PRINT_ZONES,PRINT_ZONE_AT,isZone,MAX_PRINTS,printsSummary} from './commerce.js';
 import {CHEST_Y,UNIT} from './studio-placement.js';
-import {online,rpc,uploadDesign,dataURLToBlob,getUser,signIn,signUp,signOut,resetPassword,updatePassword,signInWithGoogle,handleAuthRedirect,fetchProfile,updateProfile,fetchMyOrders,fetchPromos,checkCoupon,fetchBrands,fetchBrand,myBrands,updateBrand,uploadBrandAsset,brandAssetURL,isAdmin,adminListBrands,adminCreateBrand,adminSetBrandStatus,adminSetBrandPlan,adminRemoveOwner,adminDeleteBrand,adminDeleteBrandAssets,applyBrand,adminListApplications,adminSetApplicationStatus,adminListOrders,adminSetOrderStatus,adminListProductFinance,adminSetProductFinance,adminSetCustomCost,adminAddEntry,adminDeleteEntry,adminFinanceReport,brandSalesReport} from './api.js';
+import {online,rpc,uploadDesign,dataURLToBlob,getUser,signIn,signUp,signOut,resetPassword,updatePassword,signInWithGoogle,handleAuthRedirect,fetchProfile,updateProfile,fetchMyOrders,fetchPromos,checkCoupon,fetchBrands,fetchBrand,myBrands,updateBrand,uploadBrandAsset,brandAssetURL,isAdmin,adminListBrands,adminCreateBrand,adminSetBrandStatus,adminSetBrandPlan,adminRemoveOwner,adminDeleteBrand,adminDeleteBrandAssets,deleteMyBrand,deleteBrandAssets,applyBrand,adminListApplications,adminSetApplicationStatus,adminListOrders,adminSetOrderStatus,adminListProductFinance,adminSetProductFinance,adminSetCustomCost,adminAddEntry,adminDeleteEntry,adminFinanceReport,brandSalesReport} from './api.js';
 import {VIZ,columnsChart,lineChart,hbars,wireCharts} from './charts.js';
 import {BRANDS,brandFromRow} from './brands.js';
 import {SITE,parseRoute,isAppPath,pageMeta,productPath,brandList,findBrand,setBrandList,upsertBrandRow} from './pages.js';
@@ -758,7 +758,7 @@ function adminAppsHTML(apps){
 const STATUS_PILL=b=>`<span class="pill ${b.status==='active'?'ok':'off'}">${b.status==='active'?'Publicada':'Suspensa'}</span> <span class="pill ${b.plan==='paid'?'paid':'off'}">${b.plan==='paid'?'Plano pago':'Plano grátis'}</span>`;
 function colorRowHTML(key,label,hex){return `<div class="me-color" data-key="${key}"><span class="me-clab">${label}</span><button type="button" class="me-swatch" style="--sw:${hex}" aria-label="Escolher a cor: ${label}" aria-expanded="false"></button><input class="me-hex" value="${hex.toUpperCase()}" maxlength="7" spellcheck="false" aria-label="Código da cor: ${label}"><button type="button" class="me-drop" title="Conta-gotas: pegar uma cor da tela" aria-label="Conta-gotas">${eyedropperIcon}</button></div>`;}
 
-function renderBrandEditor(container,row,{admin=false}={}){
+function renderBrandEditor(container,row,{admin=false,canDelete=false,isAdminUser=false}={}){
  const draft={...row,theme:normalizeTheme(row.theme),links:{...(row.links||{})}};
  const own=PRODUCTS.filter(p=>p.brand===row.slug);
  container.innerHTML=`<div class="me-head"><div><p class="eyebrow">${admin?'PAINEL · EDITANDO A MARCA':'MINHA MARCA'}</p><h1 class="me-title">${esc(row.name)}</h1><p class="me-sub">loja-duavesso.vercel.app/marcas/${esc(row.slug)} · ${STATUS_PILL(row)}</p></div><div class="me-actions"><a class="button me-ghost" href="/marcas/${esc(row.slug)}" target="_blank" rel="noopener">Ver a loja <span aria-hidden="true">↗</span></a><button type="button" class="button button-blue" id="me-save">Publicar alterações</button></div></div>
@@ -792,6 +792,7 @@ function renderBrandEditor(container,row,{admin=false}={}){
   ${own.length?`<div class="field-row"><label>Peça em destaque<select name="featured_product_id"><option value="">Nenhuma</option>${own.map(p=>`<option value="${p.id}"${p.id===draft.featured_product_id?' selected':''}>${esc(p.name)}</option>`).join('')}</select></label><label>Selo<input name="featured_badge" maxlength="${LIMITS.badge}" value="${esc(draft.featured_badge||'')}" placeholder="Lançamento"></label></div>
   <label>Contagem regressiva até (opcional)<input type="datetime-local" name="featured_until" value="${toLocalInput(draft.featured_until)}"></label>`:'<p class="me-empty">Quando a sua marca tiver peças aprovadas, você escolhe aqui a peça em destaque.</p>'}
  </section>
+ ${canDelete?`<section class="me-card me-danger"><h2>Excluir esta loja</h2><p class="me-hint">Apaga para sempre a página, as cores, as imagens e os donos da ${esc(row.name)}. Não dá para desfazer.${own.length?` Enquanto a marca tiver peças à venda, a duavesso precisa tirar as peças do catálogo antes.`:''}</p><div><button type="button" class="button me-ghost ad-danger" id="me-delete">Excluir loja</button></div></section>`:''}
 </form>
 <aside class="me-preview"><span class="me-prev-label">Prévia ao vivo</span><div class="me-phone"><div class="me-screen" id="me-screen"></div></div><small>Muda enquanto você edita.</small></aside></div>`;
  const form=$('#me-form',container),el=n=>form.elements.namedItem(n),flag=$('#me-flag',container);
@@ -855,6 +856,19 @@ function renderBrandEditor(container,row,{admin=false}={}){
   }catch(error){toast(error.message);}
   finally{btn.disabled=false;btn.textContent='Publicar alterações';}
  });
+ // Excluir a loja: confere o nome; o dono apaga as imagens antes (depois perderia a permissão) e a marca depois
+ $('#me-delete',container)?.addEventListener('click',async()=>{
+  const typed=prompt(`Excluir a ${row.name} para sempre? Somem a página, as cores, as imagens e os donos, e não dá para desfazer.\n\nPara confirmar, digite o nome da marca: ${row.name}`);
+  if(typed===null)return;
+  if(typed.trim().toLowerCase()!==row.name.trim().toLowerCase()){toast('O nome não confere. Nada foi excluído.');return;}
+  const btn=$('#me-delete',container);btn.disabled=true;btn.textContent='Excluindo…';
+  try{
+   if(isAdminUser){await adminDeleteBrand(row.slug,typed);await deleteBrandAssets(row.slug).catch(()=>0);}
+   else{await deleteMyBrand(row.slug,typed,true);await deleteBrandAssets(row.slug).catch(()=>0);await deleteMyBrand(row.slug,typed);}
+   toast(`A ${row.name} foi excluída.`);brandsLoaded=null;
+   setTimeout(()=>location.assign('/minha-marca'),900);
+  }catch(error){toast(error.message);btn.disabled=false;btn.textContent='Excluir loja';}
+ });
  preview();sug();
 }
 
@@ -901,7 +915,7 @@ async function renderEditorPage(){
  view.innerHTML=`${mine.length>1?`<label class="me-switch">Marca<select id="me-pick">${mine.map(b=>`<option value="${esc(b.slug)}"${b.slug===slug?' selected':''}>${esc(b.name)}</option>`).join('')}</select></label>`:''}<nav class="me-tabs" aria-label="Minha Marca"><a href="${base}" class="${tab==='pagina'?'on':''}"${tab==='pagina'?' aria-current="page"':''}>Minha página</a><a href="${base}&aba=vendas" class="${tab==='vendas'?'on':''}"${tab==='vendas'?' aria-current="page"':''}>Vendas</a></nav><div id="me-root"></div>`;
  $('#me-pick')?.addEventListener('change',e=>navigate(`/minha-marca?marca=${encodeURIComponent(e.target.value)}${tab==='vendas'?'&aba=vendas':''}`));
  if(tab==='vendas')renderBrandSales($('#me-root'),row);
- else renderBrandEditor($('#me-root'),row,{admin:admin&&!mine.some(b=>b.slug===slug)});
+ else renderBrandEditor($('#me-root'),row,{admin:admin&&!mine.some(b=>b.slug===slug),isAdminUser:admin,canDelete:admin||mine.some(b=>b.slug===slug)});
 }
 
 // Painel da duavesso (/painel?aba=...) ----------------------------------------------------------------

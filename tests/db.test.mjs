@@ -30,8 +30,8 @@ async function order(items,{shipping='standard',cust=customer}={}){
 }
 const rejects=(items,re,opts)=>assert.rejects(order(items,opts),re);
 
-test('all migrations apply in order and 0006 to 0014 can be applied twice',async()=>{
- for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql','0013_tecidos_do_fornecedor.sql','0014_codigo_de_pedido_sem_colisao.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
+test('all migrations apply in order and 0006 to 0015 can be applied twice',async()=>{
+ for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql','0013_tecidos_do_fornecedor.sql','0014_codigo_de_pedido_sem_colisao.sql','0015_dono_exclui_marca.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
 });
 
 test('active catalog in the database matches dist/commerce.js field by field',async()=>{
@@ -415,7 +415,7 @@ test('excluir loja: só a duavesso, com o nome digitado, e nunca com peças à v
   await db.query("select set_config('request.jwt.claim.sub',$1,true)",[OWNER]);await db.exec('set local role authenticated');
   const step=async(fn,re,why)=>{await db.query('savepoint s');await assert.rejects(fn(),re,why);await db.query('rollback to savepoint s');};
   await step(()=>del('try84','TRY84'),/Área restrita/,'dono de marca não exclui');
-  assert.equal((await db.query(`delete from storage.objects where bucket_id='brand-assets' returning name`)).rows.length,0,'dono não apaga imagens');
+  assert.equal((await db.query(`delete from storage.objects where bucket_id='brand-assets' and name not like 'try84/%' returning name`)).rows.length,0,'dono não apaga imagens de outra marca');
   await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,true)",[ADMIN]);await db.exec('set local role authenticated');
   await step(()=>del('try84','TRY 84'),/não confere/,'nome errado');
   await step(()=>del('geek','duavessogeek'),/tem 2 peça\(s\) à venda/,'marca com peças à venda');
@@ -425,6 +425,40 @@ test('excluir loja: só a duavesso, com o nome digitado, e nunca com peças à v
   assert.equal((await db.query(`select count(*)::int as n from public.brand_members where brand_slug='try84'`)).rows[0].n,0,'donos apagados');
   assert.deepEqual((await db.query(`select name from storage.objects where bucket_id='brand-assets' and name like 'try84/%'`)).rows.map(r=>r.name),['try84/logo-a1b2c3d4.webp'],'a administradora lista as imagens');
   assert.equal((await db.query(`delete from storage.objects where bucket_id='brand-assets' and name like 'try84/%' returning name`)).rows.length,1,'e apaga');
+ }finally{await db.exec('rollback');}
+});
+
+test('dono exclui a própria loja (0015): nome digitado, sem peças à venda, só dono; conferir não apaga; imagens só da própria pasta',async()=>{
+ await brandUsers();
+ const del=(slug,confirm,check=false)=>db.query('select public.delete_my_brand($1,$2,$3)',[slug,confirm,check]);
+ const count=async(sql)=>(await db.query(sql)).rows[0].n;
+ await db.exec('begin');
+ try{
+  await db.query(`insert into public.brand_members (brand_slug,user_id) values ('try84',$1),('geek',$1)`,[OWNER]);
+  await db.query(`insert into public.brand_members (brand_slug,user_id,role) values ('try84',$1,'editor')`,[OTHER]);
+  await db.query(`insert into storage.objects (bucket_id,name) values ('brand-assets','try84/logo-a1b2c3d4.webp'),('brand-assets','solfado/logo-e5f6a7b8.webp')`);
+  const step=async(fn,re,why)=>{await db.query('savepoint s');await assert.rejects(fn(),re,why);await db.query('rollback to savepoint s');};
+  await db.exec('set local role anon');
+  await step(()=>del('try84','TRY84'),/permission denied|Entre na sua conta/,'visitante não exclui');
+  await roleIs(OTHER);
+  await step(()=>del('try84','TRY84'),/Só quem é dono/,'editor da marca não exclui');
+  await step(()=>del('solfado','SolFáDó'),/Só quem é dono/,'quem não é da marca não exclui');
+  await roleIs(OWNER);
+  await step(()=>del('solfado','SolFáDó'),/Só quem é dono/,'dono de outra marca não exclui');
+  await step(()=>del('try84','TRY 84'),/não confere/,'nome errado');
+  await step(()=>del('geek','duavessogeek'),/tem 2 peça\(s\) à venda/,'marca com peças à venda');
+  await step(()=>del('nao-existe','x'),/não encontrada/);
+  await del('try84','try84',true);
+  assert.equal(await count(`select count(*)::int as n from public.brands where slug='try84'`),1,'só conferir não apaga');
+  assert.deepEqual((await db.query(`select name from storage.objects where bucket_id='brand-assets' and (name like 'try84/%' or name like 'solfado/%') order by name`)).rows.map(r=>r.name),['try84/logo-a1b2c3d4.webp'],'dono lista só as imagens da própria marca');
+  assert.equal((await db.query(`delete from storage.objects where bucket_id='brand-assets' and (name like 'try84/%' or name like 'solfado/%') returning name`)).rows.length,1,'e apaga só as dela');
+  await del('try84','  TRY84 ');
+  await db.exec('reset role');
+  assert.equal(await count(`select count(*)::int as n from public.brands where slug='try84'`),0,'marca apagada');
+  assert.equal(await count(`select count(*)::int as n from public.brand_members where brand_slug='try84'`),0,'donos apagados');
+  assert.equal(await count(`select count(*)::int as n from storage.objects where name='solfado/logo-e5f6a7b8.webp'`),1,'imagem de outra marca intacta');
+  await roleIs(ADMIN);
+  await step(()=>del('nao-existe','x'),/não encontrada/);
  }finally{await db.exec('rollback');}
 });
 

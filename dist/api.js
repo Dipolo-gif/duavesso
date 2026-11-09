@@ -236,15 +236,18 @@ export const adminAddEntry=({kind,category,amount,on,method,description,brand})=
 export const adminDeleteEntry=id=>rpc('admin_delete_entry',{p_id:id});
 export const adminFinanceReport=(from,to)=>rpc('admin_finance_report',{p_from:from,p_to:to});
 export const brandSalesReport=(slug,from,to)=>rpc('brand_sales_report',{p_slug:slug,p_from:from,p_to:to});
-// Depois de excluir, apaga as imagens da pasta da marca (logo, capas e fotos, inclusive as trocadas).
+// Dono exclui a própria loja pela Minha Marca (migração 0015); checkOnly só confere, sem apagar
+export const deleteMyBrand=(slug,confirm,checkOnly=false)=>rpc('delete_my_brand',{p_slug:slug,p_confirm:confirm,p_check_only:checkOnly});
+// Apaga as imagens da pasta da marca (logo, capas e fotos, inclusive as trocadas).
 // Só apaga nomes no padrão das imagens de marca; devolve quantas foram apagadas.
-export async function adminDeleteBrandAssets(slug){
+export async function deleteBrandAssets(slug){
  const headers={...await authHeaders(),'Content-Type':'application/json'};
  const list=await handle(await net(`${SUPABASE_URL}/storage/v1/object/list/brand-assets`,{method:'POST',headers,body:JSON.stringify({prefix:slug,limit:1000})}));
  const names=(Array.isArray(list)?list:[]).map(f=>f?.name).filter(n=>/^(logo|cover|about)-[0-9a-z-]{6,40}\.webp$/.test(n||'')).map(n=>`${slug}/${n}`);
  if(names.length)await handle(await net(`${SUPABASE_URL}/storage/v1/object/brand-assets`,{method:'DELETE',headers,body:JSON.stringify({prefixes:names})}));
  return names.length;
 }
+export const adminDeleteBrandAssets=deleteBrandAssets;
 // Pedidos de quem quer ter marca na duavesso (migração 0010): qualquer pessoa envia; só a duavesso lê
 export const applyBrand=({name,email,brand,instagram,about})=>rpc('apply_brand',{p_name:name,p_email:email,p_brand:brand,p_instagram:instagram||null,p_about:about});
 export const adminListApplications=()=>rpc('admin_list_applications',{});
