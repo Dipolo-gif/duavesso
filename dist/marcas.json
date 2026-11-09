@@ -1,7 +1,7 @@
 [
  {
   "slug": "geek",
-  "name": "duavessogeek",
+  "name": "Marileus",
   "tagline": "games · pixel · sci-fi",
   "bio": "Cultura geek no avesso: games, pixel, sci-fi e as referências que só quem é do meio pega, no caimento oversized da duavesso.",
   "status": "active",
@@ -13,35 +13,13 @@
    "angle": 135,
    "accent": "#2f47bf"
   },
-  "logo_path": "geek/logo-1f9d8682-5be4.webp",
-  "cover_path": "geek/cover-cae2d6da-a19f.webp",
+  "logo_path": "geek/logo-01c511eb-4554.webp",
+  "cover_path": null,
   "links": {
    "instagram": "duavesso_co"
   },
   "featured_product_id": "geek-coracao",
   "featured_badge": "Lançamento",
-  "featured_until": null,
-  "external_url": null
- },
- {
-  "slug": "rua",
-  "name": "Teste",
-  "tagline": "",
-  "bio": "",
-  "status": "active",
-  "plan": "free",
-  "theme": {
-   "c1": "#161719",
-   "c2": "#161719",
-   "mode": "solid",
-   "angle": 135,
-   "accent": "#1737bc"
-  },
-  "logo_path": null,
-  "cover_path": null,
-  "links": {},
-  "featured_product_id": null,
-  "featured_badge": "",
   "featured_until": null,
   "external_url": null
  }
