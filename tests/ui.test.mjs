@@ -36,14 +36,18 @@ async function setup(storage={},fetchStub,{reducedMotion=true,path='/'}={}){
 }
 test('catalog filters and product selection feed the same persisted cart',async()=>{
  const s=await setup();try{
- assert.equal(s.doc.querySelectorAll('.product-card').length,6,'4 da loja + 2 da geek na vitrine');
+ assert.equal(s.doc.querySelectorAll('#product-grid .product-card').length,6,'Todas as camisas: as 6 peças da Marileus');
  assert.equal(s.doc.querySelector('[data-filter="essential"]'),null,'aba Essenciais removida');
- s.click('[data-filter="graphic"]');assert.equal(s.doc.querySelectorAll('.product-card').length,5,'estampadas: 3 Heavy + 2 geek');
+ assert.deepEqual([...s.doc.querySelectorAll('#filters [data-filter]')].map(b=>b.textContent),['Todas','Promoções','Edição Geek'],'filtros: promoções e só as edições com peça');
+ s.click('[data-filter="promo"]');assert.equal(s.doc.querySelectorAll('#product-grid .product-card').length,6,'10% em todas');
+ s.click('[data-filter="ed:geek"]');assert.equal(s.doc.querySelectorAll('#product-grid .product-card').length,6,'Edição Geek: Marileus');
+ assert.equal(s.doc.querySelectorAll('#new-row .product-card').length,6,'Novidades');assert.equal(s.doc.querySelectorAll('#promo-row .product-off').length,6,'selo de desconto nas promoções');
+ assert.match(s.doc.querySelector('#product-grid .price').textContent,/R\$\s143,90/,'preço por');assert.match(s.doc.querySelector('#product-grid .price-was').textContent,/159,90/,'preço de riscado');
  s.click('[data-product="heavy-eclipse"]');assert(s.doc.querySelector('#product-dialog').open);
  assert(s.doc.querySelector('#add-product').disabled);
  s.click('[data-size="G"]');s.click('#add-product');
  assert(s.doc.querySelector('#cart-dialog').open);assert.equal(s.doc.querySelector('#cart-count').textContent,'1');
- const stored=JSON.parse(s.w.localStorage.getItem('duavesso.cart.v1'));assert.equal(stored[0].size,'G');assert.equal(stored[0].price,15990);
+ const stored=JSON.parse(s.w.localStorage.getItem('duavesso.cart.v1'));assert.equal(stored[0].size,'G');assert.equal(stored[0].price,14390);
  s.click('[data-qty="1"]');assert.equal(s.doc.querySelector('#cart-count').textContent,'2');
  s.click('[data-remove]');assert.equal(s.doc.querySelector('#cart-count').textContent,'0');assert(s.doc.querySelector('#continue-shopping'));
  }finally{s.close();}
@@ -55,7 +59,7 @@ test('checkout confirms a simulated order and never persists contact or address'
  const express=s.doc.querySelector('[value="express"]');express.checked=true;express.dispatchEvent(new s.w.Event('change',{bubbles:true}));
  form.dispatchEvent(new s.w.Event('submit',{bubbles:true,cancelable:true}));
  assert(s.doc.querySelector('#finish-order'));assert.equal(s.doc.querySelector('#cart-count').textContent,'0');
- const raw=s.w.localStorage.getItem('duavesso.orders.v1'),order=JSON.parse(raw)[0];assert.equal(order.total,18480);assert.equal(order.shipping,'express');assert.equal(order.items[0].size,'M');assert(!raw.includes('cliente@example.com'));assert(!raw.includes('Rua de Exemplo'));assert(!raw.includes('Cliente de Exemplo'));
+ const raw=s.w.localStorage.getItem('duavesso.orders.v1'),order=JSON.parse(raw)[0];assert.equal(order.total,16880);assert.equal(order.shipping,'express');assert.equal(order.items[0].size,'M');assert(!raw.includes('cliente@example.com'));assert(!raw.includes('Rua de Exemplo'));assert(!raw.includes('Cliente de Exemplo'));
  s.click('#finish-order');s.click('#view-orders');assert(s.doc.querySelector('#info-content').textContent.includes(order.id));
  }finally{s.close();}
 });
@@ -101,7 +105,7 @@ test('the catalog stays local (stale server products ignored) and online checkou
  };
  const s=await setup({},fetchStub);try{
  await new Promise(r=>setTimeout(r,20));
- assert.equal(s.doc.querySelectorAll('.product-card').length,6,'catálogo curado local (6 peças), não a tabela antiga do servidor');
+ assert.equal(s.doc.querySelectorAll('#product-grid .product-card').length,6,'catálogo curado local (6 peças), não a tabela antiga do servidor');
  assert.equal(s.doc.querySelector('[data-product="off-line"]'),null,'produto antigo do servidor é ignorado');
  assert(s.doc.querySelector('[data-product="heavy-eclipse"]'),'produto local presente');
  s.click('[data-product="heavy-eclipse"]');s.click('[data-size="M"]');s.click('#add-product');s.click('#begin-checkout');
@@ -151,7 +155,7 @@ test('produto Simples: seletor de cor troca as fotos e a cor vai pro pedido',asy
  assert.equal(s.doc.querySelectorAll('#detail-thumbs .detail-thumb')[0].querySelector('img').getAttribute('src').includes('tee-simples-marrom-1'),true,'miniaturas também trocam de cor');
  s.click('#product-detail [data-size="G"]');s.click('#add-product');
  const stored=JSON.parse(s.w.localStorage.getItem('duavesso.cart.v1'));
- assert.equal(stored[0].base,'brown');assert.equal(stored[0].color,'Marrom');assert.equal(stored[0].size,'G');assert.equal(stored[0].price,11990);
+ assert.equal(stored[0].base,'brown');assert.equal(stored[0].color,'Marrom');assert.equal(stored[0].size,'G');assert.equal(stored[0].price,10790);
  assert.equal('variants' in stored[0],false,'não guarda o array de variantes na sacola');
  }finally{s.close();}
 });
@@ -234,9 +238,9 @@ test('Marcas: sem o banco, o hub mostra só as marcas no ar e a geek abre sua p�
  assert.equal(s.doc.querySelector('#shop-view').hidden,true,'loja escondida');
  assert.deepEqual([...s.doc.querySelectorAll('#marcas-view .brand-card')].map(a=>a.getAttribute('href')),['marcas/geek'],'só a geek: TRY84 e SolFáDó saíram da loja');
  s.w.location.hash='marca-geek';await new Promise(r=>setTimeout(r,10));
- assert.equal(s.doc.querySelectorAll('#marcas-view .product-grid .product-card').length,2,'geek: 2 peças com o cartão da página inicial');
+ assert.equal(s.doc.querySelectorAll('#marcas-view .product-grid .product-card').length,6,'Marileus (geek): 6 peças com o cartão da página inicial');
  assert(s.doc.querySelector('#marcas-view .product-card .product-visual.poses .pose'),'geek: card com poses (Frente/Costas/Lado)');assert(s.doc.querySelector('#marcas-view .product-card .product-add'),'botão de adicionar como na página inicial');
- assert(s.doc.querySelector('#marcas-view .product-card .price').textContent.includes('159,90'),'geek: card com preço padrão');assert.match(s.doc.querySelector('#marcas-view .brand-collection .collection-count').textContent,/^2 peças$/);
+ assert(s.doc.querySelector('#marcas-view .product-card .price').textContent.includes('143,90'),'geek: card com preço de/por');assert.equal(s.doc.querySelector('#marcas-view .product-card .product-brand'),null,'na loja da marca, o cartão não repete o nome dela');assert.match(s.doc.querySelector('#marcas-view .brand-collection .collection-count').textContent,/^6 peças$/);
  assert.equal(s.doc.querySelector('.brand-notify'),null,'geek com coleção: sem form de aviso');
  s.click('#marcas-view [data-product="geek-coracao"]');
  assert(s.doc.querySelector('#product-dialog').open,'clique abre o PDP de compra');
@@ -244,7 +248,7 @@ test('Marcas: sem o banco, o hub mostra só as marcas no ar e a geek abre sua p�
  assert(s.doc.querySelector('#detail-main img[src*="geek-coracao-1"]'),'PDP começa na frente');
  s.click('#product-dialog [data-size="M"]');s.click('#add-product');
  const geekCart=JSON.parse(s.w.localStorage.getItem('duavesso.cart.v1'));
- assert.equal(geekCart[0].base,'black');assert.equal(geekCart[0].color,'Preta');assert.equal(geekCart[0].size,'M');assert.equal(geekCart[0].price,15990);
+ assert.equal(geekCart[0].base,'black');assert.equal(geekCart[0].color,'Preta');assert.equal(geekCart[0].size,'M');assert.equal(geekCart[0].price,14390);
  assert.equal(geekCart[0].key,'geek-coracao-M');
  s.doc.querySelector('#cart-dialog').close();
  s.w.location.hash='colecao';await new Promise(r=>setTimeout(r,10));
@@ -415,7 +419,7 @@ test('real addresses: product link opens over the shop, closing returns, history
  const doc=s.doc,loc=()=>s.w.location.pathname+s.w.location.hash,wait=()=>new Promise(r=>setTimeout(r,30));
  assert(doc.querySelector('#product-dialog').open,'link direto abre a ficha');
  assert.equal(doc.querySelector('#shop-view').hidden,false,'a loja fica por trás');
- assert.equal(doc.title,'Heavy · Do Avesso · camiseta oversized · duavesso');
+ assert.equal(doc.title,'Heavy · Do Avesso · camiseta oversized · Marileus');
  assert.equal(doc.querySelector('link[rel="canonical"]').href,'https://loja-duavesso.vercel.app/produto/heavy-avesso');
  doc.querySelector('#product-dialog').close();
  assert.equal(loc(),'/','ao fechar, volta para a loja');assert.match(doc.title,/^duavesso · /);
@@ -425,7 +429,7 @@ test('real addresses: product link opens over the shop, closing returns, history
  assert.equal(loc(),'/');assert.equal(doc.querySelector('#product-dialog').open,false,'voltar no navegador fecha a ficha');
  // Rodapé: link real para a marca; o produto da marca abre por cima da página da marca.
  doc.querySelector('footer a[href="marcas/geek"]').click();
- assert.equal(loc(),'/marcas/geek');assert.equal(doc.querySelector('#marcas-view').hidden,false);assert.match(doc.title,/^duavessogeek · /);
+ assert.equal(loc(),'/marcas/geek');assert.equal(doc.querySelector('#marcas-view').hidden,false);assert.match(doc.title,/^Marileus · /);
  s.click('#marcas-view button[data-product="geek-coracao"]');
  assert.equal(loc(),'/produto/geek-coracao');assert.equal(doc.querySelector('#marcas-view').hidden,false,'a marca continua por trás');
  doc.querySelector('#product-dialog').close();await wait();
@@ -454,7 +458,7 @@ test('a product opened from history over a brand page closes back to that brand 
  s.w.history.replaceState(null,'','/produto/geek-carpa');s.w.dispatchEvent(new s.w.PopStateEvent('popstate'));
  assert(doc.querySelector('#product-dialog').open);assert.equal(doc.querySelector('#marcas-view').hidden,false);
  doc.querySelector('#product-dialog').close();
- assert.equal(loc(),'/marcas/geek');assert.match(doc.title,/^duavessogeek · /);
+ assert.equal(loc(),'/marcas/geek');assert.match(doc.title,/^Marileus · /);
  }finally{s.close();}
 });
 test('checkout: the CEP fills state, city and street, and the state (UF) goes with the order',async()=>{
@@ -507,8 +511,8 @@ test('checkout: payment on the left, order grouped by brand on the right, no emo
  assert.deepEqual([...form.querySelectorAll('.co-left .co-sec h3')].map(h=>h.textContent.replace(/\d/,'')),['Contato','Entrega','Pagamento']);
  assert.deepEqual([...form.querySelectorAll('.co-pm b')].map(b=>b.textContent),['Cartão de crédito','Pix','Boleto']);
  assert(form.querySelectorAll('.co-pm svg').length===3,'ícones de traço, não emojis');
- assert.deepEqual([...form.querySelectorAll('.co-right .co-chip')].map(c=>c.textContent),['duavesso','duavessogeek'],'peças agrupadas por marca');
- assert.equal(form.querySelector('.co-group[data-theme="geek"] .co-item b').textContent,'Coração Pixelado');
+ assert.deepEqual([...form.querySelectorAll('.co-right .co-chip')].map(c=>c.textContent),['Marileus'],'peças agrupadas por marca (as duas são da Marileus)');
+ assert.deepEqual([...form.querySelectorAll('.co-group[data-theme="geek"] .co-item b')].map(b=>b.textContent).sort(),['Coração Pixelado','Oversized Simples']);
  assert(!/\p{Extended_Pictographic}/u.test(s.doc.querySelector('#checkout-view').textContent.replace(/[✓›×]/g,'')),'nenhum emoji no checkout');
  }finally{s.close();}
 });
@@ -518,9 +522,9 @@ test('checkout: card shows installments and sends them; Pix and boleto are paid 
  const s=await setup({'duavesso.cart.v1':twoBrands},fetchStub);try{
  let form=await openCheckout(s);fill(form);
  const inst=form.elements.namedItem('installments');
- assert.deepEqual([...inst.options].map(o=>nb(o.textContent)),['1x de R$ 279,80 sem juros','2x de R$ 139,90 sem juros','3x de R$ 93,27 sem juros']);
+ assert.deepEqual([...inst.options].map(o=>nb(o.textContent)),['1x de R$ 251,80 sem juros','2x de R$ 125,90 sem juros','3x de R$ 83,94 sem juros']);
  inst.value='3';inst.dispatchEvent(new s.w.Event('change',{bubbles:true}));
- assert.match(nb(s.doc.querySelector('#checkout-summary .co-inst').textContent),/3x de R\$ 93,27/);
+ assert.match(nb(s.doc.querySelector('#checkout-summary .co-inst').textContent),/3x de R\$ 83,94/);
  assert.match(form.querySelector('.co-secure').textContent,/nunca passam pela loja/);
  choose(s,form,'payment','Pix');
  assert.equal(form.elements.namedItem('installments'),null,'Pix não tem parcelas');assert.match(form.querySelector('#co-pay-panel').textContent,/QR Code/);
@@ -550,9 +554,9 @@ test('checkout: coupon is checked by the server, shown as a discount and sent wi
  const form=await openCheckout(s),msg=()=>nb(s.doc.querySelector('#co-cupom-msg').textContent),apply=async code=>{form.elements.namedItem('coupon').value=code;s.click('#co-apply');await new Promise(r=>setTimeout(r,20));};
  await apply('nada');assert.equal(msg(),'Cupom inválido ou expirado.');
  await apply('dez');
- assert.equal(msg(),'Cupom DEZ aplicado: −R$ 27,98.');
- assert.match(nb(s.doc.querySelector('#checkout-summary').textContent),/Cupom DEZ−R\$ 27,98/);
- assert.equal(nb(s.doc.querySelector('#co-sum-total').textContent),'R$ 251,82');
+ assert.equal(msg(),'Cupom DEZ aplicado: −R$ 25,18.');
+ assert.match(nb(s.doc.querySelector('#checkout-summary').textContent),/Cupom DEZ−R\$ 25,18/);
+ assert.equal(nb(s.doc.querySelector('#co-sum-total').textContent),'R$ 241,52','251,80 − 25,18 + frete de 14,90 (com o cupom fica abaixo dos 250)');
  fill(form);await submit(s,form);
  assert.equal(JSON.parse(calls.find(c=>c.url.includes('place_order')).init.body).p_customer.coupon,'DEZ');
  }finally{s.close();}
@@ -563,18 +567,18 @@ test('checkout: coupon is checked by the server, shown as a discount and sent wi
 });
 
 test('promotions from the database drive the "faltam R$ X" notices in the bag and the checkout',async()=>{
- const promos=[{kind:'free_shipping',min_subtotal_cents:30000,label:'Frete grátis'},{kind:'cheapest_free',min_subtotal_cents:40000,label:'Leve a mais barata'}];
+ const promos=[{kind:'free_shipping',min_subtotal_cents:28000,label:'Frete grátis'},{kind:'cheapest_free',min_subtotal_cents:39000,label:'Leve a mais barata'}];
  const {fetchStub}=checkoutStub((url,init,json)=>url.includes('/rest/v1/promotions')?json(promos):null);
  const s=await setup({'duavesso.cart.v1':twoBrands},fetchStub);try{
  s.click('#open-cart');await new Promise(r=>setTimeout(r,30));
  const bag=()=>nb(s.doc.querySelector('#cart-content').textContent);
- assert.match(bag(),/Faltam R\$ 20,20 para o frete grátis/,'27.980 de 30.000');
- assert.match(bag(),/Faltam R\$ 120,20 para a peça mais barata sair de graça/);
+ assert.match(bag(),/Faltam R\$ 28,20 para o frete grátis/,'25.180 de 28.000');
+ assert.match(bag(),/Faltam R\$ 138,20 para a peça mais barata sair de graça/);
  s.click('[data-qty="1"][data-key="geek-coracao-M"]');await new Promise(r=>setTimeout(r,10));
  assert.match(bag(),/Frete grátis liberado/);assert.match(bag(),/Promoção liberada/);
- assert.match(bag(),/Promoção · peça mais barata grátis−R\$ 119,90/,'a mais barata (Simples) sai de graça');
+ assert.match(bag(),/Promoção · peça mais barata grátis−R\$ 107,90/,'a mais barata (Simples) sai de graça');
  s.click('#begin-checkout');await new Promise(r=>setTimeout(r,20));
- assert.match(nb(s.doc.querySelector('#checkout-summary').textContent),/Promoção · peça mais barata grátis−R\$ 119,90/);
+ assert.match(nb(s.doc.querySelector('#checkout-summary').textContent),/Promoção · peça mais barata grátis−R\$ 107,90/);
  assert.equal(s.doc.querySelector('#co-price-standard').textContent,'Grátis');
  }finally{s.close();}
 });
@@ -808,7 +812,7 @@ test('Painel da duavesso: only the admin gets in, creates a partner brand from a
   assert.match(t.doc.querySelector('#toast').textContent,/tem 2 peças à venda/);assert.equal(askBox(),null,'nem chega a perguntar');assert.equal(delCalls().length,0);
   t.doc.querySelector('.ad-row[data-slug="estudio-mar"] [data-act="delete"]').click();await tick(10);
   {const d=askBox(),i=d.querySelector('input'),go=d.querySelector('button[type=submit]');
-   assert.match(d.textContent,/Excluir loja.*Estúdio Mar.*não dá para desfazer/s);assert.equal(go.disabled,true,'sem o nome, o botão fica travado');
+   assert.match(d.textContent,/Excluir loja.*Estúdio Mar.*Não dá para desfazer/s);assert.equal(go.disabled,true,'sem o nome, o botão fica travado');
    i.value='Estudio';i.dispatchEvent(new t.w.Event('input',{bubbles:true}));assert.equal(go.disabled,true,'nome errado não libera');
    d.querySelector('[data-close]').click();await tick(20);assert.equal(askBox(),null,'Cancelar fecha');assert.equal(delCalls().length,0);}
   t.doc.querySelector('.ad-row[data-slug="estudio-mar"] [data-act="delete"]').click();await answer('estúdio mar ');
@@ -907,7 +911,8 @@ test('Painel em abas: início, pedidos (abrir e mudar a situação), financeiro 
   assert.deepEqual([rp.elements.namedItem('amount').value,rp.elements.namedItem('category').value,rp.elements.namedItem('brand').value],['50,00','Repasse a marcas','geek']);
   t.doc.querySelector('.fin-dialog [data-close]').click();
   // Apagar lançamento manual
-  t.click('#adm-main [data-del="11"]');await tick(40);
+  t.click('#adm-main [data-del="11"]');await tick(10);
+  {const d=t.doc.querySelector('dialog.ask-dialog[open]');assert(d,'pede confirmação na caixa da loja');assert.match(d.textContent,/Apagar lançamento/);d.querySelector('button[type=submit]').click();}await tick(40);
   assert.deepEqual(JSON.parse(calls.find(c=>c.url.includes('/rpc/admin_delete_entry')).init.body),{p_id:11});
   await tick(40);
   // Planilha: ; e vírgula decimal, fórmula neutralizada
@@ -1023,7 +1028,7 @@ test('janela da peça: setas trocam a foto (dando a volta) e a barra passa para 
  const b=await setup({},undefined,{path:'/marcas/geek'});try{
   await new Promise(r=>setTimeout(r,20));
   b.click('#marcas-view [data-product="geek-coracao"]');await new Promise(r=>setTimeout(r,20));
-  assert.equal(b.doc.querySelector('.detail-pager-pos').textContent,'1 de 2','na loja da marca, só as peças dela');
+  assert.equal(b.doc.querySelector('.detail-pager-pos').textContent,'5 de 6','na loja da marca, só as peças dela');
   assert.equal(b.doc.querySelector('.detail-pager-btn.next').dataset.go,'geek-carpa');
  }finally{b.close();}
 });

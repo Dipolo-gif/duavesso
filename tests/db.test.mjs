@@ -30,8 +30,8 @@ async function order(items,{shipping='standard',cust=customer}={}){
 }
 const rejects=(items,re,opts)=>assert.rejects(order(items,opts),re);
 
-test('all migrations apply in order and 0006 to 0015 can be applied twice',async()=>{
- for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql','0013_tecidos_do_fornecedor.sql','0014_codigo_de_pedido_sem_colisao.sql','0015_dono_exclui_marca.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
+test('all migrations apply in order and 0006 to 0016 can be applied twice',async()=>{
+ for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql','0013_tecidos_do_fornecedor.sql','0014_codigo_de_pedido_sem_colisao.sql','0015_dono_exclui_marca.sql','0016_marketplace_edicoes_promocao.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
 });
 
 test('active catalog in the database matches dist/commerce.js field by field',async()=>{
@@ -41,6 +41,8 @@ test('active catalog in the database matches dist/commerce.js field by field',as
   const r=rows.find(x=>x.id===p.id);
   for(const [col,key] of [['name','name'],['category','category'],['color','color'],['base','base'],['price_cents','price'],['tag','tag'],['graphic','graphic'],['graphic_class','graphicClass'],['description','description'],['print','print'],['fabric','fabric'],['finish','finish'],['fit','fit'],['care','care']])
    assert.equal(r[col],p[key]??'',`${p.id}.${col}`);
+  assert.equal(r.compare_at_cents,p.compareAt??null,`${p.id}.compare_at_cents (preço "de")`);
+  assert.equal(r.brand_slug,p.brand??null,`${p.id}.brand_slug`);
  }
 });
 
@@ -83,7 +85,7 @@ test('studio items, free shipping threshold, UF and order lookup with color',asy
   {kind:'custom',base:'white',size:'G',qty:1,design:{mode:'create',prints:[{text:'OI'}]},preview_path:`${uuid}/preview.jpg`},
   {kind:'brief',base:'black',size:'P',qty:1,design:{mode:'brief',brief:'uma onda azul minimalista'}}
  ],{cust:{...customer,uf:'rj'}});
- assert.equal(result.subtotal_cents,15990+12990+14990);
+ assert.equal(result.subtotal_cents,14390+12990+14990);
  assert.equal(result.delivery_cents,0);
  assert.equal(o.uf,'RJ');
  const small=await order([{kind:'catalog',product_id:'simples',size:'M',qty:1}],{shipping:'standard'});
@@ -93,7 +95,7 @@ test('studio items, free shipping threshold, UF and order lookup with color',asy
   const r=(await db.query(`select public.place_order($1::jsonb,'express','Pix','[{"kind":"catalog","product_id":"simples","base":"brown","size":"G","qty":1}]'::jsonb) as r`,[JSON.stringify(customer)])).rows[0].r;
   const found=(await db.query('select public.get_order($1,$2) as o',[r.code,'CLIENTE@example.com'])).rows[0].o;
   assert.deepEqual(found.items.map(i=>[i.name,i.base,i.color]),[['Oversized Simples','brown','Marrom']]);
-  assert.equal(found.total_cents,11990+2490);
+  assert.equal(found.total_cents,10790+2490);
  }finally{await db.exec('rollback');}
 });
 
@@ -228,14 +230,14 @@ test('boleto is accepted; installments only on card, from 1 to the store maximum
 
 test('promotions: free shipping threshold comes from the table and the cheapest piece can be free',async()=>{
  await inTx(async()=>{
-  await db.query(`update public.promotions set min_subtotal_cents=30000 where kind='free_shipping'`);
-  assert.equal((await orderWith([tee('heavy-avesso'),tee('simples')])).delivery_cents,1490,'27.980 não chega a 30.000');
-  assert.equal((await orderWith([tee('heavy-avesso',2)])).delivery_cents,0,'31.980 libera o frete');
-  await db.query(`insert into public.promotions (kind,min_subtotal_cents,label) values ('cheapest_free',40000,'Compre 400 e leve a mais barata')`);
+  await db.query(`update public.promotions set min_subtotal_cents=28000 where kind='free_shipping'`);
+  assert.equal((await orderWith([tee('heavy-avesso'),tee('simples')])).delivery_cents,1490,'25.180 não chega a 28.000');
+  assert.equal((await orderWith([tee('heavy-avesso',2)])).delivery_cents,0,'28.780 libera o frete');
+  await db.query(`insert into public.promotions (kind,min_subtotal_cents,label) values ('cheapest_free',39000,'Compre 390 e leve a mais barata')`);
   const r=await orderWith([tee('heavy-avesso',2),tee('simples')]);
-  assert.deepEqual([r.subtotal_cents,r.promo_discount_cents,r.total_cents],[43970,11990,31980]);
-  assert.equal(r.delivery_cents,0,'31.980 depois do desconto ainda libera o frete de 30.000');
-  assert.equal((await orderWith([tee('heavy-avesso',2)])).promo_discount_cents,0,'abaixo de 400 não ganha');
+  assert.deepEqual([r.subtotal_cents,r.promo_discount_cents,r.total_cents],[39570,10790,28780]);
+  assert.equal(r.delivery_cents,0,'28.780 depois do desconto ainda libera o frete de 28.000');
+  assert.equal((await orderWith([tee('heavy-avesso',2)])).promo_discount_cents,0,'abaixo de 390 não ganha');
   await db.query(`update public.promotions set ends_at=now()-interval '1 day' where kind='cheapest_free'`);
   assert.equal((await orderWith([tee('heavy-avesso',2),tee('simples')])).promo_discount_cents,0,'promoção vencida não vale');
  });
@@ -252,7 +254,7 @@ test('coupons: preview and order use the same server rule, limits and dates are 
   assert.deepEqual(await check('VINTE',15990),{ok:false,message:'Este cupom vale para compras a partir de R$ 200,00.'});
   assert.equal((await check('ESGOTADO',15990)).ok,false);assert.equal((await check('VENCIDO',15990)).ok,false);assert.equal((await check('NADA',15990)).ok,false);
   const r=await orderWith([tee('heavy-avesso',2)],{cust:{coupon:'vinte'}});
-  assert.deepEqual([r.subtotal_cents,r.coupon_discount_cents,r.delivery_cents,r.total_cents],[31980,2000,0,29980]);
+  assert.deepEqual([r.subtotal_cents,r.coupon_discount_cents,r.delivery_cents,r.total_cents],[28780,2000,0,26780]);
   assert.equal((await db.query(`select uses from public.coupons where code='VINTE'`)).rows[0].uses,1,'conta o uso');
   assert.deepEqual((await db.query(`select coupon_code,discount_cents from public.orders order by id desc limit 1`)).rows[0],{coupon_code:'VINTE',discount_cents:2000});
   await assert.rejects(orderWith([tee('simples')],{cust:{coupon:'ESGOTADO'}}),/Cupom inválido ou expirado/);
@@ -291,7 +293,8 @@ test('marcas: as 3 marcas de hoje estão no banco e o público só vê as ativas
  const pub=(await as(null,'select slug,name,tagline from public.brands order by slug')).rows;
  assert.deepEqual(pub.map(b=>b.slug),['geek','solfado','try84']);
  assert.equal(pub.find(b=>b.slug==='try84').tagline,'rugby lifestyle · forward together');
- assert.deepEqual((await db.query(`select id from public.products where brand_slug='geek' order by id`)).rows.map(r=>r.id),['geek-carpa','geek-coracao']);
+ assert.deepEqual((await db.query(`select id from public.products where brand_slug='geek' order by id`)).rows.map(r=>r.id),['geek-carpa','geek-coracao','heavy-avesso','heavy-eclipse','heavy-faces','simples'],'as peças da duavesso agora são da Marileus (geek)');
+ assert.deepEqual(Object.fromEntries((await db.query(`select slug,edition from public.brands order by slug`)).rows.map(r=>[r.slug,r.edition])),{geek:'geek',solfado:'arte',try84:'esporte'},'cada marca numa edição');
  await db.exec('begin');
  try{
   await db.query(`update public.brands set status='suspended' where slug='solfado'`);
@@ -324,7 +327,8 @@ test('marcas: cores, links, imagens e peça em destaque são conferidos pelo ban
  for(const [set,why] of bad)await assert.rejects(asAdmin(`update public.brands set ${set} where slug='try84'`),/check|violates/,why);
  await asAdmin(`update public.brands set logo_path='try84/logo-abc123.webp', cover_path='assets/try84-hero.jpg' where slug='try84'`);
  await asAdmin(`update public.brands set featured_product_id='geek-coracao', featured_badge='Lançamento', featured_until=now()+interval '3 days' where slug='geek'`);
- await assert.rejects(asAdmin(`update public.brands set featured_product_id='heavy-avesso' where slug='geek'`),/peça ativa da sua marca/);
+ await asAdmin(`update public.brands set featured_product_id='heavy-avesso' where slug='geek'`);
+ await assert.rejects(asAdmin(`update public.brands set featured_product_id='heavy-avesso' where slug='try84'`),/peça ativa da sua marca/,'peça de outra marca não vira destaque');
 });
 
 test('marcas: painel da duavesso cria marca por e-mail, suspende e marca o plano pago',async()=>{
@@ -346,7 +350,7 @@ test('marcas: painel da duavesso cria marca por e-mail, suspende e marca o plano
   const list=(await db.query('select public.admin_list_brands() as l')).rows[0].l,t=list.find(b=>b.slug==='try84');
   assert.deepEqual([t.plan,t.status,t.paid_note,t.owners.map(o=>o.email)],['paid','suspended','Pix recebido em 08/10',['dono@exemplo.com']]);
   assert(t.paid_at,'data do pagamento');
-  assert.equal(list.find(b=>b.slug==='geek').products,2);
+  assert.equal(list.find(b=>b.slug==='geek').products,6);
   await db.query(`select public.admin_remove_owner('try84','dono@exemplo.com')`);
   assert.equal((await db.query(`select count(*)::int as n from public.brand_members where brand_slug='try84'`)).rows[0].n,0);
  }finally{await db.exec('rollback');}
@@ -418,7 +422,7 @@ test('excluir loja: só a duavesso, com o nome digitado, e nunca com peças à v
   assert.equal((await db.query(`delete from storage.objects where bucket_id='brand-assets' and name not like 'try84/%' returning name`)).rows.length,0,'dono não apaga imagens de outra marca');
   await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,true)",[ADMIN]);await db.exec('set local role authenticated');
   await step(()=>del('try84','TRY 84'),/não confere/,'nome errado');
-  await step(()=>del('geek','duavessogeek'),/tem 2 peça\(s\) à venda/,'marca com peças à venda');
+  await step(()=>del('geek','duavessogeek'),/tem 6 peça\(s\) à venda/,'marca com peças à venda');
   await step(()=>del('nao-existe','x'),/não encontrada/);
   await del('try84','  try84 ');
   assert.equal((await db.query(`select count(*)::int as n from public.brands where slug='try84'`)).rows[0].n,0,'marca apagada');
@@ -446,7 +450,7 @@ test('dono exclui a própria loja (0015): nome digitado, sem peças à venda, s�
   await roleIs(OWNER);
   await step(()=>del('solfado','SolFáDó'),/Só quem é dono/,'dono de outra marca não exclui');
   await step(()=>del('try84','TRY 84'),/não confere/,'nome errado');
-  await step(()=>del('geek','duavessogeek'),/tem 2 peça\(s\) à venda/,'marca com peças à venda');
+  await step(()=>del('geek','duavessogeek'),/tem 6 peça\(s\) à venda/,'marca com peças à venda');
   await step(()=>del('nao-existe','x'),/não encontrada/);
   await del('try84','try84',true);
   assert.equal(await count(`select count(*)::int as n from public.brands where slug='try84'`),1,'só conferir não apaga');
@@ -462,6 +466,23 @@ test('dono exclui a própria loja (0015): nome digitado, sem peças à venda, s�
  }finally{await db.exec('rollback');}
 });
 
+test('edição da marca (0016): só a duavesso muda; formato conferido; vazio tira a marca da edição',async()=>{
+ await brandUsers();
+ const set=(slug,ed)=>db.query('select public.admin_set_brand_edition($1,$2)',[slug,ed]);
+ await db.exec('begin');
+ try{
+  await roleIs(OWNER);
+  await rejectsIn(()=>set('geek','arte'),/Área restrita/,'dono de marca não muda a edição');
+  await roleIs(ADMIN);
+  await rejectsIn(()=>set('geek','Arte & Cia'),/Edição inválida/);
+  await rejectsIn(()=>set('nao-existe','arte'),/não encontrada/);
+  await set('geek',' Arte ');
+  await set('try84','');
+  await db.exec('reset role');
+  assert.deepEqual((await db.query(`select slug,edition from public.brands where slug in ('geek','try84') order by slug`)).rows,[{slug:'geek',edition:'arte'},{slug:'try84',edition:null}]);
+ }finally{await db.exec('rollback');}
+});
+
 // Financeiro e vendas das marcas (migração 0012) ---------------------------------------------------
 const brToday=()=>new Date(Date.now()-3*3600e3).toISOString().slice(0,10);
 const daysAgo=n=>new Date(Date.now()-3*3600e3-n*864e5).toISOString().slice(0,10);
@@ -473,6 +494,8 @@ test('financeiro: pedido pago congela custo e lucro da marca; caixa, comparaçã
  await db.exec('begin');
  try{
   await db.query(`insert into public.brand_members (brand_slug,user_id) values ('geek',$1)`,[OWNER]);
+  // Peça sem marca (a loja ainda aceita): desde a 0016 todas são da Marileus; esta volta a ser da duavesso só aqui
+  await db.query(`update public.products set brand_slug=null where id='heavy-avesso'`);
   await db.query(`insert into private.product_finance (product_id,unit_cost_cents,brand_base_cents) values ('geek-coracao',4500,11990),('heavy-avesso',5200,null)`);
   const order=await orderWith([tee('geek-coracao',2),tee('heavy-avesso',1)],{cust:{uf:'SP'}});
   const id=(await db.query('select id from public.orders where code=$1',[order.code])).rows[0].id;
@@ -486,12 +509,12 @@ test('financeiro: pedido pago congela custo e lucro da marca; caixa, comparaçã
   await db.exec('reset role');
   const lines=(await db.query('select product_id,brand_slug,qty,unit_cost_cents,brand_margin_cents from private.sale_lines where order_id=$1 order by product_id',[id])).rows;
   assert.deepEqual(lines.map(l=>[l.product_id,l.brand_slug,l.qty,l.unit_cost_cents,l.brand_margin_cents]),
-   [['geek-coracao','geek',2,4500,8000],['heavy-avesso',null,1,5200,0]],'lucro da marca = (159,90 − 119,90) × 2; peça da duavesso sem parte de marca');
+   [['geek-coracao','geek',2,4500,4800],['heavy-avesso',null,1,5200,0]],'lucro da marca = (143,90 − 119,90) × 2; peça da duavesso sem parte de marca');
   assert.equal((await db.query(`select source from public.order_events where order_id=$1 and type='status_changed'`,[id])).rows[0].source,'painel');
   // Mudar o preço base depois não muda a venda já feita
   await db.query(`update private.product_finance set brand_base_cents=13990 where product_id='geek-coracao'`);
   await db.query(`update public.orders set status='em_producao' where id=$1`,[id]);
-  assert.equal((await db.query(`select brand_margin_cents from private.sale_lines where order_id=$1 and product_id='geek-coracao'`,[id])).rows[0].brand_margin_cents,8000);
+  assert.equal((await db.query(`select brand_margin_cents from private.sale_lines where order_id=$1 and product_id='geek-coracao'`,[id])).rows[0].brand_margin_cents,4800);
   // Lançamentos manuais
   await roleIs(ADMIN);
   const add=(kind,cat,cents,brand=null,on=brToday())=>db.query('select public.admin_add_entry($1,$2,$3,$4::date,$5,$6,$7) as id',[kind,cat,cents,on,'Pix','teste',brand]).then(r=>r.rows[0].id);
@@ -506,9 +529,9 @@ test('financeiro: pedido pago congela custo e lucro da marca; caixa, comparaçã
   const rep=(await db.query('select public.admin_finance_report($1::date,$2::date) as r',[daysAgo(29),brToday()])).rows[0].r;
   assert.equal(rep.current.site_in,order.total_cents);assert.equal(rep.current.in,order.total_cents+45000);
   assert.equal(rep.current.out,41000);assert.equal(rep.current.profit,order.total_cents+45000-41000);
-  assert.equal(rep.current.est_margin,order.total_cents-(4500*2+5200)-8000,'margem estimada = vendas − custo das peças − parte das marcas');
+  assert.equal(rep.current.est_margin,order.total_cents-(4500*2+5200)-4800,'margem estimada = vendas − custo das peças − parte das marcas');
   assert.equal(rep.previous.in,10000,'período anterior de mesmo tamanho');
-  assert.deepEqual(rep.to_pay_brands.map(b=>[b.slug,b.earned,b.paid,b.due]),[['geek',8000,3000,5000]]);
+  assert.deepEqual(rep.to_pay_brands.map(b=>[b.slug,b.earned,b.paid,b.due]),[['geek',4800,3000,1800]]);
   assert.deepEqual(rep.out_by_category.map(c=>c.category),['Produção','Repasse a marcas']);
   assert.equal(rep.entries.length,4,'pedido do site + 3 lançamentos do período');
   assert.equal(rep.series.length,30,'um ponto por dia');
@@ -520,11 +543,11 @@ test('financeiro: pedido pago congela custo e lucro da marca; caixa, comparaçã
   await rejectsIn(()=>db.query('select public.brand_sales_report($1,$2::date,$3::date)',['geek',daysAgo(29),brToday()]),/Só quem cuida da marca/);
   await roleIs(OWNER);
   const br=(await db.query('select public.brand_sales_report($1,$2::date,$3::date) as r',['geek',daysAgo(29),brToday()])).rows[0].r;
-  assert.deepEqual(br.current,{sales:31980,pieces:2,profit:8000,orders:1});
+  assert.deepEqual(br.current,{sales:28780,pieces:2,profit:4800,orders:1});
   assert.deepEqual(br.previous,{sales:0,pieces:0,profit:0,orders:0});
-  assert.deepEqual(br.top.map(t=>[t.product_id,t.qty,t.profit]),[['geek-coracao',2,8000]]);
+  assert.deepEqual(br.top.map(t=>[t.product_id,t.qty,t.profit]),[['geek-coracao',2,4800]]);
   assert.deepEqual(br.sizes,[{size:'M',qty:2}]);assert.deepEqual(br.states,[{uf:'SP',qty:2}]);
-  assert.equal(br.balance.earned,8000);assert.equal(br.balance.received,3000);assert.equal(br.balance.last.cents,3000);
+  assert.equal(br.balance.earned,4800);assert.equal(br.balance.received,3000);assert.equal(br.balance.last.cents,3000);
   const raw=JSON.stringify(br);for(const secret of [customer.email,customer.name,customer.address,customer.cep])assert(!raw.includes(secret),`sem ${secret}`);
   // Cancelado sai da conta
   await roleIs(ADMIN);await db.query('select public.admin_set_order_status($1,$2)',[order.code,'cancelado']);

@@ -1,6 +1,6 @@
 // Endereços do site e o título, a descrição e a imagem de cada página. Usado pelo app (navegação
 // sem recarregar) e por scripts/build-pages.mjs (páginas pré-geradas para o Google e para prévias de link).
-//   /                      loja (âncoras #inicio, #colecao e #sobre)
+//   /                      loja (âncoras #inicio, #edicoes, #novidades, #promocoes, #marcas-home, #colecao e #sobre)
 //   /produto/<id>          ficha do produto, aberta por cima da loja
 //   /marcas                as marcas da família duavesso
 //   /marcas/<slug>         página de uma marca
@@ -21,7 +21,7 @@ export function setBrandList(rows){if(Array.isArray(rows))BRAND_LIST=rows.filter
 export function upsertBrandRow(row){const b=brandFromRow(row);BRAND_LIST=[...BRAND_LIST.filter(x=>x.slug!==b.slug),b];}
 
 export const SITE='https://loja-duavesso.vercel.app/';
-const SECTIONS=['#inicio','#colecao','#sobre'];
+const SECTIONS=['#inicio','#edicoes','#novidades','#promocoes','#marcas-home','#colecao','#sobre'];
 const HOME_DESCRIPTION='Camisetas oversized 100% algodão penteado, de 180 a 220 g/m², e um estúdio para criar sua camiseta personalizada: sua frase, sua imagem ou só a ideia, que a gente desenha. Frete grátis a partir de R$ 250.';
 const HOME_IMAGE={image:'assets/editorial-1536.jpg',imageAlt:'Duas pessoas vestindo camisetas oversized duavesso'};
 
