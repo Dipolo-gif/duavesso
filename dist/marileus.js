@@ -16,7 +16,8 @@ const CART_KEY='duavesso.cart.v1';
 
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const still=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
-const items=PRODUCTS.filter(p=>p.brand===BRAND);
+// O drop atual vem primeiro na vitrine
+const items=PRODUCTS.filter(p=>p.brand===BRAND).sort((a,b)=>DROP.includes(b.id)-DROP.includes(a.id));
 const byId=id=>items.find(p=>p.id===id);
 const photos=(p,base)=>{const v=p.variants?(p.variants.find(x=>x.base===base)||p.variants[0]):null;return v?v.photos:(p.photos||[]);};
 const pic=(name,alt,sizes,lazy=true)=>`<picture><source type="image/webp" srcset="assets/${name}-400.webp 400w, assets/${name}-800.webp 800w, assets/${name}-1024.webp 1024w" sizes="${sizes}"><img src="assets/${name}-1024.jpg" alt="${esc(alt)}" width="1024" height="1536" decoding="async"${lazy?' loading="lazy"':''}></picture>`;
@@ -53,10 +54,12 @@ window.addEventListener('storage',e=>{if(e.key===CART_KEY){cart=read();paintCoun
 // Hero: título que "decodifica" uma vez e o card do drop atual -------------------------------------------
 function decode(el){
  const final=el.textContent;if(still())return;
- // Letras e números de largura parecida, e altura travada: o título não pula enquanto decodifica
- const glyphs='ABCDEFGHKLMNOPRSTUVXZ0123456789';let frame=0;const total=final.length+14;
+ // Letras e números de largura parecida e altura travada: o título não pula. O avanço é pelo relógio,
+ // então termina no tempo certo mesmo se o navegador atrasar os quadros.
+ const glyphs='ABCDEFGHKLMNOPRSTUVXZ0123456789',step=26,total=(final.length+12)*step,t0=performance.now();
  el.style.minHeight=`${el.offsetHeight}px`;el.setAttribute('aria-label',final);
- const tick=()=>{el.textContent=[...final].map((c,i)=>c===' '?' ':i<frame-12?c:glyphs[(Math.random()*glyphs.length)|0]).join('');if(frame++<total)requestAnimationFrame(tick);else{el.textContent=final;el.removeAttribute('aria-label');el.style.minHeight='';}};
+ const tick=()=>{const t=performance.now()-t0;if(t>=total){el.textContent=final;el.removeAttribute('aria-label');el.style.minHeight='';return;}
+  const n=t/step-12;el.textContent=[...final].map((c,i)=>c===' '?' ':i<n?c:glyphs[(Math.random()*glyphs.length)|0]).join('');setTimeout(tick,step);};
  tick();
 }
 decode($('[data-decode]'));
@@ -147,8 +150,8 @@ function renderDrawer(){
  box.innerHTML=`<ul class="ml-lines">${cart.map(i=>`<li><span class="ml-line-img">${pic(photos(byId(i.id),i.base)[0],'','72px')}</span><div><b>${esc(i.name)}</b><small>${esc(i.color)} · ${i.size}</small><div class="ml-qty"><button type="button" data-q="-1" data-k="${esc(i.key)}" aria-label="Menos uma ${esc(i.name)}">−</button><span>${i.qty}</span><button type="button" data-q="1" data-k="${esc(i.key)}" aria-label="Mais uma ${esc(i.name)}"${i.qty>=10?' disabled':''}>+</button></div></div><div class="ml-line-end"><span>${money(i.price*i.qty)}</span><button type="button" class="ml-link" data-rm="${esc(i.key)}">Remover</button></div></li>`).join('')}</ul>
 ${left!==null?`<div class="ml-ship-goal"><p>${left?`Faltam <b>${money(left)}</b> para o frete grátis.`:'Frete grátis liberado.'}</p><span><i style="width:${Math.min(100,Math.round((t.subtotal-t.promo)/min*100))}%"></i></span></div>`:''}
 <fieldset class="ml-ship"><legend>Entrega</legend>
-<label><input type="radio" name="ml-ship" value="standard"${state.shipping==='standard'?' checked':''}><span><b>Padrão</b><small>5 a 9 dias úteis</small></span><em>${min!==null&&t.subtotal-t.promo>=min?'Grátis':money(1490)}</em></label>
-<label><input type="radio" name="ml-ship" value="express"${state.shipping==='express'?' checked':''}><span><b>Expressa</b><small>2 a 4 dias úteis</small></span><em>${money(2490)}</em></label></fieldset>
+<label><input type="radio" name="ml-ship" value="standard"${state.shipping==='standard'?' checked':''}><span><b>Padrão</b><small>5 a 8 dias úteis</small></span><em>${min!==null&&t.subtotal-t.promo>=min?'Grátis':money(1490)}</em></label>
+<label><input type="radio" name="ml-ship" value="express"${state.shipping==='express'?' checked':''}><span><b>Expressa</b><small>2 a 3 dias úteis</small></span><em>${money(2490)}</em></label></fieldset>
 <p class="ml-drawer-note">O cupom de desconto entra na etapa de pagamento.</p>
 <div class="ml-sum"><div><span>Subtotal</span><span>${money(t.subtotal)}</span></div>${t.promo?`<div><span>Promoção</span><span>−${money(t.promo)}</span></div>`:''}<div><span>Frete</span><span>${t.delivery?money(t.delivery):'Grátis'}</span></div><div class="ml-total"><span>Total</span><span>${money(t.total)}</span></div></div>
 <button type="button" class="ml-btn ml-btn-primary ml-wide" id="ml-go-checkout">Finalizar pedido</button>${othersNote()}`;
