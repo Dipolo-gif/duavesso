@@ -69,7 +69,7 @@ function jsonLD(r,m,template){
  if(r.view==='marcas')return [webPage('CollectionPage',m,{mainEntity:{'@type':'ItemList',itemListElement:brandList().map((b,i)=>({'@type':'ListItem',position:i+1,name:b.name,url:abs(brandPath(b.slug))}))}}),crumbs([['Início','/'],['Marcas','/marcas']])];
  // Loja: mantém OnlineStore e WebSite do molde e refaz a lista de produtos a partir do catálogo.
  const graph=template['@graph'].filter(x=>x['@type']!=='ItemList').map(x=>x['@type']==='OnlineStore'?{...x,description:m.description}:x);
- return [...graph,{'@type':'ItemList',name:'Coleção duavesso',itemListElement:PRODUCTS.map((p,i)=>({'@type':'ListItem',position:i+1,item:productLD(p)}))}];
+ return [...graph,{'@type':'ItemList',name:'Camisetas na duavesso',itemListElement:PRODUCTS.map((p,i)=>({'@type':'ListItem',position:i+1,item:productLD(p)}))}];
 }
 
 const FOOTER_START='<!--gerado:rodape-->',FOOTER_END='<!--/gerado:rodape-->';
@@ -121,7 +121,7 @@ function llms(){
  const line=p=>`- [${p.name}](${abs(productPath(p.id))}) · ${money(p.price)}${p.variants?` · ${p.variants.map(v=>v.color.toLowerCase()).join(', ')}`:` · ${p.color.toLowerCase()}`}${brandOf(p)?` · linha ${brandOf(p).name}`:''}: ${p.description}`;
  return `# duavesso
 
-> Loja brasileira de camisetas oversized 100% algodão penteado (180 a 220 g/m²), com estúdio online para criar a própria estampa (texto, imagem ou uma ideia descrita, que a marca desenha). Site em português, preços em reais, pré-lançamento.
+> Marketplace brasileiro de marcas autorais de camisetas oversized 100% algodão penteado (180 a 220 g/m²): cada marca tem estampas, identidade e loja próprias; a duavesso produz sob demanda, embala e entrega. Tem também um estúdio online para criar a própria estampa (texto, imagem ou uma ideia descrita, que a equipe desenha). Site em português, preços em reais, pré-lançamento.
 
 ## Peças
 
@@ -135,9 +135,9 @@ ${brandList().map(b=>`- [${b.name}](${abs(brandPath(b.slug))}): ${b.bio}`).join(
 
 ## Páginas
 
-- [Loja e coleção](${abs('/')}): catálogo com filtros e busca.
+- [Início](${abs('/')}): as marcas, as novidades e o estúdio.
 - [Estúdio](${abs('/estudio')}): editor de estampas com prévia em 3D.
-- [Marcas](${abs('/marcas')}): as linhas da família duavesso.
+- [Marcas](${abs('/marcas')}): as marcas autorais do marketplace, cada uma com a sua loja.
 
 ## Como comprar
 
