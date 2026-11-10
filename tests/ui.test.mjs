@@ -37,6 +37,7 @@ async function setup(storage={},fetchStub,{reducedMotion=true,path='/',catalog='
 }
 test('catalog filters and product selection feed the same persisted cart',async()=>{
  const s=await setup();try{
+ assert.deepEqual([...s.doc.querySelectorAll('#shop-view > section:not([hidden])')].map(x=>x.id),['inicio','edicoes','novidades','promocoes','marcas-home','colecao','estudio-home','sobre'],'com peças, a ordem de loja');
  assert.equal(s.doc.querySelectorAll('#product-grid .product-card').length,6,'Todas as camisas: as 6 peças da Marileus');
  assert.equal(s.doc.querySelector('[data-filter="essential"]'),null,'aba Essenciais removida');
  assert.deepEqual([...s.doc.querySelectorAll('#filters [data-filter]')].map(b=>b.textContent),['Todas','Promoções','Edição Geek'],'filtros: promoções e só as edições com peça');
@@ -439,7 +440,7 @@ test('real addresses: product link opens over the shop, closing returns, history
  doc.querySelector('.desktop-nav a[href="#colecao"]').click();
  assert.equal(loc(),'/#colecao');assert.equal(doc.querySelector('#shop-view').hidden,false);
  doc.querySelector('.desktop-nav a[href="estudio"]').click();
- assert.equal(loc(),'/estudio');assert.equal(doc.querySelector('#studio-view').hidden,false);assert.match(doc.title,/duavesso Studio/);
+ assert.equal(loc(),'/estudio');assert.equal(doc.querySelector('#studio-view').hidden,false);assert.match(doc.title,/Estúdio duavesso/);
  }finally{s.close();}
 });
 test('old # links become real addresses and unknown addresses fall back to the shop with a notice',async()=>{
@@ -1040,10 +1041,13 @@ test('nova coleção: sem peças à venda, a página inicial mostra o aviso com 
   assert.equal(d.querySelector('#new-soon').hidden,false,'aviso de nova coleção no lugar das novidades');
   assert.equal(d.querySelector('#new-row').hidden,true);assert.equal(d.querySelector('#new-title').textContent,'Nova coleção em breve');
   assert.equal(d.querySelector('#promocoes').hidden,true,'sem promoções');assert.equal(d.querySelector('.desktop-nav .nav-promo').hidden,true,'link de promoções escondido');
-  assert.equal(d.querySelectorAll('#edition-grid .mk-ed.is-soon').length,3,'as 3 edições em breve');
+  assert.equal(d.querySelector('#edicoes').hidden,true,'sem peças, os cartões de edição saem');
+  assert.match(d.querySelector('#edition-strip').textContent,/Edição Geek.*Marileus.*Edição Arte.*em breve/s,'as edições viram uma faixa junto das marcas');
   assert.equal(d.querySelectorAll('#product-grid .product-card').length,0);
-  assert.match(d.querySelector('#empty-search').textContent,/nova coleção chega em breve/);
-  assert(d.querySelector('#colecao').classList.contains('is-empty'),'sem filtros nem busca');
+  assert.equal(d.querySelector('#colecao').hidden,true,'Todas as camisas some sem peças');assert.equal(d.querySelector('.desktop-nav a[href="#colecao"]').hidden,true);assert.equal(d.querySelector('.search-toggle').hidden,true,'sem busca');
+  assert.deepEqual([...d.querySelectorAll('#shop-view > section:not([hidden])')].map(x=>x.id),['inicio','marcas-home','estudio-home','novidades','sobre'],'sem peças, a página lidera com as marcas e o estúdio');
+  const home=d.querySelector('#brand-grid .mh-card');assert.equal(home.getAttribute('href'),'marileus','cartão grande da Marileus na página inicial');assert(d.querySelector('#brand-grid .mk-join[data-join]'),'convite para novas marcas');
+  d.querySelector('#sobre [data-join]').click();assert(d.querySelector('dialog.join-dialog'),'Quero minha marca abre o formulário');d.querySelector('dialog.join-dialog').remove();
   assert(d.querySelector('#soon-form input[type=email][required]'),'lista de espera');
  }finally{s.close();}
  const m=await setup({},undefined,{catalog:'live',path:'/marcas'});try{

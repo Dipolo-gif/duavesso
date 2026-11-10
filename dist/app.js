@@ -62,21 +62,30 @@ function renderHome(){
  // Sem peças à venda (coleção em reformulação): o aviso de nova coleção ocupa o lugar das Novidades
  const empty=!PRODUCTS.length;
  $('#new-row').hidden=empty;$('#new-soon').hidden=!empty;$$('#novidades .mk-shelf-nav').forEach(n=>n.hidden=empty);
- $('#new-title').textContent=empty?'Nova coleção em breve':'Novidades';$('#new-eyebrow').textContent=empty?'PRÓXIMO LANÇAMENTO':'ACABARAM DE CHEGAR';
+ $('#new-title').textContent=empty?'Nova coleção em breve':'Novidades';
  $('#new-row').innerHTML=[...PRODUCTS].reverse().slice(0,10).map(p=>productCardHTML(p)).join('');
  const promos=PRODUCTS.filter(p=>discountOf(p)>0).sort((a,b)=>discountOf(b)-discountOf(a)||a.price-b.price);
  $('#promocoes').hidden=!promos.length;$$('.nav-promo, #mobile-menu a[href="#promocoes"]').forEach(a=>a.hidden=!promos.length);
- $('#colecao').classList.toggle('is-empty',empty);
+ // Sem peças: "Todas as camisas", as edições em cartões e a busca saem; a página lidera com as marcas e o estúdio
+ // Ordem das seções (no próprio documento, para leitores de tela e teclado seguirem a mesma ordem)
+ const order=empty?['#marcas-home','#estudio-home','#novidades','#promocoes','#edicoes','#colecao','#sobre']:['#edicoes','#novidades','#promocoes','#marcas-home','#colecao','#estudio-home','#sobre'];
+ order.forEach(id=>$('#shop-view').append($(id)));
+ const withPieces=eds.some(e=>e.items.length);
+ $('#shop-view').classList.toggle('no-catalog',empty);
+ $('#colecao').hidden=empty;$('#edicoes').hidden=!withPieces;$('.search-toggle').hidden=empty;
+ $$('.desktop-nav a[href="#colecao"], #mobile-menu a[href="#colecao"]').forEach(a=>a.hidden=empty);
+ $$('.desktop-nav a[href="#edicoes"], #mobile-menu a[href="#edicoes"]').forEach(a=>a.hidden=!withPieces);
+ $('#edition-strip').innerHTML=eds.map(e=>`<li class="${e.brands.length?'':'is-soon'}"><b>${esc(e.name)}</b><span>${e.brands.length?e.brands.map(b=>esc(b.name)).join(', '):'em breve'}</span></li>`).join('');
  if(promos.length){const max=Math.max(...promos.map(discountOf)),all=promos.length===PRODUCTS.length;
   $('#promo-big').textContent=`${all?'':'até '}−${max}%`;$('#promo-count').textContent=`${promos.length} ${promos.length===1?'peça':'peças'} em promoção`;
   $('#promo-row').innerHTML=promos.map(p=>productCardHTML(p)).join('');}
- const brands=brandList();
- $('#brand-grid').innerHTML=brands.map(b=>{const n=PRODUCTS.filter(p=>p.brand===b.slug).length;return `<a class="brand-card b2-card mk-brand" href="${esc(b.static?.exclusive||`marcas/${b.slug}`)}"${b.static?.theme?` data-theme="${b.static.theme}"`:''} style="${themeCSS(b.theme)}"><span class="b2-card-logo">${brandLogoHTML(b)}</span>${b.edition?`<span class="mk-brand-ed">${esc(editionName(b.edition))}</span>`:''}<span class="b2-card-name">${esc(b.name)}</span><span class="brand-kicker">${esc(b.tagline)}</span><span class="brand-ver">${n?`${n} ${n===1?'camisa':'camisas'} · `:''}${b.static?.exclusive?'Visitar o site':'Ver a loja'} <span aria-hidden="true">↗</span></span></a>`;}).join('')+`<a class="mk-brand mk-brand-join" href="marcas"><span class="mk-brand-plus" aria-hidden="true">＋</span><span class="b2-card-name">Sua marca aqui</span><span class="brand-kicker">A gente produz, embala e entrega. Você cria.</span><span class="brand-ver">Quero vender na duavesso <span aria-hidden="true">↗</span></span></a>`;
+ $('#brand-grid').innerHTML=brandList().map(brandBigCardHTML).join('')+`<button type="button" class="mk-join" data-join><span class="tag-label">Vaga aberta</span><span class="mk-join-title">Sua marca aqui</span><span class="mk-join-text">Você cria as estampas e a identidade. A duavesso produz sob demanda, embala e entrega, sem estoque e com plano grátis para começar.</span><span class="mk-join-cta">Quero vender na duavesso <span aria-hidden="true">→</span></span></button>`;
  renderFilters();renderCatalog();
 }
 // Prateleiras: setas rolam a fileira; clicar numa edição filtra "Todas as camisas" e desce até ela
 let shelfIds=null;
 $('#shop-view').addEventListener('click',e=>{
+ if(e.target.closest('[data-join]')){openJoinForm();return;}
  const arrow=e.target.closest('[data-shelf]');
  if(arrow){const row=$(`#${arrow.dataset.shelf}`);row.scrollBy({left:+arrow.dataset.dir*Math.max(240,row.clientWidth*.8),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});return;}
  const ed=e.target.closest('[data-edition]');
@@ -718,15 +727,19 @@ function loadBrandsFromDB(){
  brandsLoaded??=fetchBrands().then(rows=>{if(Array.isArray(rows)&&rows.length){setBrandList(rows);brandsVersion++;}});
  return brandsLoaded;
 }
+// Cartão grande de marca (imagem + identidade): página inicial e página Marcas
+function brandBigCardHTML(b){
+ const img=b.cover?brandAssetURL(b.cover):b.static?.cardImage||'',n=PRODUCTS.filter(p=>p.brand===b.slug).length;
+ return `<a class="brand-card b2-card mh-card" href="${esc(b.static?.exclusive||`marcas/${b.slug}`)}"${b.static?.theme?` data-theme="${b.static.theme}"`:''} style="${themeCSS(b.theme)}"><span class="mh-visual">${img?`<img src="${esc(img)}" alt="" loading="lazy" decoding="async">`:`<span class="mh-visual-logo">${brandLogoHTML(b)}</span>`}</span><span class="mh-info"><span class="mh-tags">${b.edition?`<span>${esc(editionName(b.edition))}</span>`:''}${b.static?.exclusive?'<span class="mh-site">Site exclusivo</span>':''}${n?`<span>${n} ${n===1?'camisa':'camisas'}</span>`:''}</span><span class="b2-card-logo">${brandLogoHTML(b)}</span><span class="b2-card-name">${esc(b.name)}</span><span class="brand-kicker">${esc(b.tagline)}</span><p>${esc(b.bio)}</p><span class="mh-cta">${b.static?.exclusive?'Entrar no site':'Ver a loja'} <span aria-hidden="true">→</span></span></span></a>`;
+}
 // Página Marcas: o marketplace. Cada marca num cartão grande (imagem + identidade); as edições logo abaixo do título.
 function marcasHubHTML(){
  const brands=brandList();
  const eds=EDITIONS.map(e=>({...e,brands:brands.filter(b=>b.edition===e.slug)}));
- const visual=b=>{const img=b.cover?brandAssetURL(b.cover):b.static?.cardImage||'';return `<span class="mh-visual">${img?`<img src="${esc(img)}" alt="" loading="lazy" decoding="async">`:`<span class="mh-visual-logo">${brandLogoHTML(b)}</span>`}</span>`;};
  return `<div class="editor-heading"><a href="#inicio" class="text-link">← Voltar</a><span class="eyebrow">MARCAS · MARKETPLACE DUAVESSO</span></div>
 <header class="mh-hero"><div class="marcas-intro"><h1>As marcas da duavesso.</h1><p>Cada marca tem estampas, identidade e loja próprias. A duavesso produz sob demanda, embala e entrega para o Brasil inteiro.</p></div>
 <ul class="mh-eds" aria-label="Edições">${eds.map(e=>`<li class="${e.brands.length?'':'is-soon'}"><b>${esc(e.name)}</b><span>${e.brands.length?e.brands.map(b=>esc(b.name)).join(', '):'Em breve'}</span></li>`).join('')}</ul></header>
-<div class="mh-list">${brands.map(b=>`<a class="brand-card b2-card mh-card" href="${esc(b.static?.exclusive||`marcas/${b.slug}`)}"${b.static?.theme?` data-theme="${b.static.theme}"`:''} style="${themeCSS(b.theme)}">${visual(b)}<span class="mh-info"><span class="mh-tags">${b.edition?`<span>${esc(editionName(b.edition))}</span>`:''}${b.static?.exclusive?'<span class="mh-site">Site exclusivo</span>':''}</span><span class="b2-card-logo">${brandLogoHTML(b)}</span><span class="b2-card-name">${esc(b.name)}</span><span class="brand-kicker">${esc(b.tagline)}</span><p>${esc(b.bio)}</p><span class="mh-cta">${b.static?.exclusive?'Entrar no site':'Ver a loja'} <span aria-hidden="true">→</span></span></span></a>`).join('')}</div>${brandJoinHTML()}`;
+<div class="mh-list">${brands.map(brandBigCardHTML).join('')}</div>${brandJoinHTML()}`;
 }
 let countdownTimer=0;
 function renderMarcas(slug){

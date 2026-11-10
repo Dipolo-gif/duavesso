@@ -28,7 +28,11 @@ if(between){
  const sec=$('.ml-ctas .ml-btn-ghost');sec.textContent='Conhecer a marca';sec.href='marileus#manifesto';
  $('.ml-lead').textContent='As estampas da Marileus estão sendo redesenhadas. O próximo drop sai em lote pequeno: quem está na lista fica sabendo antes de abrir.';
  $$('a[href="marileus#drop"]').forEach(a=>{a.href='marileus#lista';});
- $('#drop').hidden=true;
+ $('#drop').hidden=true;$('#ml-search-open').hidden=true;
+ // Menu enxuto: sem vitrine, os atalhos são o próximo drop, a marca e a lista
+ const nav='<a href="marileus#estampas">Próximo drop</a><a href="marileus#manifesto">Sobre a marca</a><a href="marileus#lista">Lista de espera</a>';
+ $('.ml-links').innerHTML=nav;$('#ml-mobile').innerHTML=nav;
+ $('#ml-cat-title').textContent='Próximo drop';$('.ml-catalog .ml-head .ml-tag').textContent='[DROP_02] em produção';
 }
 const photos=(p,base)=>{const v=p.variants?(p.variants.find(x=>x.base===base)||p.variants[0]):null;return v?v.photos:(p.photos||[]);};
 const pic=(name,alt,sizes,lazy=true)=>`<picture><source type="image/webp" srcset="assets/${name}-400.webp 400w, assets/${name}-800.webp 800w, assets/${name}-1024.webp 1024w" sizes="${sizes}"><img src="assets/${name}-1024.jpg" alt="${esc(alt)}" width="1024" height="1536" decoding="async"${lazy?' loading="lazy"':''}></picture>`;
