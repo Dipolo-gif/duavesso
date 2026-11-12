@@ -3,9 +3,9 @@ const CARE='Lavar do avesso, em água fria. Não usar alvejante. Secar à sombra
 // Tecidos conforme o catálogo do fornecedor: Heavy Oversized 20.1 (linha Heavy e geek) e Basic Oversized 30.1 (Simples)
 const HEAVY_SPEC={fabric:'100% algodão penteado, fio 20.1 · 220 g/m²',finish:'Encolhimento zero, gola canelada de 3 cm com elastano e reforço ombro a ombro',fit:'Oversized heavy: encorpada e pesada, cai reto no corpo. Para menos volume, escolha um tamanho abaixo.',care:CARE};
 const BASIC_SPEC={fabric:'100% algodão penteado, fio 30.1 · 180 g/m²',finish:'Gola canelada de 3 cm com elastano, bainha de 4 cm e reforço ombro a ombro',fit:'Oversized: ombro caído e corpo amplo, cai reto. Para menos volume, escolha um tamanho abaixo.',care:CARE};
-// Coleção anterior, fora da loja desde nov/2026: as estampas estão sendo reformuladas. Fica guardada
-// aqui como referência (e como peças de exemplo nos testes). Para voltar uma peça, mova-a para PRODUCTS
-// e reative no banco (products.active).
+// Coleção anterior, fora da loja desde nov/2026 (as estampas foram reformuladas). Fica guardada aqui como
+// referência e como peças de exemplo nos testes; Coração Pixelado e Carpa Japonesa voltaram em PRODUCTS.
+// Para voltar outra peça, coloque-a em PRODUCTS e reative no banco (products.active).
 export const ARCHIVE=[
  {id:'heavy-avesso',brand:'geek',name:'Heavy · Do Avesso',category:'graphic',color:'Preto lavado',base:'black',swatch:'#26272a',photos:['tee-porta-1','tee-porta-2','tee-porta-3'],price:14390,compareAt:15990,tag:'ESTAMPA AUTORAL',graphic:'DO SEU\nAVESSO.',graphicClass:'graphic-off',description:'Nossa peça mais encorpada, 100% algodão de 220 g/m², com uma estampa para vestir do seu avesso. O modelo também vem liso em preto, off-white e marrom.',print:'DTF têxtil: cores vivas e traço fino, aplicado com prensa térmica',...HEAVY_SPEC},
  {id:'heavy-faces',brand:'geek',name:'Heavy · Dois Lados',category:'graphic',color:'Marrom',base:'brown',swatch:'#8a6a4f',photos:['tee-faces-1','tee-faces-2','tee-faces-3'],price:14390,compareAt:15990,tag:'NOVA ESTAMPA',graphic:'',graphicClass:'',description:'Algodão de 220 g/m² num marrom terroso, com a estampa Dois Lados nas costas: duas faces do mesmo avesso. Oversized, caimento reto.',print:'DTF têxtil: cores vivas e traço fino, aplicado com prensa térmica',...HEAVY_SPEC},
@@ -14,8 +14,19 @@ export const ARCHIVE=[
  {id:'geek-coracao',name:'Coração Pixelado',brand:'geek',category:'graphic',color:'Preta',base:'black',swatch:'#26272a',photos:['geek-coracao-1','geek-coracao-2','geek-coracao-3'],price:14390,compareAt:15990,tag:'ESTAMPA GEEK',graphic:'',graphicClass:'',description:'Coração anatômico em pixel art que se desmancha em blocos, com PLAYER 01 no peito. Oversized preta em algodão de 220 g/m².',print:'DTF têxtil: cores vivas e traço fino, aplicado com prensa térmica',...HEAVY_SPEC},
  {id:'geek-carpa',name:'Carpa Japonesa',brand:'geek',category:'graphic',color:'Off white',base:'white',swatch:'#efece3',photos:['geek-carpa-1','geek-carpa-2','geek-carpa-3'],price:14390,compareAt:15990,tag:'ESTAMPA GEEK',graphic:'',graphicClass:'',description:'Carpa koi em nanquim com o sol laranja, entre a arte japonesa e o traço geek. Oversized off white em algodão de 220 g/m².',print:'DTF têxtil: cores vivas e traço fino, aplicado com prensa térmica',...HEAVY_SPEC}
 ]
-// Peças à venda. Vazio até a nova coleção: o site mostra o aviso de nova coleção no lugar.
-export const PRODUCTS=[];
+// Peças à venda: a nova coleção da Marileus. Coração Pixelado e Carpa Japonesa voltam (ficha acima, fotos
+// novas); Dragão e Ronin são estampas novas e vêm em preto e off white: cada cor tem a sua galeria, e o
+// seletor de cor do site troca as fotos. As fotos saem de scripts/build-marileus-colecao.mjs.
+const archived=id=>ARCHIVE.find(p=>p.id===id);
+const BLACK={base:'black',color:'Preta',swatch:'#26272a'},OFF_WHITE={base:'white',color:'Off white',swatch:'#efece3'};
+const poses=name=>[1,2,3].map(n=>`${name}-${n}`);
+const DTF='DTF têxtil: cores vivas e traço fino, aplicado com prensa térmica';
+export const PRODUCTS=[
+ archived('geek-coracao'),
+ archived('geek-carpa'),
+ {id:'geek-dragao',brand:'geek',name:'Dragão',category:'graphic',color:BLACK.color,base:BLACK.base,swatch:BLACK.swatch,price:14390,compareAt:15990,tag:'ESTAMPA GEEK',graphic:'',graphicClass:'',variants:[{...BLACK,photos:poses('geek-dragao-preto')},{...OFF_WHITE,photos:poses('geek-dragao-branco')}],description:'Um dragão discreto no peito e, nas costas, duas katanas cruzadas num círculo azul-petróleo, com o dragão enroscado na lâmina. Oversized em algodão de 220 g/m², em preto e off white.',print:DTF,...HEAVY_SPEC},
+ {id:'geek-ronin',brand:'geek',name:'Ronin',category:'graphic',color:BLACK.color,base:BLACK.base,swatch:BLACK.swatch,price:14390,compareAt:15990,tag:'ESTAMPA GEEK',graphic:'',graphicClass:'',variants:[{...BLACK,photos:poses('geek-ronin-preto')},{...OFF_WHITE,photos:poses('geek-ronin-branco')}],description:'Uma katana e uma folha de bordo vermelha no peito e, nas costas, o ronin de chapéu de palha diante do sol vermelho. Oversized em algodão de 220 g/m², em preto e off white.',print:DTF,...HEAVY_SPEC}
+];
 export function setProducts(list){PRODUCTS.splice(0,PRODUCTS.length,...list);}
 // Preço "de/por": compareAt é o preço antigo (riscado). Devolve o desconto em % (0 se não está em promoção).
 export const discountOf=p=>p&&p.compareAt>p.price?Math.round((1-p.price/p.compareAt)*100):0;

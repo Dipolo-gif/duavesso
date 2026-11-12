@@ -7,8 +7,9 @@ import {online,rpc,checkCoupon,fetchPromos,fetchBrand,getUser} from './api.js';
 const BRAND='geek';
 // Filtros da vitrine: cada estampa numa categoria (troque aqui quando entrarem estampas novas)
 const CATS=[['all','Todos'],['gaming','Gaming e pixel'],['anime','Anime e Japão'],['autorais','Estampas autorais'],['basicas','Básicas']];
-const CAT_OF={'geek-coracao':'gaming','geek-carpa':'anime','heavy-avesso':'autorais','heavy-faces':'autorais','heavy-eclipse':'autorais','simples':'basicas'};
-const DROP=['geek-coracao','geek-carpa'];
+const CAT_OF={'geek-coracao':'gaming','geek-carpa':'anime','geek-dragao':'anime','geek-ronin':'anime','heavy-avesso':'autorais','heavy-faces':'autorais','heavy-eclipse':'autorais','simples':'basicas'};
+// Drop atual (rótulo DROP_NN): as estampas da coleção, cada uma com as cores que existirem
+const DROP=['geek-dragao','geek-ronin','geek-coracao','geek-carpa'],DROP_NOW='DROP_02',DROP_NEXT='DROP_03';
 const SIZE_GUIDE=[['P',54,70],['M',57,73],['G',60,76],['GG',63,79]];
 // A sacola é a mesma da duavesso: o que entra aqui aparece lá, e vice-versa. Este site mostra e finaliza
 // só as peças da Marileus; as de outras lojas continuam na sacola da duavesso.
@@ -17,13 +18,13 @@ const CART_KEY='duavesso.cart.v1';
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const still=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
 // O drop atual vem primeiro na vitrine
-const items=PRODUCTS.filter(p=>p.brand===BRAND).sort((a,b)=>DROP.includes(b.id)-DROP.includes(a.id));
+const items=PRODUCTS.filter(p=>p.brand===BRAND).sort((a,b)=>{const ia=DROP.indexOf(a.id),ib=DROP.indexOf(b.id);return (ia<0?99:ia)-(ib<0?99:ib);});
 const byId=id=>items.find(p=>p.id===id);
 // Entre coleções (estampas em reformulação): sem peças à venda, o site vira a espera do próximo drop
 const between=!items.length;
 if(between){
  document.body.classList.add('ml-between');
- $('.ml-ticker-track').innerHTML=['[DROP_02] em produção','Estampas novas em breve','Entre na lista e saiba primeiro','[DROP_02] em produção','Estampas novas em breve','Entre na lista e saiba primeiro'].map(t=>`<span>${t}</span>`).join('');
+ $('.ml-ticker-track').innerHTML=[`[${DROP_NEXT}] em produção`,'Estampas novas em breve','Entre na lista e saiba primeiro',`[${DROP_NEXT}] em produção`,'Estampas novas em breve','Entre na lista e saiba primeiro'].map(t=>`<span>${t}</span>`).join('');
  const cta=$('.ml-ctas .ml-btn-primary');cta.textContent='Entrar na lista';cta.href='marileus#lista';
  const sec=$('.ml-ctas .ml-btn-ghost');sec.textContent='Conhecer a marca';sec.href='marileus#manifesto';
  $('.ml-lead').textContent='As estampas da Marileus estão sendo redesenhadas. O próximo drop sai em lote pequeno: quem está na lista fica sabendo antes de abrir.';
@@ -32,7 +33,7 @@ if(between){
  // Menu enxuto: sem vitrine, os atalhos são o próximo drop, a marca e a lista
  const nav='<a href="marileus#estampas">Próximo drop</a><a href="marileus#manifesto">Sobre a marca</a><a href="marileus#lista">Lista de espera</a>';
  $('.ml-links').innerHTML=nav;$('#ml-mobile').innerHTML=nav;
- $('#ml-cat-title').textContent='Próximo drop';$('.ml-catalog .ml-head .ml-tag').textContent='[DROP_02] em produção';
+ $('#ml-cat-title').textContent='Próximo drop';$('.ml-catalog .ml-head .ml-tag').textContent=`[${DROP_NEXT}] em produção`;
 }
 const photos=(p,base)=>{const v=p.variants?(p.variants.find(x=>x.base===base)||p.variants[0]):null;return v?v.photos:(p.photos||[]);};
 const pic=(name,alt,sizes,lazy=true)=>`<picture><source type="image/webp" srcset="assets/${name}-400.webp 400w, assets/${name}-800.webp 800w, assets/${name}-1024.webp 1024w" sizes="${sizes}"><img src="assets/${name}-1024.jpg" alt="${esc(alt)}" width="1024" height="1536" decoding="async"${lazy?' loading="lazy"':''}></picture>`;
@@ -85,7 +86,7 @@ function renderDropCard(){
  $('#ml-drop-card').innerHTML=`<span class="ml-corner tl"></span><span class="ml-corner tr"></span><span class="ml-corner bl"></span><span class="ml-corner br"></span>
 <p class="ml-badge"><span class="ml-live" aria-hidden="true"></span>[DISPONÍVEL AGORA]</p>
 <button type="button" class="ml-drop-shot" data-quick="${p.id}" aria-label="Ver ${esc(p.name)}">${pic(photos(p)[0],p.name,'(max-width:900px) 80vw, 30vw',false)}</button>
-<div class="ml-drop-info"><div><span class="ml-mini">[DROP_01] ${String(dropIdx%list.length+1).padStart(2,'0')}/${String(list.length).padStart(2,'0')}</span><h3>${esc(p.name)}</h3></div><p class="ml-price">${price(p)}</p></div>
+<div class="ml-drop-info"><div><span class="ml-mini">[${DROP_NOW}] ${String(dropIdx%list.length+1).padStart(2,'0')}/${String(list.length).padStart(2,'0')}</span><h3>${esc(p.name)}</h3></div><p class="ml-price">${price(p)}</p></div>
 <div class="ml-dots" role="group" aria-label="Escolher estampa do drop">${list.map((x,i)=>`<button type="button" data-dot="${i}" aria-label="${esc(x.name)}"${i===dropIdx%list.length?' aria-current="true"':''}></button>`).join('')}</div>`;
 }
 function startDrop(){clearInterval(dropTimer);if(!still())dropTimer=setInterval(()=>{dropIdx++;renderDropCard();},5200);}
@@ -93,7 +94,7 @@ $('#ml-drop-card').addEventListener('click',e=>{const d=e.target.closest('[data-
 $('#ml-drop-card').addEventListener('mouseenter',()=>clearInterval(dropTimer));
 $('#ml-drop-card').addEventListener('mouseleave',startDrop);
 if(between)$('#ml-drop-card').innerHTML=`<span class="ml-corner tl"></span><span class="ml-corner tr"></span><span class="ml-corner bl"></span><span class="ml-corner br"></span>
-<p class="ml-badge"><span class="ml-live" aria-hidden="true"></span>[DROP_02] EM PRODUÇÃO</p>
+<p class="ml-badge"><span class="ml-live" aria-hidden="true"></span>[${DROP_NEXT}] EM PRODUÇÃO</p>
 <div class="ml-wait"><img src="assets/marileus-mark.png" alt="" width="234" height="226"><span class="ml-wait-scan" aria-hidden="true"></span></div>
 <div class="ml-drop-info"><div><span class="ml-mini">PRÓXIMO DROP</span><h3>Estampas em reformulação</h3></div></div>
 <a class="ml-btn ml-btn-primary ml-wide" href="marileus#lista">Avise-me no lançamento</a>`;
@@ -103,10 +104,14 @@ else{renderDropCard();startDrop();}
 let filter='all';
 const catsWithItems=()=>CATS.filter(([k])=>k==='all'||items.some(p=>CAT_OF[p.id]===k));
 function renderFilters(){$('#ml-filters').innerHTML=catsWithItems().map(([k,l])=>`<button type="button" data-filter="${k}" aria-pressed="${k===filter}">${esc(l)}</button>`).join('');}
+const shots=(p,base)=>{const ph=photos(p,base),v=p.variants?(p.variants.find(x=>x.base===base)||p.variants[0]):null;
+ return `${pic(ph[0],`${p.name}, ${v?v.color:p.color}`,'(max-width:700px) 92vw, (max-width:1100px) 46vw, 31vw')}${ph[1]?`<span class="ml-shot-alt">${pic(ph[1],'','(max-width:700px) 92vw, 31vw')}</span>`:''}`;};
 function card(p,i){
- const ph=photos(p),off=discountOf(p);
- return `<article class="ml-card" style="--i:${i}"><button type="button" class="ml-shot" data-quick="${p.id}" aria-label="Ver ${esc(p.name)}">${pic(ph[0],`${p.name}, ${p.variants?p.variants[0].color:p.color}`,'(max-width:700px) 92vw, (max-width:1100px) 46vw, 31vw')}${ph[1]?`<span class="ml-shot-alt">${pic(ph[1],'','(max-width:700px) 92vw, 31vw')}</span>`:''}${off?`<span class="ml-off">-${off}%</span>`:''}<span class="ml-view">Visualização rápida</span></button>
-<div class="ml-card-body"><p class="ml-chips"><span>100% algodão</span><span>Oversized</span>${DROP.includes(p.id)?'<span class="hot">[DROP_01]</span>':''}</p><h3>${esc(p.name)}</h3><p class="ml-price">${price(p)}<small>ou ${INSTALLMENTS}x de ${money(installment(p.price))}</small></p>
+ const off=discountOf(p),multi=p.variants&&p.variants.length>1,base=p.variants?p.variants[0].base:p.base;
+ return `<article class="ml-card" style="--i:${i}" data-id="${p.id}" data-base="${base}"><button type="button" class="ml-shot" data-quick="${p.id}" aria-label="Ver ${esc(p.name)}"><span class="ml-shot-pics">${shots(p,base)}</span>${off?`<span class="ml-off">-${off}%</span>`:''}<span class="ml-view">Visualização rápida</span></button>
+<div class="ml-card-body"><p class="ml-chips"><span>100% algodão</span><span>Oversized</span>${DROP.includes(p.id)?`<span class="hot">[${DROP_NOW}]</span>`:''}</p><h3>${esc(p.name)}</h3>
+${multi?`<div class="ml-swatches" role="group" aria-label="Cor de ${esc(p.name)}"><span class="ml-swatch-name">${esc(p.variants[0].color)}</span>${p.variants.map(x=>`<button type="button" data-swatch="${x.base}" style="--c:${x.swatch}" aria-label="${esc(x.color)}" aria-pressed="${x.base===base}"></button>`).join('')}</div>`:`<p class="ml-swatches single"><span class="ml-swatch-name">${esc(p.variants?p.variants[0].color:p.color)}</span></p>`}
+<p class="ml-price">${price(p)}<small>ou ${INSTALLMENTS}x de ${money(installment(p.price))}</small></p>
 <div class="ml-sizes" role="group" aria-label="Adicionar ${esc(p.name)} ao carrinho por tamanho">${SIZES.map(s=>`<button type="button" data-add="${p.id}" data-size="${s}" aria-label="Adicionar tamanho ${s}">${s}</button>`).join('')}</div></div></article>`;
 }
 function renderProducts(){
@@ -120,12 +125,16 @@ $('#ml-filters').addEventListener('click',e=>{const b=e.target.closest('[data-fi
 $('#ml-search').addEventListener('input',renderProducts);
 $('#ml-products').addEventListener('click',e=>{
  if(e.target.closest('#ml-clear')){$('#ml-search').value='';filter='all';renderFilters();renderProducts();return;}
+ const sw=e.target.closest('[data-swatch]');
+ if(sw){const art=sw.closest('.ml-card'),p=byId(art.dataset.id),v=p.variants.find(x=>x.base===sw.dataset.swatch);
+  art.dataset.base=v.base;art.querySelector('.ml-shot-pics').innerHTML=shots(p,v.base);art.querySelector('.ml-swatch-name').textContent=v.color;
+  $$('[data-swatch]',art).forEach(b=>b.setAttribute('aria-pressed',String(b===sw)));return;}
  const a=e.target.closest('[data-add]');
- if(a){const p=byId(a.dataset.add);if(add(p,a.dataset.size)){a.classList.add('ok');setTimeout(()=>a.classList.remove('ok'),700);toast(`${p.name} · ${a.dataset.size} no carrinho.`);}}
+ if(a){const p=byId(a.dataset.add),art=a.closest('.ml-card'),base=art?.dataset.base,v=p.variants?.find(x=>x.base===base);if(add(p,a.dataset.size,base)){a.classList.add('ok');setTimeout(()=>a.classList.remove('ok'),700);toast(`${p.name}${v?` ${v.color.toLowerCase()}`:''} · ${a.dataset.size} no carrinho.`);}}
 });
 $('#ml-search-open').addEventListener('click',()=>{$('#estampas').scrollIntoView({behavior:still()?'instant':'smooth'});setTimeout(()=>$('#ml-search').focus({preventScroll:true}),still()?0:450);});
 if(between){$('#ml-filters').hidden=true;$('#ml-search-wrap').hidden=true;$('#ml-results').hidden=true;
- $('#ml-products').innerHTML=`<div class="ml-empty ml-soon"><img src="assets/marileus-mark.png" alt="" width="80" height="77"><p class="ml-tag">[DROP_02] em produção</p><h3>As estampas estão sendo redesenhadas.</h3><p>A coleção anterior saiu da loja. As novas estampas chegam no próximo drop, em lote pequeno.</p><a class="ml-btn ml-btn-primary" href="marileus#lista">Entrar na lista</a></div>`;}
+ $('#ml-products').innerHTML=`<div class="ml-empty ml-soon"><img src="assets/marileus-mark.png" alt="" width="80" height="77"><p class="ml-tag">[${DROP_NEXT}] em produção</p><h3>As estampas estão sendo redesenhadas.</h3><p>A coleção anterior saiu da loja. As novas estampas chegam no próximo drop, em lote pequeno.</p><a class="ml-btn ml-btn-primary" href="marileus#lista">Entrar na lista</a></div>`;}
 else{renderFilters();renderProducts();}
 
 // Drop exclusivo ----------------------------------------------------------------------------------------
@@ -137,16 +146,16 @@ else{renderFilters();renderProducts();}
 })();
 
 // Visualização rápida ----------------------------------------------------------------------------------
-document.addEventListener('click',e=>{const q=e.target.closest('[data-quick]');if(q){e.preventDefault();openQuick(q.dataset.quick);}});
-function openQuick(id){
+document.addEventListener('click',e=>{const q=e.target.closest('[data-quick]');if(q){e.preventDefault();openQuick(q.dataset.quick,q.closest('.ml-card')?.dataset.base);}});
+function openQuick(id,start){
  const p=byId(id);if(!p)return;
- let base=p.variants?p.variants[0].base:p.base,size=null,shot=0;
+ let base=p.variants?(p.variants.find(x=>x.base===start)||p.variants[0]).base:p.base,size=null,shot=0;
  const body=$('#ml-quick-body');
  const paint=()=>{
   const ph=photos(p,base),v=p.variants?.find(x=>x.base===base);
   body.innerHTML=`<button type="button" class="ml-icon ml-q-close" data-close aria-label="Fechar">×</button>
 <div class="ml-q-gallery"><div class="ml-q-main">${pic(ph[shot]||ph[0],`${p.name}, foto ${shot+1}`,'(max-width:900px) 92vw, 50vw',false)}</div><div class="ml-q-thumbs">${ph.map((n,i)=>`<button type="button" data-shot="${i}" aria-label="Foto ${i+1}"${i===shot?' aria-current="true"':''}>${pic(n,'','96px')}</button>`).join('')}</div></div>
-<div class="ml-q-info"><p class="ml-tag">${DROP.includes(p.id)?'[DROP_01] ':''}[${esc((CATS.find(([k])=>k===CAT_OF[p.id])||['',''])[1]).toUpperCase()}]</p><h2 id="ml-q-name">${esc(p.name)}</h2><p class="ml-price big">${price(p)}${discountOf(p)?`<em>-${discountOf(p)}%</em>`:''}<small>ou ${INSTALLMENTS}x de ${money(installment(p.price))} sem juros</small></p>
+<div class="ml-q-info"><p class="ml-tag">${DROP.includes(p.id)?`[${DROP_NOW}] `:''}[${esc((CATS.find(([k])=>k===CAT_OF[p.id])||['',''])[1]).toUpperCase()}]</p><h2 id="ml-q-name">${esc(p.name)}</h2><p class="ml-price big">${price(p)}${discountOf(p)?`<em>-${discountOf(p)}%</em>`:''}<small>ou ${INSTALLMENTS}x de ${money(installment(p.price))} sem juros</small></p>
 <p class="ml-q-desc">${esc(p.description)}</p>
 ${p.variants?`<div class="ml-field"><span>Cor: <b>${esc(v.color)}</b></span><div class="ml-colors">${p.variants.map(x=>`<button type="button" data-base="${x.base}" style="--c:${x.swatch}" aria-label="${esc(x.color)}" aria-pressed="${x.base===base}"></button>`).join('')}</div></div>`:`<div class="ml-field"><span>Cor: <b>${esc(p.color)}</b></span></div>`}
 <div class="ml-field"><span>Tamanho</span><div class="ml-q-sizes">${SIZES.map(s=>`<button type="button" data-pick="${s}" aria-pressed="${s===size}">${s}</button>`).join('')}</div><details class="ml-guide"><summary>Guia de medidas</summary><table><thead><tr><th scope="col">Tamanho</th><th scope="col">Largura</th><th scope="col">Comprimento</th></tr></thead><tbody>${SIZE_GUIDE.map(([s,w,h])=>`<tr><th scope="row">${s}</th><td>${w} cm</td><td>${h} cm</td></tr>`).join('')}</tbody></table><p>Peça estendida, em centímetros. Para menos volume, escolha um tamanho abaixo.</p></details></div>

@@ -138,7 +138,7 @@ h1,h2,h3,p,ul,ol,dl,dd,figure{margin:0}ul,ol{padding:0;list-style:none}
 .ml-drop{display:grid;grid-template-columns:1.1fr .9fr;gap:clamp(30px,5vw,80px);align-items:center;background:linear-gradient(180deg,var(--void),#03061a 50%,var(--void));border-top:1px solid var(--line2)}
 .ml-drop-media{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .ml-drop-tile{display:block;overflow:hidden;background:var(--panel2);aspect-ratio:2/3;box-shadow:0 0 0 1px var(--line)}
-.ml-drop-tile.t1{transform:translateY(48px)}
+.ml-drop-tile.t1,.ml-drop-tile.t3{transform:translateY(48px)}
 .ml-drop-tile img{width:100%;height:100%;object-fit:cover;object-position:50% 0;transition:transform .8s cubic-bezier(.2,.7,.2,1)}
 .ml-drop-tile:hover{box-shadow:var(--glow)}.ml-drop-tile:hover img{transform:scale(1.05)}
 .ml-drop-copy{display:grid;gap:22px;align-content:center}.ml-drop-copy>p:not(.ml-tag){max-width:480px;color:var(--silver)}
@@ -258,7 +258,7 @@ dialog.closing{animation:ml-pop .22s reverse ease-in both}
 @media(max-width:900px){
  .ml-links{display:none}.ml-menu-btn{display:grid}.ml-nav{grid-template-columns:1fr auto}
  .ml-hero{grid-template-columns:1fr;min-height:0}.ml-drop-card{max-width:440px}
- .ml-drop{grid-template-columns:1fr}.ml-drop-tile.t1{transform:translateY(24px)}
+ .ml-drop{grid-template-columns:1fr}.ml-drop-tile.t1,.ml-drop-tile.t3{transform:translateY(24px)}
  .ml-man-copy,.ml-man-photo-a,.ml-man-photo-b,.ml-specs{grid-column:1/-1}.ml-man-photo-a,.ml-man-photo-b{grid-row:auto;margin:0}
  .ml-specs{grid-template-columns:1fr 1fr}.ml-specs div{padding:22px 16px 22px 0!important;border-right:0;border-bottom:1px solid var(--line2)}
  #ml-quick-body{grid-template-columns:1fr}.ml-co-grid{grid-template-columns:1fr}.ml-co-sum{order:-1}
@@ -277,3 +277,11 @@ dialog.closing{animation:ml-pop .22s reverse ease-in both}
 .ml-soon{gap:14px;padding:70px 20px;border:1px dashed #3f3f46}.ml-soon h3{font:800 clamp(34px,4vw,54px)/.95 var(--display);text-transform:uppercase;color:#fff;max-width:640px}.ml-soon p:not(.ml-tag){max-width:520px}.ml-soon img{opacity:.9;width:72px;filter:drop-shadow(0 0 18px rgba(0,68,255,.6))}
 .ml-between .ml-products{margin-top:34px}
 .ml-between .ml-soon .ml-tag{display:none}
+
+/* Seletor de cor no cartão */
+.ml-swatches{display:flex;align-items:center;gap:8px;margin:2px 0 4px}
+.ml-swatch-name{margin-right:auto;font:500 12px/1 var(--mono,monospace);letter-spacing:.08em;text-transform:uppercase;color:var(--silver)}
+.ml-swatches button{width:22px;height:22px;background:var(--c);box-shadow:0 0 0 1px var(--line);clip-path:polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px);transition:box-shadow .2s}
+.ml-swatches button:hover{box-shadow:0 0 0 1px #fff}
+.ml-swatches button[aria-pressed="true"]{box-shadow:0 0 0 2px var(--volt);outline:2px solid var(--volt);outline-offset:2px}
+.ml-shot-pics{display:block;position:absolute;inset:0}

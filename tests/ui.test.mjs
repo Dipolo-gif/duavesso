@@ -13,7 +13,7 @@ const charts=(await readFile(new URL('../dist/charts.js',import.meta.url),'utf8'
 const pages=(await readFile(new URL('../dist/pages.js',import.meta.url),'utf8')).replace(/^import .*?;\r?\n/gm,'').replaceAll('export ','');
 const app=(await readFile(new URL('../dist/app.js',import.meta.url),'utf8')).replace(/^import .*?;\r?\n/gm,'');
 // path: abre o site já nesse endereço, com a página gerada correspondente (ex.: /produto/simples).
-// catalog: 'archive' (padrão) usa as peças da coleção anterior como exemplo de compra; 'live' é a loja como está (sem peças).
+// catalog: 'archive' (padrão) usa as peças arquivadas como exemplo de compra; 'live' é a loja como está (coleção Marileus); 'empty' é a loja entre coleções (sem peças).
 async function setup(storage={},fetchStub,{reducedMotion=true,path='/',catalog='archive'}={}){
  const file=path==='/'||path.startsWith('/#')||!/^\/[a-z]/.test(path)?null:new URL(`../dist${path.split(/[?#]/)[0]}.html`,import.meta.url);
  const page=file?await readFile(file,'utf8').catch(()=>readFile(new URL('../dist/404.html',import.meta.url),'utf8')):html;
@@ -31,7 +31,7 @@ async function setup(storage={},fetchStub,{reducedMotion=true,path='/',catalog='
  const registry=new Map();
  Object.defineProperty(w.document,'modelContext',{value:{registerTool(tool){registry.set(tool.name,tool);}}});
  if(fetchStub)w.fetch=fetchStub;
- w.eval(commerce+'\n'+(catalog==='archive'?'setProducts(ARCHIVE);\n':'')+api+'\n'+placement+'\n'+brands+'\n'+theme+'\n'+picker+'\n'+charts+'\n'+pages+'\nconst esc=escapeHTML;\n'+app);
+ w.eval(commerce+'\n'+(catalog==='archive'?'setProducts(ARCHIVE);\n':catalog==='empty'?'setProducts([]);\n':'')+api+'\n'+placement+'\n'+brands+'\n'+theme+'\n'+picker+'\n'+charts+'\n'+pages+'\nconst esc=escapeHTML;\n'+app);
  await new Promise(resolve=>setTimeout(resolve,10));
  return {dom,w,doc:w.document,registry,click(selector){const e=w.document.querySelector(selector);assert(e,`Missing ${selector}`);e.click();},close(){dom.window.close();}};
 }
@@ -1036,7 +1036,7 @@ test('janela da peça: setas trocam a foto (dando a volta) e a barra passa para 
 });
 
 test('nova coleção: sem peças à venda, a página inicial mostra o aviso com lista, esconde promoções e as edições ficam em breve',async()=>{
- const s=await setup({},undefined,{catalog:'live'});try{
+ const s=await setup({},undefined,{catalog:'empty'});try{
   const d=s.doc;
   assert.equal(d.querySelector('#new-soon').hidden,false,'aviso de nova coleção no lugar das novidades');
   assert.equal(d.querySelector('#new-row').hidden,true);assert.equal(d.querySelector('#new-title').textContent,'Nova coleção em breve');
@@ -1050,7 +1050,7 @@ test('nova coleção: sem peças à venda, a página inicial mostra o aviso com 
   d.querySelector('#sobre [data-join]').click();assert(d.querySelector('dialog.join-dialog'),'Quero minha marca abre o formulário');d.querySelector('dialog.join-dialog').remove();
   assert(d.querySelector('#soon-form input[type=email][required]'),'lista de espera');
  }finally{s.close();}
- const m=await setup({},undefined,{catalog:'live',path:'/marcas'});try{
+ const m=await setup({},undefined,{catalog:'empty',path:'/marcas'});try{
   await new Promise(r=>setTimeout(r,20));
   const card=m.doc.querySelector('#marcas-view .mh-card');
   assert.equal(card.getAttribute('href'),'marileus','cartão da Marileus vai direto ao site');

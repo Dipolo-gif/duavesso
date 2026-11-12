@@ -20,4 +20,28 @@
     <loc>https://loja-duavesso.vercel.app/para-voce</loc>
     <image:image><image:loc>https://loja-duavesso.vercel.app/assets/editorial-1536.jpg</image:loc></image:image>
   </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/produto/geek-coracao</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-coracao-1-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-coracao-2-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-coracao-3-1024.jpg</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/produto/geek-carpa</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-carpa-1-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-carpa-2-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-carpa-3-1024.jpg</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/produto/geek-dragao</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-dragao-preto-1-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-dragao-preto-2-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-dragao-preto-3-1024.jpg</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/produto/geek-ronin</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-ronin-preto-1-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-ronin-preto-2-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-ronin-preto-3-1024.jpg</image:loc></image:image>
+  </url>
 </urlset>

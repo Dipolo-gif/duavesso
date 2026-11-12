@@ -59,13 +59,16 @@ function renderHome(){
   // Edição com marca mas sem peça (entre coleções): mostra a imagem da marca e avisa que a coleção vem aí
   const art=!ph&&e.brands.map(b=>b.static?.cardImage).find(Boolean),bare=soon&&!art;
   return `<button type="button" class="mk-ed${soon?' is-soon':''}${bare?' is-bare':''}" data-edition="${esc(e.slug)}"${soon?' aria-disabled="true"':''}><span class="mk-ed-img">${ph?photoPicture(ph[0],'','(max-width:700px) 92vw, 31vw','loading="lazy"'):art?`<img src="${esc(art)}" alt="" loading="lazy">`:''}</span><span class="mk-ed-info"><span class="mk-ed-name">${esc(e.name)}</span><span class="mk-ed-blurb">${esc(e.blurb)}</span><span class="mk-ed-meta">${soon?(e.brands.length?`Nova coleção da ${e.brands.map(b=>esc(b.name)).join(' e da ')} em breve`:'Em breve'):`${e.items.length} ${e.items.length===1?'camisa':'camisas'} · ${e.brands.map(b=>esc(b.name)).join(', ')}`}</span></span>${soon?'':'<span class="mk-ed-go" aria-hidden="true">→</span>'}</button>`;}).join('');
- // Sem peças à venda (coleção em reformulação): o aviso de nova coleção ocupa o lugar das Novidades
+ // Sem peças à venda (entre coleções): o aviso de nova coleção ocupa o lugar das Novidades
  const empty=!PRODUCTS.length;
  $('#new-row').hidden=empty;$('#new-soon').hidden=!empty;$$('#novidades .mk-shelf-nav').forEach(n=>n.hidden=empty);
  $('#new-title').textContent=empty?'Nova coleção em breve':'Novidades';
  $('#new-row').innerHTML=[...PRODUCTS].reverse().slice(0,10).map(p=>productCardHTML(p)).join('');
  const promos=PRODUCTS.filter(p=>discountOf(p)>0).sort((a,b)=>discountOf(b)-discountOf(a)||a.price-b.price);
  $('#promocoes').hidden=!promos.length;$$('.nav-promo, #mobile-menu a[href="#promocoes"]').forEach(a=>a.hidden=!promos.length);
+ // Faixa do topo: coleção à venda (com a promoção de estreia, se houver) ou o aviso de nova coleção em breve
+ const ann=$('#announce-link');
+ if(ann){const off=promos.length?Math.max(...promos.map(discountOf)):0;ann.textContent=empty?'NOVA COLEÇÃO EM BREVE · ENTRE NA LISTA E SAIBA PRIMEIRO':`NOVA COLEÇÃO MARILEUS · ${off?`${off}% OFF NA ESTREIA`:'JÁ NA LOJA'}`;ann.setAttribute('href',empty||!off?'#novidades':'#promocoes');}
  // Sem peças: "Todas as camisas", as edições em cartões e a busca saem; a página lidera com as marcas e o estúdio
  // Ordem das seções (no próprio documento, para leitores de tela e teclado seguirem a mesma ordem)
  const order=empty?['#marcas-home','#estudio-home','#novidades','#promocoes','#edicoes','#colecao','#sobre']:['#edicoes','#novidades','#promocoes','#marcas-home','#colecao','#estudio-home','#sobre'];
