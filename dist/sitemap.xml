@@ -2,23 +2,23 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://loja-duavesso.vercel.app/</loc>
-    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/editorial-1536.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/og-duavesso.jpg</image:loc></image:image>
   </url>
   <url>
     <loc>https://loja-duavesso.vercel.app/marcas</loc>
-    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/editorial-1536.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/og-duavesso.jpg</image:loc></image:image>
   </url>
   <url>
     <loc>https://loja-duavesso.vercel.app/marcas/geek</loc>
-    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/editorial-1536.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/og-duavesso.jpg</image:loc></image:image>
   </url>
   <url>
     <loc>https://loja-duavesso.vercel.app/estudio</loc>
-    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/editorial-1536.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/og-duavesso.jpg</image:loc></image:image>
   </url>
   <url>
     <loc>https://loja-duavesso.vercel.app/para-voce</loc>
-    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/editorial-1536.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/og-duavesso.jpg</image:loc></image:image>
   </url>
   <url>
     <loc>https://loja-duavesso.vercel.app/produto/geek-coracao</loc>

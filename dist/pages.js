@@ -23,7 +23,7 @@ export function upsertBrandRow(row){const b=brandFromRow(row);BRAND_LIST=[...BRA
 export const SITE='https://loja-duavesso.vercel.app/';
 const SECTIONS=['#inicio','#edicoes','#novidades','#promocoes','#marcas-home','#colecao','#sobre'];
 const HOME_DESCRIPTION='Marketplace de marcas autorais de camisetas: cada marca com estampa, identidade e loja próprias, produzidas sob demanda e entregues pela duavesso. E um estúdio para criar a sua camiseta personalizada a partir de 1 peça.';
-const HOME_IMAGE={image:'assets/editorial-1536.jpg',imageAlt:'Duas pessoas vestindo camisetas oversized duavesso'};
+const HOME_IMAGE={image:'assets/og-duavesso.jpg',imageAlt:'duavesso, marketplace de marcas autorais de camisetas'};
 
 // Lê o endereço atual. Os links antigos com # (#produto-x, #marca-x, #marcas, #estudio) e as âncoras
 // da loja usadas em outra página voltam com legacy=true e o endereço novo em path.
