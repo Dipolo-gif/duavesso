@@ -121,7 +121,7 @@ function llms(){
  const line=p=>`- [${p.name}](${abs(productPath(p.id))}) · ${money(p.price)}${p.variants?` · ${p.variants.map(v=>v.color.toLowerCase()).join(', ')}`:` · ${p.color.toLowerCase()}`}${brandOf(p)?` · linha ${brandOf(p).name}`:''}: ${p.description}`;
  return `# duavesso
 
-> Marketplace brasileiro de marcas autorais de camisetas oversized 100% algodão penteado (180 a 220 g/m²): cada marca tem estampas, identidade e loja próprias; a duavesso produz sob demanda, embala e entrega. Tem também um estúdio online para criar a própria estampa (texto, imagem ou uma ideia descrita, que a equipe desenha). Site em português, preços em reais, pré-lançamento.
+> Marketplace brasileiro de marcas autorais de camisetas oversized de algodão (180 a 220 g/m²): cada marca tem estampas, identidade e loja próprias; a duavesso produz sob demanda, embala e entrega. Tem também um estúdio online para criar a própria estampa (texto, imagem ou uma ideia descrita, que a equipe desenha). Site em português, preços em reais, pré-lançamento.
 
 ## Peças
 
