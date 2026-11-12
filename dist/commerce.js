@@ -1,8 +1,16 @@
 export const SIZES=['P','M','G','GG'];
+// A Marileus (marca geek) usa a grade completa do fornecedor, de PP a XG; as outras peças seguem em P a GG.
+export const MARILEUS_SIZES=['PP','P','M','G','GG','XG'];
+export const ALL_SIZES=MARILEUS_SIZES;
+export const sizesOf=p=>p&&p.brand==='geek'?MARILEUS_SIZES:SIZES;
+// Medidas da peça estendida (cm) da linha Marileus, tabela do fornecedor: [tamanho, comprimento, largura, manga]
+export const MARILEUS_MEASURES=[['PP',69,55,21],['P',74,58,23],['M',76,60,25],['G',80,62,26],['GG',82,65,28],['XG',84,65,28]];
 const CARE='Lavar do avesso, em água fria. Não usar alvejante. Secar à sombra.';
 // Tecidos conforme o catálogo do fornecedor: Heavy Oversized 20.1 (linha Heavy e geek) e Basic Oversized 30.1 (Simples)
 const HEAVY_SPEC={fabric:'100% algodão penteado, fio 20.1 · 220 g/m²',finish:'Encolhimento zero, gola canelada de 3 cm com elastano e reforço ombro a ombro',fit:'Oversized heavy: encorpada e pesada, cai reto no corpo. Para menos volume, escolha um tamanho abaixo.',care:CARE};
 const BASIC_SPEC={fabric:'100% algodão penteado, fio 30.1 · 180 g/m²',finish:'Gola canelada de 3 cm com elastano, bainha de 4 cm e reforço ombro a ombro',fit:'Oversized: ombro caído e corpo amplo, cai reto. Para menos volume, escolha um tamanho abaixo.',care:CARE};
+// Linha Marileus: base oversized do fornecedor (malha suedine, no mínimo 85% algodão, 210 g/m²)
+const MARILEUS_SPEC={fabric:'Malha suedine com no mínimo 85% de algodão e fio de alma · 210 g/m²',finish:'Gola redonda canelada 2×1 de 3 cm e reforço ombro a ombro. Não encolhe, não desbota e mantém a estrutura após várias lavagens',fit:'Oversized: caimento solto e moderno. Para menos volume, escolha um tamanho abaixo.',care:CARE};
 // Coleção anterior, fora da loja desde nov/2026 (as estampas foram reformuladas). Fica guardada aqui como
 // referência e como peças de exemplo nos testes; Coração Pixelado e Carpa Japonesa voltaram em PRODUCTS.
 // Para voltar outra peça, coloque-a em PRODUCTS e reative no banco (products.active).
@@ -19,13 +27,15 @@ export const ARCHIVE=[
 // seletor de cor do site troca as fotos. As fotos saem de scripts/build-marileus-colecao.mjs.
 const archived=id=>ARCHIVE.find(p=>p.id===id);
 const BLACK={base:'black',color:'Preta',swatch:'#26272a'},OFF_WHITE={base:'white',color:'Off white',swatch:'#efece3'};
+const fromArchive=(id,d)=>({...archived(id),...MARILEUS_SPEC,description:d});
 const poses=name=>[1,2,3].map(n=>`${name}-${n}`);
 const DTF='DTF têxtil: cores vivas e traço fino, aplicado com prensa térmica';
 export const PRODUCTS=[
- archived('geek-coracao'),
- archived('geek-carpa'),
- {id:'geek-dragao',brand:'geek',name:'Dragão',category:'graphic',color:BLACK.color,base:BLACK.base,swatch:BLACK.swatch,price:14390,compareAt:15990,tag:'ESTAMPA GEEK',graphic:'',graphicClass:'',variants:[{...BLACK,photos:poses('geek-dragao-preto')},{...OFF_WHITE,photos:poses('geek-dragao-branco')}],description:'Um dragão discreto no peito e, nas costas, duas katanas cruzadas num círculo azul-petróleo, com o dragão enroscado na lâmina. Oversized em algodão de 220 g/m², em preto e off white.',print:DTF,...HEAVY_SPEC},
- {id:'geek-ronin',brand:'geek',name:'Ronin',category:'graphic',color:BLACK.color,base:BLACK.base,swatch:BLACK.swatch,price:14390,compareAt:15990,tag:'ESTAMPA GEEK',graphic:'',graphicClass:'',variants:[{...BLACK,photos:poses('geek-ronin-preto')},{...OFF_WHITE,photos:poses('geek-ronin-branco')}],description:'Uma katana e uma folha de bordo vermelha no peito e, nas costas, o ronin de chapéu de palha diante do sol vermelho. Oversized em algodão de 220 g/m², em preto e off white.',print:DTF,...HEAVY_SPEC}
+ fromArchive('geek-coracao','Coração anatômico em pixel art que se desmancha em blocos, com PLAYER 01 no peito. Oversized preta, malha de 210 g/m².'),
+ fromArchive('geek-carpa','Carpa koi em nanquim com o sol laranja, entre a arte japonesa e o traço geek. Oversized off white, malha de 210 g/m².'),
+ {id:'geek-dragao',brand:'geek',name:'Dragão',category:'graphic',color:BLACK.color,base:BLACK.base,swatch:BLACK.swatch,price:14390,compareAt:15990,tag:'ESTAMPA GEEK',graphic:'',graphicClass:'',variants:[{...BLACK,photos:poses('geek-dragao-preto')},{...OFF_WHITE,photos:poses('geek-dragao-branco')}],description:'Um dragão discreto no peito e, nas costas, duas katanas cruzadas num círculo azul-petróleo, com o dragão enroscado na lâmina. Oversized em malha de 210 g/m², em preto e off white.',print:DTF,...MARILEUS_SPEC},
+ {id:'geek-ronin',brand:'geek',name:'Ronin',category:'graphic',color:BLACK.color,base:BLACK.base,swatch:BLACK.swatch,price:14390,compareAt:15990,tag:'ESTAMPA GEEK',graphic:'',graphicClass:'',variants:[{...BLACK,photos:poses('geek-ronin-preto')},{...OFF_WHITE,photos:poses('geek-ronin-branco')}],description:'Uma katana e uma folha de bordo vermelha no peito e, nas costas, o ronin de chapéu de palha diante do sol vermelho. Oversized em malha de 210 g/m², em preto e off white.',print:DTF,...MARILEUS_SPEC},
+ {id:'geek-critical',brand:'geek',name:'Critical Fate',category:'graphic',color:BLACK.color,base:BLACK.base,swatch:BLACK.swatch,price:14390,compareAt:15990,tag:'ESTAMPA GEEK',graphic:'',graphicClass:'',variants:[{...BLACK,photos:poses('geek-critical-preto')},{...OFF_WHITE,photos:poses('geek-critical-branco')}],description:'Um d20 preso a uma adaga, com estrela e traço azul, no peito e, nas costas, o dragão enroscado numa lua crescente segurando o d20 pela corrente, e uma mão de esqueleto empunhando a adaga. Para quem decide o destino na rolagem. Oversized em preto e off white.',print:DTF,...MARILEUS_SPEC},
 ];
 export function setProducts(list){PRODUCTS.splice(0,PRODUCTS.length,...list);}
 // Preço "de/por": compareAt é o preço antigo (riscado). Devolve o desconto em % (0 se não está em promoção).
@@ -70,7 +80,7 @@ export function shippingSuggestion(items){
  return candidates.find(p=>p.price>=remaining&&!inCart.has(p.id))||candidates.find(p=>p.price>=remaining)||candidates.at(-1);
 }
 export function addItem(items,item){
- if(!SIZES.includes(item.size)||!Number.isInteger(item.price)||item.price<=0)throw new Error('Produto ou tamanho inválido.');
+ if(!ALL_SIZES.includes(item.size)||!Number.isInteger(item.price)||item.price<=0)throw new Error('Produto ou tamanho inválido.');
  const existing=items.find(x=>x.key===item.key);
  if(existing?.qty>=10)throw new Error('Limite de 10 unidades por modelo e tamanho.');
  if(items.length>=30&&!existing)throw new Error('Limite de 30 itens diferentes na sacola.');
@@ -119,7 +129,7 @@ export function printsSummary(design){
 export function normalizeCart(value){
  if(!Array.isArray(value))return [];
  return value.slice(0,30).flatMap(x=>{
-  if(!x||!SIZES.includes(x.size)||!Number.isInteger(x.qty)||x.qty<1||x.qty>10)return [];
+  if(!x||!ALL_SIZES.includes(x.size)||!Number.isInteger(x.qty)||x.qty<1||x.qty>10)return [];
   const p=PRODUCTS.find(p=>p.id===x.id);
   if(p){
    if(p.variants){const v=p.variants.find(v=>v.base===x.base)||p.variants[0],{variants,...rest}=p;return [{...rest,base:v.base,color:v.color,swatch:v.swatch,key:`${p.id}-${v.base}-${x.size}`,size:x.size,qty:x.qty}];}

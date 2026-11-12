@@ -1,16 +1,15 @@
 // Marileus: site exclusivo da marca (serviço "site personalizado" da duavesso).
 // Usa o mesmo catálogo (commerce.js) e o mesmo banco (place_order, cupons, newsletter) da duavesso,
 // com carrinho e checkout próprios. As peças são as da marca geek (Marileus) no catálogo.
-import {PRODUCTS,SIZES,money,installment,INSTALLMENTS,discountOf,totals,normalizeCart,setPromos,freeShippingMin,escapeHTML as esc} from './commerce.js';
+import {PRODUCTS,MARILEUS_SIZES as SIZES,MARILEUS_MEASURES,money,installment,INSTALLMENTS,discountOf,totals,normalizeCart,setPromos,freeShippingMin,escapeHTML as esc} from './commerce.js';
 import {online,rpc,checkCoupon,fetchPromos,fetchBrand,getUser} from './api.js';
 
 const BRAND='geek';
 // Filtros da vitrine: cada estampa numa categoria (troque aqui quando entrarem estampas novas)
 const CATS=[['all','Todos'],['gaming','Gaming e pixel'],['anime','Anime e Japão'],['autorais','Estampas autorais'],['basicas','Básicas']];
-const CAT_OF={'geek-coracao':'gaming','geek-carpa':'anime','geek-dragao':'anime','geek-ronin':'anime','heavy-avesso':'autorais','heavy-faces':'autorais','heavy-eclipse':'autorais','simples':'basicas'};
+const CAT_OF={'geek-critical':'gaming','geek-coracao':'gaming','geek-carpa':'anime','geek-dragao':'anime','geek-ronin':'anime','heavy-avesso':'autorais','heavy-faces':'autorais','heavy-eclipse':'autorais','simples':'basicas'};
 // Drop atual (rótulo DROP_NN): as estampas da coleção, cada uma com as cores que existirem
-const DROP=['geek-dragao','geek-ronin','geek-coracao','geek-carpa'],DROP_NOW='DROP_02',DROP_NEXT='DROP_03';
-const SIZE_GUIDE=[['P',54,70],['M',57,73],['G',60,76],['GG',63,79]];
+const DROP=['geek-critical','geek-dragao','geek-ronin','geek-coracao','geek-carpa'],DROP_NOW='DROP_02',DROP_NEXT='DROP_03';
 // A sacola é a mesma da duavesso: o que entra aqui aparece lá, e vice-versa. Este site mostra e finaliza
 // só as peças da Marileus; as de outras lojas continuam na sacola da duavesso.
 const CART_KEY='duavesso.cart.v1';
@@ -109,7 +108,7 @@ const shots=(p,base)=>{const ph=photos(p,base),v=p.variants?(p.variants.find(x=>
 function card(p,i){
  const off=discountOf(p),multi=p.variants&&p.variants.length>1,base=p.variants?p.variants[0].base:p.base;
  return `<article class="ml-card" style="--i:${i}" data-id="${p.id}" data-base="${base}"><button type="button" class="ml-shot" data-quick="${p.id}" aria-label="Ver ${esc(p.name)}"><span class="ml-shot-pics">${shots(p,base)}</span>${off?`<span class="ml-off">-${off}%</span>`:''}<span class="ml-view">Visualização rápida</span></button>
-<div class="ml-card-body"><p class="ml-chips"><span>100% algodão</span><span>Oversized</span>${DROP.includes(p.id)?`<span class="hot">[${DROP_NOW}]</span>`:''}</p><h3>${esc(p.name)}</h3>
+<div class="ml-card-body"><p class="ml-chips"><span>Malha 210 g/m²</span><span>Oversized</span>${DROP.includes(p.id)?`<span class="hot">[${DROP_NOW}]</span>`:''}</p><h3>${esc(p.name)}</h3>
 ${multi?`<div class="ml-swatches" role="group" aria-label="Cor de ${esc(p.name)}"><span class="ml-swatch-name">${esc(p.variants[0].color)}</span>${p.variants.map(x=>`<button type="button" data-swatch="${x.base}" style="--c:${x.swatch}" aria-label="${esc(x.color)}" aria-pressed="${x.base===base}"></button>`).join('')}</div>`:`<p class="ml-swatches single"><span class="ml-swatch-name">${esc(p.variants?p.variants[0].color:p.color)}</span></p>`}
 <p class="ml-price">${price(p)}<small>ou ${INSTALLMENTS}x de ${money(installment(p.price))}</small></p>
 <div class="ml-sizes" role="group" aria-label="Adicionar ${esc(p.name)} ao carrinho por tamanho">${SIZES.map(s=>`<button type="button" data-add="${p.id}" data-size="${s}" aria-label="Adicionar tamanho ${s}">${s}</button>`).join('')}</div></div></article>`;
@@ -158,7 +157,7 @@ function openQuick(id,start){
 <div class="ml-q-info"><p class="ml-tag">${DROP.includes(p.id)?`[${DROP_NOW}] `:''}[${esc((CATS.find(([k])=>k===CAT_OF[p.id])||['',''])[1]).toUpperCase()}]</p><h2 id="ml-q-name">${esc(p.name)}</h2><p class="ml-price big">${price(p)}${discountOf(p)?`<em>-${discountOf(p)}%</em>`:''}<small>ou ${INSTALLMENTS}x de ${money(installment(p.price))} sem juros</small></p>
 <p class="ml-q-desc">${esc(p.description)}</p>
 ${p.variants?`<div class="ml-field"><span>Cor: <b>${esc(v.color)}</b></span><div class="ml-colors">${p.variants.map(x=>`<button type="button" data-base="${x.base}" style="--c:${x.swatch}" aria-label="${esc(x.color)}" aria-pressed="${x.base===base}"></button>`).join('')}</div></div>`:`<div class="ml-field"><span>Cor: <b>${esc(p.color)}</b></span></div>`}
-<div class="ml-field"><span>Tamanho</span><div class="ml-q-sizes">${SIZES.map(s=>`<button type="button" data-pick="${s}" aria-pressed="${s===size}">${s}</button>`).join('')}</div><details class="ml-guide"><summary>Guia de medidas</summary><table><thead><tr><th scope="col">Tamanho</th><th scope="col">Largura</th><th scope="col">Comprimento</th></tr></thead><tbody>${SIZE_GUIDE.map(([s,w,h])=>`<tr><th scope="row">${s}</th><td>${w} cm</td><td>${h} cm</td></tr>`).join('')}</tbody></table><p>Peça estendida, em centímetros. Para menos volume, escolha um tamanho abaixo.</p></details></div>
+<div class="ml-field"><span>Tamanho</span><div class="ml-q-sizes">${SIZES.map(s=>`<button type="button" data-pick="${s}" aria-pressed="${s===size}">${s}</button>`).join('')}</div><details class="ml-guide"><summary>Guia de medidas</summary><table><thead><tr><th scope="col">Tamanho</th><th scope="col">Comprimento</th><th scope="col">Largura</th><th scope="col">Manga</th></tr></thead><tbody>${MARILEUS_MEASURES.map(([s,c,w,m])=>`<tr><th scope="row">${s}</th><td>${c} cm</td><td>${w} cm</td><td>${m} cm</td></tr>`).join('')}</tbody></table><p>Peça estendida, em centímetros. Para menos volume, escolha um tamanho abaixo.</p></details></div>
 <button type="button" class="ml-btn ml-btn-primary ml-q-add" id="ml-q-add"${size?'':' disabled'}>${size?`Adicionar ao carrinho · ${size}`:'Escolha um tamanho'}</button>
 <dl class="ml-q-specs"><div><dt>Tecido</dt><dd>${esc(p.fabric)}</dd></div>${p.print?`<div><dt>Estampa</dt><dd>${esc(p.print)}</dd></div>`:''}<div><dt>Caimento</dt><dd>${esc(p.fit)}</dd></div><div><dt>Cuidados</dt><dd>${esc(p.care)}</dd></div></dl></div>`;
  };

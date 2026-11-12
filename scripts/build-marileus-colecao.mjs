@@ -1,7 +1,7 @@
-// Fotos da nova coleção da Marileus: Carpa Japonesa, Coração Pixelado, Dragão e Ronin.
-// Cada estampa tem 3 poses (Frente, Lado, Costas); Dragão e Ronin existem em preto e off white,
+// Fotos da coleção da Marileus: Carpa Japonesa, Coração Pixelado, Dragão, Ronin e Critical Fate.
+// Cada estampa tem 3 poses (Frente, Lado, Costas); Dragão, Ronin e Critical Fate existem em preto e off white,
 // e cada cor tem a sua galeria (o seletor de cor do site troca as fotos).
-//   uso: node scripts/build-marileus-colecao.mjs <pasta com os PNGs originais>
+//   uso: node scripts/build-marileus-colecao.mjs <pasta com os PNGs originais> [conjunto ...]  (sem conjuntos, refaz todos)
 // Saída em dist/assets/<nome>-<n>-{400,800,1024}.webp + <nome>-<n>-1024.jpg (n: 1 frente, 2 lado, 3 costas).
 // Todas saem em 1024x1536 (2:3): as fotos mais "quadradas" são cortadas no centro para a galeria ficar uniforme.
 import sharp from 'sharp';
@@ -16,11 +16,15 @@ const SETS = {
   'geek-dragao-preto':     ['Dragao_Frente_Preta', 'Dragao_Lateral_Pretea', 'Dragao_Costas_Preta'],
   'geek-dragao-branco':    ['Camisa_Off_White_Frente', 'Camisa_Off_White_Lateral', 'Camisa_Off_Wihte_Costas'],
   'geek-ronin-preto':      ['Ronin_Marileus_Frente', 'Ronin_Marileus_Lateral', 'Ronin_Marileus_Costas'],
-  'geek-ronin-branco':     ['Frente_Ronin', 'Lado_Roonin', 'Costas_Ronin']
+  'geek-ronin-branco':     ['Frente_Ronin', 'Lado_Roonin', 'Costas_Ronin'],
+  'geek-critical-preto':   ['Critical_Frente_Preto', 'Critical_Lado_Preto', 'Critical_Fate_Mockup_Preto_Costas'],
+  'geek-critical-branco':  ['Critical_Frente_Branco', 'Critical_Lado_Branco', 'Critical_Costas_Brancooo']
 };
 const WIDTHS = [400, 800, 1024];
 
+const ONLY = process.argv.slice(3);
 for (const [name, files] of Object.entries(SETS)) {
+  if (ONLY.length && !ONLY.includes(name)) continue;
   for (let i = 0; i < files.length; i++) {
     const input = path.join(SRC, `${files[i]}.png`);
     if (!existsSync(input)) throw new Error(`Falta o arquivo ${input}`);

@@ -44,4 +44,10 @@
     <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-ronin-preto-2-1024.jpg</image:loc></image:image>
     <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-ronin-preto-3-1024.jpg</image:loc></image:image>
   </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/produto/geek-critical</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-critical-preto-1-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-critical-preto-2-1024.jpg</image:loc></image:image>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/geek-critical-preto-3-1024.jpg</image:loc></image:image>
+  </url>
 </urlset>

@@ -46,7 +46,7 @@ function productLD(p){
  const url=abs(productPath(p.id));
  return {'@type':'Product','@id':url,name:p.name,description:p.description,sku:p.id,
   image:photosOf(p).map(n=>abs(`assets/${n}-1024.jpg`)),brand:{'@type':'Brand',name:brandOf(p)?.name||'duavesso'},
-  color:p.variants?p.variants.map(v=>v.color).join(', '):p.color,material:/algodão/i.test(p.fabric)?'100% algodão':p.fabric,url,
+  color:p.variants?p.variants.map(v=>v.color).join(', '):p.color,material:/^100% algodão/i.test(p.fabric)?'100% algodão':p.fabric.split(' · ')[0],url,
   offers:{'@type':'Offer',price:(p.price/100).toFixed(2),priceCurrency:'BRL',availability:'https://schema.org/PreOrder',itemCondition:'https://schema.org/NewCondition',url}};
 }
 const crumbs=list=>({'@type':'BreadcrumbList',itemListElement:list.map(([name,path],i)=>({'@type':'ListItem',position:i+1,name,item:abs(path)}))});

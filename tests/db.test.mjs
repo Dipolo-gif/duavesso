@@ -30,8 +30,8 @@ async function order(items,{shipping='standard',cust=customer}={}){
 }
 const rejects=(items,re,opts)=>assert.rejects(order(items,opts),re);
 
-test('all migrations apply in order and 0006 to 0019 can be applied twice',async()=>{
- for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql','0013_tecidos_do_fornecedor.sql','0014_codigo_de_pedido_sem_colisao.sql','0015_dono_exclui_marca.sql','0016_marketplace_edicoes_promocao.sql','0017_colecao_em_reformulacao.sql','0018_estampa_dtf_textil.sql','0019_colecao_marileus_dragao_ronin.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
+test('all migrations apply in order and 0006 to 0020 can be applied twice',async()=>{
+ for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql','0013_tecidos_do_fornecedor.sql','0014_codigo_de_pedido_sem_colisao.sql','0015_dono_exclui_marca.sql','0016_marketplace_edicoes_promocao.sql','0017_colecao_em_reformulacao.sql','0018_estampa_dtf_textil.sql','0019_colecao_marileus_dragao_ronin.sql','0020_marileus_tamanhos_e_critical_fate.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
 });
 
 test('active catalog in the database matches dist/commerce.js field by field',async()=>{
@@ -53,7 +53,8 @@ test('active catalog in the database matches dist/commerce.js field by field',as
  await db.query('update public.products set active=true where id = any($1)',[ARCHIVE.map(p=>p.id)]);
  const rows=(await db.query('select * from public.products where active order by sort_order')).rows;
  assert.deepEqual(rows.map(r=>r.id),ARCHIVE.map(p=>p.id));
- for(const p of ARCHIVE){
+ for(const a of ARCHIVE){
+  const p=PRODUCTS.find(x=>x.id===a.id)||a; // coração e carpa voltaram com a ficha da linha Marileus (0020)
   const r=rows.find(x=>x.id===p.id);
   for(const [col,key] of [['name','name'],['category','category'],['color','color'],['base','base'],['price_cents','price'],['tag','tag'],['graphic','graphic'],['graphic_class','graphicClass'],['description','description'],['print','print'],['fabric','fabric'],['finish','finish'],['fit','fit'],['care','care']])
    assert.equal(r[col],p[key]??'',`${p.id}.${col}`);
@@ -309,7 +310,7 @@ test('marcas: as 3 marcas de hoje estão no banco e o público só vê as ativas
  const pub=(await as(null,'select slug,name,tagline from public.brands order by slug')).rows;
  assert.deepEqual(pub.map(b=>b.slug),['geek','solfado','try84']);
  assert.equal(pub.find(b=>b.slug==='try84').tagline,'rugby lifestyle · forward together');
- assert.deepEqual((await db.query(`select id from public.products where brand_slug='geek' order by id`)).rows.map(r=>r.id),['geek-carpa','geek-coracao','geek-dragao','geek-ronin','heavy-avesso','heavy-eclipse','heavy-faces','simples'],'as peças da duavesso agora são da Marileus (geek)');
+ assert.deepEqual((await db.query(`select id from public.products where brand_slug='geek' order by id`)).rows.map(r=>r.id),['geek-carpa','geek-coracao','geek-critical','geek-dragao','geek-ronin','heavy-avesso','heavy-eclipse','heavy-faces','simples'],'as peças da duavesso agora são da Marileus (geek)');
  assert.deepEqual(Object.fromEntries((await db.query(`select slug,edition from public.brands order by slug`)).rows.map(r=>[r.slug,r.edition])),{geek:'geek',solfado:'arte',try84:'esporte'},'cada marca numa edição');
  await db.exec('begin');
  try{
