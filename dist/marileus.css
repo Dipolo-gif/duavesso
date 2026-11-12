@@ -42,11 +42,6 @@ h1,h2,h3,p,ul,ol,dl,dd,figure{margin:0}ul,ol{padding:0;list-style:none}
 .ml-small{font-size:13px;color:var(--silver)}
 
 /* Barra da duavesso: o site é uma loja dentro da plataforma */
-.ml-platform{display:flex;align-items:center;gap:18px;padding:8px var(--pad);background:#fff;color:#161719;font-size:12px}
-.ml-plat-home{display:inline-flex;align-items:center;gap:10px;font-weight:700}.ml-plat-home img{height:16px;width:auto}.ml-plat-home span{color:#1737bc}
-.ml-plat-home:hover span{text-decoration:underline}
-.ml-plat-note{flex:1;color:#64666e}.ml-plat-acc{font-weight:700;color:#1737bc}.ml-plat-acc:hover{text-decoration:underline}
-@media(max-width:700px){.ml-plat-note,.ml-plat-home span{display:none}.ml-platform{justify-content:space-between}.ml-plat-acc{white-space:nowrap}}
 /* Faixa e menu */
 .ml-ticker{overflow:hidden;border-bottom:1px solid var(--line2);background:var(--void);font:600 13px/1 var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--silver)}
 .ml-ticker-track{display:flex;width:max-content;animation:ml-tick 38s linear infinite}

@@ -203,7 +203,7 @@ $('#ml-cart-open').addEventListener('click',()=>{renderDrawer();openDialog($('#m
 const UFS='AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ');
 let step=1;const ship={};
 const user=getUser();
-if(user){ship.name=user.name||'';ship.email=user.email||'';const a=$('#ml-account');a.textContent=`Olá, ${(user.name||user.email).split(/[\s@]/)[0]}`;a.title='Sua conta duavesso';}
+if(user){ship.name=user.name||'';ship.email=user.email||'';}
 function openCheckout(){if(!cart.length)return;step=1;renderCheckout();openDialog($('#ml-checkout'));}
 function summaryHTML(){
  const t=sums();
