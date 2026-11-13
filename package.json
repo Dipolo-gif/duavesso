@@ -12,11 +12,11 @@
     "pages": "node scripts/build-pages.mjs"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite": "^0.5.16",
     "esbuild": "^0.28.2",
-    "jsdom": "^30.0.1",
-    "motion": "^13.2.0",
+    "jsdom": "^31.0.0",
+    "motion": "^14.11.1",
     "sharp": "^0.35.5",
-    "three": "^0.186.0"
+    "three": "^0.187.0"
   }
 }
