@@ -86,11 +86,12 @@ function decode(){}
 
 // Pista do topo: o carro é um botão (clicar ou tocar dá o turbo) e dois rivais passam na faixa de trás
 const road=$('#es-road'),WORDS=['VRUUUM!','BI-BI!','ZUUUM!','TURBO!','FIUUU!'];
-let word=0,turboTimer;
+let word=0,turboTimer,race=null;
 function boost(say=true){
  if(still())return;
  road.classList.remove('turbo');void road.offsetWidth;road.classList.add('turbo');
  clearTimeout(turboTimer);turboTimer=setTimeout(()=>road.classList.remove('turbo'),1250);
+ race?.boost();
  if(say){const v=$('#es-vroom');v.textContent=WORDS[word++%WORDS.length];v.classList.remove('on');void v.offsetWidth;v.classList.add('on');}
 }
 $('#es-car').addEventListener('click',()=>boost());
@@ -315,6 +316,45 @@ window.addEventListener('scroll',onScroll,{passive:true});onScroll();
 // Sobre a ESS e o bilhete do rodapé entram conforme aparecem na tela
 $$('.es-specs div').forEach((d,i)=>d.style.setProperty('--i',i));
 reveal([...$$('.es-man-copy,.es-podium,.es-specs div,.es-ticket'),...$$('.es-soon')],false);
+
+// Carrinhos em 3D: carregam depois da página (o pacote é grande) e só onde há WebGL. A corrida do topo troca
+// os carros desenhados pelos de 3D, e a garagem deixa girar e escolher o carro que corre na pista.
+// Sem WebGL ou se algo falhar, a página segue com o carro desenhado e a garagem não aparece.
+const CAR_KEY='ess.car.v1',STATS=['Velocidade','Turbo','Curvas'];
+function start3d(){
+ const probe=document.createElement('canvas');if(!(probe.getContext('webgl2')||probe.getContext('webgl')))return;
+ import('./ess-3d.js').then(({CARS,startRace,startShow})=>{
+  let picked;try{picked=localStorage.getItem(CAR_KEY);}catch{}
+  if(!CARS.some(c=>c.id===picked))picked=CARS[0].id;
+  if(!still()){
+   road.classList.add('es-3d');
+   race=startRace($('#es-race'),()=>({car:$('#es-car').offsetWidth,left:$('#es-car').offsetLeft,track:$('.es-track').offsetHeight}),picked);
+  }
+  $('#carros').hidden=false;
+  const show=startShow($('#es-show-canvas'),picked),card=$('.es-show-card'),pick=$('#es-show-pick');
+  let idx=CARS.findIndex(c=>c.id===picked);
+  $('#es-show-dots').innerHTML=CARS.map((c,i)=>`<button type="button" data-car="${i}" style="--c:${c.color}" aria-label="${esc(c.name)}, ${esc(c.kind)}"></button>`).join('');
+  const paint=()=>{
+   const c=CARS[idx],own=c.id===picked;
+   $('#es-show-kind').textContent=`Nº ${c.num} · ${c.kind}`;$('#es-show-name').textContent=c.name;
+   $('#es-stats').innerHTML=c.stats.map((n,i)=>`<div style="--c:${c.color}"><dt>${STATS[i]}</dt><dd role="img" aria-label="${n} de 5">${Array.from({length:5},(_,k)=>`<i${k<n?` class="on" style="--k:${k}"`:''}></i>`).join('')}</dd></div>`).join('');
+   $$('#es-show-dots button').forEach((b,i)=>b.setAttribute('aria-pressed',String(i===idx)));
+   pick.textContent=own?'Este é o seu carro':'Correr com este';pick.disabled=own;
+   card.classList.remove('pop');void card.offsetWidth;card.classList.add('pop');
+  };
+  const go=i=>{idx=(i+CARS.length)%CARS.length;show.show(CARS[idx].id);paint();};
+  $('#es-show-prev').addEventListener('click',()=>go(idx-1));
+  $('#es-show-next').addEventListener('click',()=>go(idx+1));
+  $('#es-show-dots').addEventListener('click',e=>{const b=e.target.closest('[data-car]');if(b)go(+b.dataset.car);});
+  pick.addEventListener('click',()=>{picked=CARS[idx].id;try{localStorage.setItem(CAR_KEY,picked);}catch{}race?.setCar(picked);paint();confetti(pick);toast(`${CARS[idx].name} vai para a pista!`);});
+  $('#es-show-canvas').addEventListener('pointerdown',()=>$('.es-stage-hint').classList.add('off'),{once:true});
+  paint();
+  // Atalho no menu
+  [$('.es-links'),$('#es-mobile')].forEach(n=>{const a=document.createElement('a');a.href='ess#carros';a.textContent='Carros';n.prepend(a);});
+  $('#es-mobile a').addEventListener('click',()=>{$('#es-mobile').hidden=true;$('#es-menu-btn').setAttribute('aria-expanded','false');});
+ }).catch(()=>{road.classList.remove('es-3d');race=null;$('#carros').hidden=true;});
+}
+if(document.readyState==='complete')start3d();else addEventListener('load',start3d,{once:true});
 
 // Do banco: frete grátis atual e o Instagram da marca
 fetchPromos().then(list=>{if(list){setPromos(list);if($('#es-drawer').open)renderDrawer();}});

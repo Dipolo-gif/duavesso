@@ -155,6 +155,40 @@ h1,h2,h3,p,ul,ol,dl,dd,figure{margin:0}ul,ol{padding:0;list-style:none}
 .es-rival.r2{animation:es-fall 13s linear 5s infinite backwards}
 @keyframes es-pass{0%{transform:translateX(-130%)}48%,100%{transform:translateX(104vw)}}
 @keyframes es-fall{0%{transform:translateX(104vw)}55%,100%{transform:translateX(-130%)}}
+/* Corrida em 3D: quando carrega, entra no lugar dos carros desenhados (que ficam de reserva) */
+.es-race{position:absolute;left:0;bottom:0;width:100%;height:calc(var(--track) + 120px);z-index:3;display:none;pointer-events:none}
+.es-road.es-3d .es-race{display:block;animation:es-fade .5s both}
+.es-road.es-3d .es-car,.es-road.es-3d .es-rivals{visibility:hidden}
+/* Garagem 3D: escolher o carro */
+.es-show{position:relative;display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:clamp(24px,4vw,64px);align-items:center;padding:clamp(60px,7vw,100px) max(var(--pad),calc((100% - 1440px)/2));background:var(--asphalt);color:#fff;border-bottom:var(--b)}
+.es-show:before{content:'';position:absolute;left:0;right:0;top:0;height:16px;background:conic-gradient(var(--ink) 25%,#fff 0 50%,var(--ink) 0 75%,#fff 0) 0 0/16px 16px}
+.es-show .es-tag{color:var(--yellow)}
+.es-show-copy{display:grid;gap:18px;align-content:center}
+.es-show-copy>p:not(.es-tag){max-width:460px;font-weight:600;color:#e4e4e4}
+.es-show-card{display:grid;gap:14px;max-width:430px;margin-top:8px;padding:22px;background:#fff;color:var(--ink);border:var(--b);border-radius:22px;box-shadow:8px 8px 0 #000;transform:rotate(-1.2deg)}
+.es-show-card h3{font:800 clamp(46px,5vw,68px)/.9 var(--display);font-style:italic;text-transform:uppercase}
+.es-show-card.pop{animation:es-card-pop .45s cubic-bezier(.3,1.6,.5,1)}
+@keyframes es-card-pop{0%{transform:rotate(-1.2deg) scale(.94)}60%{transform:rotate(1deg) scale(1.03)}100%{transform:rotate(-1.2deg)}}
+.es-stats{display:grid;gap:10px}
+.es-stats div{display:grid;grid-template-columns:104px 1fr;align-items:center;gap:12px}
+.es-stats dt{font:800 16px/1 var(--display);font-style:italic;letter-spacing:.06em;text-transform:uppercase}
+.es-stats dd{display:flex;gap:5px}
+.es-stats i{flex:1;height:15px;border:2px solid var(--ink);border-radius:5px;background:#fff;transform:skewX(-14deg)}
+.es-stats i.on{background:var(--c,var(--red));animation:es-stat .4s cubic-bezier(.3,1.6,.5,1) both;animation-delay:calc(var(--k)*60ms)}
+@keyframes es-stat{from{transform:skewX(-14deg) scaleY(.2)}}
+.es-stage{position:relative;aspect-ratio:16/11;overflow:hidden;border:var(--b);border-radius:28px;box-shadow:8px 8px 0 #000;background:repeating-conic-gradient(from 0deg at 50% 44%,rgba(255,255,255,.22) 0 9deg,transparent 0 18deg),radial-gradient(circle at 50% 40%,#ffe28a 0,#ffbf1f 36%,#f59a00 78%)}
+.es-stage canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y;cursor:grab;outline-offset:-8px}
+.es-stage canvas.grab{cursor:grabbing}
+.es-stage-arrow{position:absolute;top:50%;width:54px;height:54px;margin-top:-27px;display:grid;place-items:center;background:#fff;color:var(--ink);border:var(--b);border-radius:50%;box-shadow:3px 3px 0 var(--ink);transition:transform .15s,background .2s}
+.es-stage-arrow.prev{left:14px}.es-stage-arrow.next{right:14px}
+.es-stage-arrow:hover{background:var(--yellow-l);transform:scale(1.1)}.es-stage-arrow:active{transform:scale(.92)}
+.es-stage-arrow svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.es-stage-dots{position:absolute;left:0;right:0;bottom:14px;display:flex;justify-content:center;gap:12px;pointer-events:none}
+.es-stage-dots button{width:30px;height:30px;border:var(--b);border-radius:50%;background:var(--c);pointer-events:auto;transition:transform .2s cubic-bezier(.3,1.6,.5,1),box-shadow .2s}
+.es-stage-dots button:hover{transform:scale(1.15)}
+.es-stage-dots button[aria-pressed="true"]{transform:scale(1.3);box-shadow:0 0 0 3px #fff,0 0 0 6px var(--ink)}
+.es-stage-hint{position:absolute;top:14px;left:50%;transform:translateX(-50%);padding:7px 14px;background:var(--ink);color:#fff;border-radius:999px;font:800 13px/1 var(--display);font-style:italic;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;pointer-events:none;transition:opacity .4s}
+.es-stage-hint.off{opacity:0}
 /* Volta do site: carrinho que corre debaixo do menu conforme a página desce */
 .es-lap{position:absolute;left:0;right:0;bottom:-3px;height:5px;pointer-events:none;opacity:0;transition:opacity .3s}
 .es-nav.scrolled .es-lap{opacity:1}
@@ -165,7 +199,7 @@ h1,h2,h3,p,ul,ol,dl,dd,figure{margin:0}ul,ol{padding:0;list-style:none}
 /* Vitrine (garagem) */
 .es-catalog,.es-drop,.es-manifesto{padding:clamp(64px,9vw,116px) max(var(--pad),calc((100% - 1440px)/2))}
 .es-head{display:flex;justify-content:space-between;align-items:end;gap:24px;flex-wrap:wrap}
-.es-head h2,.es-drop h2,.es-manifesto h2,.es-ticket h2{font:800 clamp(50px,6.6vw,96px)/.9 var(--display);font-style:italic;text-transform:uppercase;margin-top:10px}
+.es-head h2,.es-drop h2,.es-manifesto h2,.es-ticket h2,.es-show h2{font:800 clamp(50px,6.6vw,96px)/.9 var(--display);font-style:italic;text-transform:uppercase;margin-top:10px}
 .es-search{display:flex;align-items:center;gap:10px;min-width:min(340px,100%);padding:0 16px;border:var(--b);border-radius:999px;background:#fff;box-shadow:3px 3px 0 var(--ink)}
 .es-search:focus-within{box-shadow:5px 5px 0 var(--red)}
 .es-search svg{width:18px;height:18px;fill:none;stroke:var(--ink);stroke-width:2.2;flex:none}
@@ -368,6 +402,7 @@ dialog.closing{animation:es-pop .2s reverse ease-in both}
  .es-links{display:none}.es-menu-btn{display:grid}.es-nav{grid-template-columns:1fr auto}
  .es-hero{grid-template-columns:1fr;--track:160px}.es-drop-card{max-width:440px}
  .es-sticker.s2,.es-sticker.s3{display:none}.es-sticker.s1{top:2%;right:4%}
+ .es-show{grid-template-columns:1fr}.es-stage{aspect-ratio:4/3}.es-show-card{max-width:none}
  .es-drop{grid-template-columns:1fr}.es-drop-tile.t1,.es-drop-tile.t3{transform:translateY(22px)}
  .es-man-copy,.es-podium,.es-specs{grid-column:1/-1}.es-podium{max-width:440px}
  .es-specs{grid-template-columns:1fr 1fr}

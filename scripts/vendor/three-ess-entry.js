@@ -1,0 +1,2 @@
+// Só o que os carrinhos 3D da ESS usam (dist/ess-3d.js); esbuild remove o resto (npm run vendor).
+export {Scene, PerspectiveCamera, WebGLRenderer, Mesh, Group, BoxGeometry, CylinderGeometry, SphereGeometry, CircleGeometry, ConeGeometry, ExtrudeGeometry, Shape, MeshToonMaterial, MeshBasicMaterial, DataTexture, CanvasTexture, NearestFilter, RedFormat, SRGBColorSpace, BackSide, Vector3, DirectionalLight, HemisphereLight} from 'three';

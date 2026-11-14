@@ -56,6 +56,7 @@
         <div class="es-trees" aria-hidden="true"></div>
         <div class="es-track" aria-hidden="true"></div>
         <div class="es-rivals" id="es-rivals" aria-hidden="true"></div>
+        <canvas class="es-race" id="es-race" aria-hidden="true"></canvas>
         <p class="es-vroom" id="es-vroom" aria-hidden="true"></p>
         <button type="button" class="es-car-btn" id="es-car" aria-label="Acelerar o carro">
           <svg class="es-car" viewBox="0 0 420 164" aria-hidden="true">
@@ -99,6 +100,27 @@
             <g class="es-wheel"><circle cx="310" cy="122" r="30" fill="#141414" stroke="#fff" stroke-width="5"/><circle cx="310" cy="122" r="30" fill="#141414"/><circle cx="310" cy="122" r="23" fill="none" stroke="#4a4e57" stroke-width="3"/><circle cx="310" cy="122" r="17" fill="#ffbf1f" stroke="#141414" stroke-width="4"/><path d="M310 107v30M295.7 117.4l28.6 9.2M301.2 134.1l17.6-24.2M318.8 134.1l-17.6-24.2M324.3 117.4l-28.6 9.2" stroke="#141414" stroke-width="4" stroke-linecap="round"/><circle cx="310" cy="122" r="5" fill="#fff" stroke="#141414" stroke-width="3"/></g>
           </svg>
         </button>
+      </div>
+    </section>
+
+    <section class="es-show" id="carros" aria-labelledby="es-show-title" hidden>
+      <div class="es-show-copy">
+        <p class="es-tag">Monte seu grid</p>
+        <h2 id="es-show-title">Escolha seu carro</h2>
+        <p>Gire, compare e escolha o seu favorito. O carro que você escolher vai correr na pista lá em cima.</p>
+        <div class="es-show-card" aria-live="polite">
+          <p class="es-mini" id="es-show-kind"></p>
+          <h3 id="es-show-name"></h3>
+          <dl class="es-stats" id="es-stats"></dl>
+          <button type="button" class="es-btn es-btn-primary es-wide" id="es-show-pick">Correr com este</button>
+        </div>
+      </div>
+      <div class="es-stage">
+        <canvas id="es-show-canvas" tabindex="0" role="img" aria-label="Carro em 3D. Arraste ou use as setas do teclado para girar."></canvas>
+        <button type="button" class="es-stage-arrow prev" id="es-show-prev" aria-label="Carro anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button>
+        <button type="button" class="es-stage-arrow next" id="es-show-next" aria-label="Próximo carro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
+        <div class="es-stage-dots" id="es-show-dots" role="group" aria-label="Escolher carro"></div>
+        <p class="es-stage-hint" aria-hidden="true">Arraste para girar</p>
       </div>
     </section>
 
