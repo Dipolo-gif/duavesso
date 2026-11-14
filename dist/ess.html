@@ -32,6 +32,7 @@
       <button type="button" class="es-cart-btn" id="es-cart-open" aria-label="Abrir carrinho, 0 peças"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg><span class="es-count" id="es-count">0</span></button>
       <button type="button" class="es-icon es-menu-btn" id="es-menu-btn" aria-label="Abrir menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M4 16h16"/></svg></button>
     </div>
+    <div class="es-lap" aria-hidden="true"><i></i></div>
   </header>
   <nav class="es-mobile" id="es-mobile" aria-label="Menu" hidden><a href="ess#estampas">Garagem</a><a href="ess#drop">Grid de largada</a><a href="ess#manifesto">Sobre a ESS</a></nav>
 
@@ -45,21 +46,59 @@
         <div class="es-ctas"><a class="es-btn es-btn-primary" href="ess#estampas">Ver a garagem</a><a class="es-btn es-btn-ghost" href="ess#drop">Grid de largada</a></div>
       </div>
       <aside class="es-drop-card" id="es-drop-card" aria-label="Coleção atual"></aside>
-      <div class="es-road" aria-hidden="true">
-        <svg class="es-car" viewBox="0 0 330 140">
-          <g class="es-car-body">
-            <path d="M16 70 10 44h34l4 22" fill="#141414"/>
-            <path d="M22 100q-4-30 22-36l52-8q30-30 78-30h40q26 2 44 26l34 8q18 4 18 24v10q0 8-8 8H30q-8 0-8-2z" fill="#e5231b" stroke="#141414" stroke-width="7" stroke-linejoin="round"/>
-            <path d="M118 58q20-22 56-24h34q20 2 32 22z" fill="#bfe6ff" stroke="#141414" stroke-width="6" stroke-linejoin="round"/>
-            <path d="M180 34v24" stroke="#141414" stroke-width="6"/>
-            <path d="M40 84h258" stroke="#ffbf1f" stroke-width="8" stroke-linecap="round"/>
-            <circle cx="150" cy="80" r="16" fill="#fff" stroke="#141414" stroke-width="5"/>
-            <text x="150" y="87" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="20" fill="#141414">1</text>
-            <ellipse cx="306" cy="74" rx="7" ry="5" fill="#ffe28a" stroke="#141414" stroke-width="3"/>
-          </g>
-          <g class="es-wheel" style="transform-origin:84px 104px"><circle cx="84" cy="104" r="24" fill="#141414"/><circle cx="84" cy="104" r="11" fill="#e8e8e8"/><path d="M84 93v22M73 104h22" stroke="#141414" stroke-width="4"/></g>
-          <g class="es-wheel" style="transform-origin:252px 104px"><circle cx="252" cy="104" r="24" fill="#141414"/><circle cx="252" cy="104" r="11" fill="#e8e8e8"/><path d="M252 93v22M241 104h22" stroke="#141414" stroke-width="4"/></g>
-        </svg>
+      <div class="es-stickers" aria-hidden="true">
+        <svg class="es-sticker s1" viewBox="0 0 100 100"><path d="M50 6 61 36l32 2-25 20 9 31-27-18-27 18 9-31L7 38l32-2z" fill="#fff" stroke="#fff" stroke-width="14" stroke-linejoin="round"/><path d="M50 6 61 36l32 2-25 20 9 31-27-18-27 18 9-31L7 38l32-2z" fill="#ffbf1f" stroke="#141414" stroke-width="6" stroke-linejoin="round"/><path d="M38 44l6-14" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".8"/></svg>
+        <svg class="es-sticker s2" viewBox="0 0 100 100"><path d="M58 4 22 54h24l-8 42 40-54H52z" fill="#fff" stroke="#fff" stroke-width="14" stroke-linejoin="round"/><path d="M58 4 22 54h24l-8 42 40-54H52z" fill="#e5231b" stroke="#141414" stroke-width="6" stroke-linejoin="round"/></svg>
+        <svg class="es-sticker s3" viewBox="0 0 100 100"><g stroke-linejoin="round"><path d="M28 14h44v26a22 22 0 0 1-44 0zM40 84h20M50 62v22M30 90h40" fill="#fff" stroke="#fff" stroke-width="16" stroke-linecap="round"/><path d="M28 22H12q0 22 18 26M72 22h16q0 22-18 26" fill="none" stroke="#141414" stroke-width="6"/><path d="M28 14h44v26a22 22 0 0 1-44 0z" fill="#ffbf1f" stroke="#141414" stroke-width="6"/><path d="M50 62v20M34 88h32" stroke="#141414" stroke-width="8" stroke-linecap="round"/><path d="M38 22v16" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".8"/></g></svg>
+      </div>
+      <div class="es-road" id="es-road">
+        <div class="es-hills" aria-hidden="true"></div>
+        <div class="es-trees" aria-hidden="true"></div>
+        <div class="es-track" aria-hidden="true"></div>
+        <div class="es-rivals" id="es-rivals" aria-hidden="true"></div>
+        <p class="es-vroom" id="es-vroom" aria-hidden="true"></p>
+        <button type="button" class="es-car-btn" id="es-car" aria-label="Acelerar o carro">
+          <svg class="es-car" viewBox="0 0 420 164" aria-hidden="true">
+            <defs>
+              <clipPath id="es-car-clip"><path d="M36 120Q30 104 36 92l8-16q4-8 16-8l36-4q32-38 100-40h26q30 2 54 36l76 12q40 6 44 28v12q0 12-12 12h-36a38 38 0 0 0-76 0H148a38 38 0 0 0-76 0H48q-10 0-12-4z"/></clipPath>
+              <clipPath id="es-win-clip"><path d="M112 62q24-26 84-28h24q20 2 38 28z"/></clipPath>
+              <linearGradient id="es-glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9f7ff"/><stop offset="1" stop-color="#8fd0ff"/></linearGradient>
+            </defs>
+            <ellipse class="es-car-shadow" cx="216" cy="152" rx="186" ry="8" fill="#000" opacity=".38"/>
+            <g class="es-puffs"><circle cx="-34" cy="130" r="11"/><circle cx="-34" cy="130" r="9"/><circle cx="-34" cy="130" r="10"/></g>
+            <g class="es-car-body">
+              <g class="es-flame"><path d="M40 103Q-6 90-62 117q56 27 102 11z" fill="#ff7a00" stroke="#141414" stroke-width="5" stroke-linejoin="round"/><path d="M38 109q-30-7-64 8 34 15 64 6z" fill="#ffe14a"/></g>
+              <g fill="none" stroke="#fff" stroke-linejoin="round" stroke-linecap="round"><path d="M36 120Q30 104 36 92l8-16q4-8 16-8l36-4q32-38 100-40h26q30 2 54 36l76 12q40 6 44 28v12q0 12-12 12h-36a38 38 0 0 0-76 0H148a38 38 0 0 0-76 0H48q-10 0-12-4z" stroke-width="19"/><path d="M22 30h62l-5 20H27zM50 70l-5-22M68 68l-4-20" stroke-width="18"/></g>
+              <path d="M50 70l-5-22M68 68l-4-20" stroke="#141414" stroke-width="7" stroke-linecap="round"/>
+              <path class="es-paint" d="M24 30h58q6 0 5 6l-3 9q-1 5-7 5H29q-6 0-7-6l-2-8q-1-6 4-6z" stroke="#141414" stroke-width="6" stroke-linejoin="round"/>
+              <circle cx="110" cy="122" r="37" fill="#141414"/><circle cx="310" cy="122" r="37" fill="#141414"/>
+              <path class="es-paint" d="M36 120Q30 104 36 92l8-16q4-8 16-8l36-4q32-38 100-40h26q30 2 54 36l76 12q40 6 44 28v12q0 12-12 12h-36a38 38 0 0 0-76 0H148a38 38 0 0 0-76 0H48q-10 0-12-4z"/>
+              <g clip-path="url(#es-car-clip)">
+                <rect x="28" y="104" width="372" height="24" fill="#000" opacity=".2"/>
+                <path d="M30 93h370" stroke="#ffbf1f" stroke-width="10"/><path d="M30 86h370" stroke="#fff" stroke-width="3"/>
+                <path d="M72 76l26-4q30-36 98-38h26q16 1 30 12" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".5"/>
+                <path d="M292 70l56 9" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".55"/>
+                <path d="M236 106h36l-8 12h-32z" fill="#141414"/>
+                <path d="M180 64v60M266 64q8 30 0 60" fill="none" stroke="#141414" stroke-width="3" opacity=".45"/>
+                <path d="M196 80h14" stroke="#141414" stroke-width="4" stroke-linecap="round"/>
+              </g>
+              <path d="M36 120Q30 104 36 92l8-16q4-8 16-8l36-4q32-38 100-40h26q30 2 54 36l76 12q40 6 44 28v12q0 12-12 12h-36a38 38 0 0 0-76 0H148a38 38 0 0 0-76 0H48q-10 0-12-4z" fill="none" stroke="#141414" stroke-width="7" stroke-linejoin="round"/>
+              <path d="M112 62q24-26 84-28h24q20 2 38 28z" fill="url(#es-glass)"/>
+              <g clip-path="url(#es-win-clip)">
+                <circle cx="216" cy="56" r="15" fill="#fff" stroke="#141414" stroke-width="4"/><path d="M203 50q13-13 27 0" fill="none" stroke="#e5231b" stroke-width="5"/><path d="M219 50h14v9h-14z" fill="#141414"/>
+                <path d="M124 60l20-20M140 60l12-12" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".85"/>
+              </g>
+              <path d="M112 62q24-26 84-28h24q20 2 38 28zM186 34v28" fill="none" stroke="#141414" stroke-width="6" stroke-linejoin="round"/>
+              <circle cx="148" cy="94" r="19" fill="#fff" stroke="#141414" stroke-width="5"/>
+              <text class="es-car-num" x="148" y="102" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="23" fill="#141414">1</text>
+              <path d="M366 80q22 4 27 18h-17q-11-5-10-18z" fill="#fff6c4" stroke="#141414" stroke-width="4" stroke-linejoin="round"/>
+              <rect x="32" y="88" width="9" height="15" rx="3" fill="#ff9a1f" stroke="#141414" stroke-width="3"/>
+              <path d="M350 126h48" stroke="#141414" stroke-width="8" stroke-linecap="round"/>
+            </g>
+            <g class="es-wheel"><circle cx="110" cy="122" r="30" fill="#141414" stroke="#fff" stroke-width="5"/><circle cx="110" cy="122" r="30" fill="#141414"/><circle cx="110" cy="122" r="23" fill="none" stroke="#4a4e57" stroke-width="3"/><circle cx="110" cy="122" r="17" fill="#ffbf1f" stroke="#141414" stroke-width="4"/><path d="M110 107v30M95.7 117.4l28.6 9.2M101.2 134.1l17.6-24.2M118.8 134.1l-17.6-24.2M124.3 117.4l-28.6 9.2" stroke="#141414" stroke-width="4" stroke-linecap="round"/><circle cx="110" cy="122" r="5" fill="#fff" stroke="#141414" stroke-width="3"/></g>
+            <g class="es-wheel"><circle cx="310" cy="122" r="30" fill="#141414" stroke="#fff" stroke-width="5"/><circle cx="310" cy="122" r="30" fill="#141414"/><circle cx="310" cy="122" r="23" fill="none" stroke="#4a4e57" stroke-width="3"/><circle cx="310" cy="122" r="17" fill="#ffbf1f" stroke="#141414" stroke-width="4"/><path d="M310 107v30M295.7 117.4l28.6 9.2M301.2 134.1l17.6-24.2M318.8 134.1l-17.6-24.2M324.3 117.4l-28.6 9.2" stroke="#141414" stroke-width="4" stroke-linecap="round"/><circle cx="310" cy="122" r="5" fill="#fff" stroke="#141414" stroke-width="3"/></g>
+          </svg>
+        </button>
       </div>
     </section>
 
@@ -93,7 +132,7 @@
       </div>
       <div class="es-podium" aria-hidden="true">
         <div class="es-flag-board"><img src="assets/ess-logo.png" alt="" width="900" height="308" loading="lazy"></div>
-        <div class="es-steps-podium"><span class="p2">2</span><span class="p1">1</span><span class="p3">3</span></div>
+        <div class="es-steps-podium"><span class="p2">2</span><span class="p1"><svg class="es-trophy" viewBox="0 0 100 100"><path d="M28 22H12q0 22 18 26M72 22h16q0 22-18 26" fill="none" stroke="#141414" stroke-width="6"/><path d="M28 14h44v26a22 22 0 0 1-44 0z" fill="#ffbf1f" stroke="#141414" stroke-width="6" stroke-linejoin="round"/><path d="M50 62v20M34 88h32" stroke="#141414" stroke-width="8" stroke-linecap="round"/><path d="M38 22v16" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".8"/></svg>1</span><span class="p3">3</span></div>
       </div>
       <dl class="es-specs">
         <div><dt>Estampa</dt><dd><b>DTF</b><small>Cores vivas e traço fino, aplicado com prensa térmica</small></dd></div>

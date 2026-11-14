@@ -43,7 +43,17 @@ const price=p=>discountOf(p)?`<s>${money(p.compareAt)}</s><b>${money(p.price)}</
 // Entradas suaves conforme a página desce (desligadas com movimento reduzido)
 const io='IntersectionObserver' in window&&!still()?new IntersectionObserver(es=>es.forEach(en=>{if(en.isIntersecting){en.target.classList.remove('pre');en.target.classList.add('in');io.unobserve(en.target);}}),{rootMargin:'0px 0px -8% 0px'}):null;
 // Só os cartões da vitrine entram assim; se o navegador não avisar a tempo, aparecem mesmo assim
-function reveal(els){els.forEach(el=>{if(io){el.classList.add('pre');io.observe(el);}else el.classList.add('in');});if(io)setTimeout(()=>els.forEach(el=>{if(el.classList.contains('pre')){el.classList.remove('pre');el.classList.add('in');io.unobserve(el);}}),2500);}
+function reveal(els,safety=true){els.forEach(el=>{if(io){el.classList.add('pre');io.observe(el);}else el.classList.add('in');});if(io&&safety)setTimeout(()=>els.forEach(el=>{if(el.classList.contains('pre')){el.classList.remove('pre');el.classList.add('in');io.unobserve(el);}}),2500);}
+// Confete: sai de um ponto da tela (o botão clicado, o selo do pedido) e cai
+const CONF=['#e5231b','#ffbf1f','#fff','#141414','#bfe6ff','#2fb866'];
+function confetti(from,n=44){
+ if(still())return;
+ const r=from?.getBoundingClientRect?.(),x=r?r.left+r.width/2:innerWidth/2,y=r?r.top+r.height/2:innerHeight/3;
+ const box=document.createElement('div');box.className='es-conf';box.setAttribute('aria-hidden','true');
+ box.innerHTML=Array.from({length:n},(_,i)=>{const a=Math.random()*Math.PI*2,d=120+Math.random()*260;
+  return `<i style="--x:${x}px;--y:${y}px;--c:${CONF[i%CONF.length]};--dx:${Math.round(Math.cos(a)*d)}px;--up:${-Math.round(80+Math.random()*220)}px;--dy:${Math.round(200+Math.random()*320)}px;--r:${Math.round(Math.random()*900-450)}deg;--t:${(1.2+Math.random()*.9).toFixed(2)}s"></i>`;}).join('');
+ document.body.append(box);setTimeout(()=>box.remove(),2400);
+}
 let toastTimer;
 function toast(msg){const t=$('#es-toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('on'),3800);}
 function openDialog(d){if(!d.open)d.showModal();document.documentElement.classList.add('es-lock');}
@@ -74,9 +84,25 @@ window.addEventListener('storage',e=>{if(e.key===CART_KEY){cart=read();paintCoun
 // O título entra com o próprio CSS (largada); aqui não há efeito de letras
 function decode(){}
 
-// Luzes de largada do cartão de espera: acendem uma a uma e apagam juntas (com movimento reduzido, ficam acesas)
+// Pista do topo: o carro é um botão (clicar ou tocar dá o turbo) e dois rivais passam na faixa de trás
+const road=$('#es-road'),WORDS=['VRUUUM!','BI-BI!','ZUUUM!','TURBO!','FIUUU!'];
+let word=0,turboTimer;
+function boost(say=true){
+ if(still())return;
+ road.classList.remove('turbo');void road.offsetWidth;road.classList.add('turbo');
+ clearTimeout(turboTimer);turboTimer=setTimeout(()=>road.classList.remove('turbo'),1250);
+ if(say){const v=$('#es-vroom');v.textContent=WORDS[word++%WORDS.length];v.classList.remove('on');void v.offsetWidth;v.classList.add('on');}
+}
+$('#es-car').addEventListener('click',()=>boost());
+[['#1e63ff','7','r1'],['#19a35b','3','r2']].forEach(([color,num,cls])=>{
+ const c=$('#es-car .es-car').cloneNode(true);c.classList.replace('es-car','es-rival');c.classList.add(cls);
+ c.style.setProperty('--car',color);$('.es-car-num',c).textContent=num;$('#es-rivals').append(c);
+});
+
+// Luzes de largada do cartão de espera: acendem uma a uma e, quando apagam, é a largada (o carro arranca).
+// Com movimento reduzido, ficam acesas.
 function startLights(){const ls=$$('#es-drop-card .es-lights span');if(still()){ls.forEach(l=>l.classList.add('on'));return;}
- let n=0;setInterval(()=>{if(n<ls.length){ls[n].classList.add('on');n++;}else{ls.forEach(l=>l.classList.remove('on'));n=0;}},700);}
+ let n=0;setInterval(()=>{if(n<ls.length){ls[n].classList.add('on');n++;}else{ls.forEach(l=>l.classList.remove('on'));n=0;if(!document.hidden&&scrollY<innerHeight)boost(false);}},700);}
 let dropIdx=0,dropTimer;
 function renderDropCard(){
  const list=DROP.map(byId).filter(Boolean),p=list[dropIdx%list.length];if(!p)return;
@@ -131,7 +157,9 @@ $('#es-products').addEventListener('click',e=>{
 });
 $('#es-search-open').addEventListener('click',()=>{$('#estampas').scrollIntoView({behavior:still()?'instant':'smooth'});setTimeout(()=>$('#es-search').focus({preventScroll:true}),still()?0:450);});
 if(between){$('#es-filters').hidden=true;$('#es-search-wrap').hidden=true;$('#es-results').hidden=true;
- $('#es-products').innerHTML=`<div class="es-empty es-soon"><img src="assets/ess-mark.png" alt="" width="96" height="96"><p class="es-tag">Primeira coleção</p><h3>Os carros estão nos boxes.</h3><p>As primeiras estampas da ESS chegam na largada: carros esportivos, pista e bandeira quadriculada, feitas para os pequenos pilotos.</p><a class="es-btn es-btn-primary" href="ess#lista">Entrar no grid</a></div>`;}
+ $('#es-products').innerHTML=`<div class="es-empty es-soon"><p class="es-tag">Primeira coleção</p><h3>Os carros estão nos boxes.</h3><p>As primeiras estampas da ESS chegam na largada: carros esportivos, pista e bandeira quadriculada, feitas para os pequenos pilotos.</p>
+<div class="es-boxes" aria-hidden="true">${[1,2,3].map(n=>`<div class="es-box" style="--i:${n-1}"><span class="es-box-n">Box ${n}</span><div class="es-box-in"><i class="es-eye"></i><i class="es-eye"></i><b>?</b></div><div class="es-box-door"></div></div>`).join('')}</div>
+<a class="es-btn es-btn-primary" href="ess#lista">Entrar no grid</a></div>`;}
 else{renderFilters();renderProducts();}
 
 // Drop exclusivo ----------------------------------------------------------------------------------------
@@ -263,6 +291,7 @@ function renderCheckout(result){
 <p class="es-small">${user?'O pedido já está em Minha conta, na duavesso.':`Guarde o código: você acompanha o pedido na duavesso, em Consultar status, com o código e o e-mail ${esc(ship.email||'')}.`} Pré-lançamento: nenhum valor é cobrado por enquanto.</p>
 <div class="es-ctas"><button type="button" class="es-btn es-btn-primary" data-close>Voltar às estampas</button><a class="es-btn es-btn-ghost" href="/">Acompanhar na duavesso</a></div></div>`;
  decode($('.es-done-code',box));
+ setTimeout(()=>confetti($('.es-done-mark',box),60),still()?0:350);
 }
 
 // Lista de espera ("entrar no grid") ---------------------------------------------------------------------------
@@ -271,14 +300,21 @@ $('#es-news').addEventListener('submit',async e=>{
  if(f.elements.website.value){f.reset();return;}
  if(!email.checkValidity()){out.textContent='Digite um e-mail válido, como nome@email.com';out.className='es-news-out err';email.focus();return;}
  out.className='es-news-out';out.textContent='Enviando…';
- try{await rpc('subscribe_newsletter',{p_email:email.value.trim()});out.textContent=`Você está no grid! Avisamos ${email.value.trim()} na largada.`;f.reset();}
+ try{await rpc('subscribe_newsletter',{p_email:email.value.trim()});out.textContent=`Você está no grid! Avisamos ${email.value.trim()} na largada.`;f.reset();confetti($('button',f));}
  catch(err){out.className='es-news-out err';out.textContent=err.message;}
 });
 
 // Menu no celular, entradas da vitrine e números do manifesto ----------------------------------------------
 $('#es-menu-btn').addEventListener('click',()=>{const m=$('#es-mobile'),open=m.hidden;m.hidden=!open;$('#es-menu-btn').setAttribute('aria-expanded',String(open));});
 $$('#es-mobile a').forEach(a=>a.addEventListener('click',()=>{$('#es-mobile').hidden=true;$('#es-menu-btn').setAttribute('aria-expanded','false');}));
-window.addEventListener('scroll',()=>$('#es-nav').classList.toggle('scrolled',scrollY>24),{passive:true});
+// Menu ganha a borda ao rolar, e o carrinho da "volta" anda debaixo dele conforme a página desce
+function onScroll(){const nav=$('#es-nav'),max=document.documentElement.scrollHeight-innerHeight;nav.classList.toggle('scrolled',scrollY>24);nav.style.setProperty('--lap',max>0?Math.min(1,scrollY/max).toFixed(4):0);
+ // Garantia das entradas: o que já está na tela nunca fica escondido esperando o aviso do navegador
+ $$('.pre').forEach(el=>{if(el.getBoundingClientRect().top<innerHeight*.92){el.classList.remove('pre');el.classList.add('in');io?.unobserve(el);}});}
+window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+// Sobre a ESS e o bilhete do rodapé entram conforme aparecem na tela
+$$('.es-specs div').forEach((d,i)=>d.style.setProperty('--i',i));
+reveal([...$$('.es-man-copy,.es-podium,.es-specs div,.es-ticket'),...$$('.es-soon')],false);
 
 // Do banco: frete grátis atual e o Instagram da marca
 fetchPromos().then(list=>{if(list){setPromos(list);if($('#es-drawer').open)renderDrawer();}});
