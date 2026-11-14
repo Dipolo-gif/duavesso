@@ -30,8 +30,8 @@ async function order(items,{shipping='standard',cust=customer}={}){
 }
 const rejects=(items,re,opts)=>assert.rejects(order(items,opts),re);
 
-test('all migrations apply in order and 0006 to 0020 can be applied twice',async()=>{
- for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql','0013_tecidos_do_fornecedor.sql','0014_codigo_de_pedido_sem_colisao.sql','0015_dono_exclui_marca.sql','0016_marketplace_edicoes_promocao.sql','0017_colecao_em_reformulacao.sql','0018_estampa_dtf_textil.sql','0019_colecao_marileus_dragao_ronin.sql','0020_marileus_tamanhos_e_critical_fate.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
+test('all migrations apply in order and 0006 to 0021 can be applied twice',async()=>{
+ for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql','0013_tecidos_do_fornecedor.sql','0014_codigo_de_pedido_sem_colisao.sql','0015_dono_exclui_marca.sql','0016_marketplace_edicoes_promocao.sql','0017_colecao_em_reformulacao.sql','0018_estampa_dtf_textil.sql','0019_colecao_marileus_dragao_ronin.sql','0020_marileus_tamanhos_e_critical_fate.sql','0021_marca_ess.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
 });
 
 test('active catalog in the database matches dist/commerce.js field by field',async()=>{
@@ -305,19 +305,19 @@ test('marcas: só a conta da duavesso com e-mail confirmado é administradora',a
  finally{await db.query(`update auth.users set email_confirmed_at=now() where id=$1`,[ADMIN]);}
 });
 
-test('marcas: as 3 marcas de hoje estão no banco e o público só vê as ativas',async()=>{
+test('marcas: as 4 marcas de hoje estão no banco e o público só vê as ativas',async()=>{
  await brandUsers();
  const pub=(await as(null,'select slug,name,tagline from public.brands order by slug')).rows;
- assert.deepEqual(pub.map(b=>b.slug),['geek','solfado','try84']);
+ assert.deepEqual(pub.map(b=>b.slug),['ess','geek','solfado','try84']);
  assert.equal(pub.find(b=>b.slug==='try84').tagline,'rugby lifestyle · forward together');
  assert.deepEqual((await db.query(`select id from public.products where brand_slug='geek' order by id`)).rows.map(r=>r.id),['geek-carpa','geek-coracao','geek-critical','geek-dragao','geek-ronin','heavy-avesso','heavy-eclipse','heavy-faces','simples'],'as peças da duavesso agora são da Marileus (geek)');
- assert.deepEqual(Object.fromEntries((await db.query(`select slug,edition from public.brands order by slug`)).rows.map(r=>[r.slug,r.edition])),{geek:'geek',solfado:'arte',try84:'esporte'},'cada marca numa edição');
+ assert.deepEqual(Object.fromEntries((await db.query(`select slug,edition from public.brands order by slug`)).rows.map(r=>[r.slug,r.edition])),{ess:'esporte',geek:'geek',solfado:'arte',try84:'esporte'},'cada marca numa edição');
  await db.exec('begin');
  try{
   await db.query(`update public.brands set status='suspended' where slug='solfado'`);
   await db.query(`insert into public.brand_members (brand_slug,user_id) values ('solfado',$1)`,[OWNER]);
   await db.query("select set_config('request.jwt.claim.sub','',true)");await db.exec('set local role anon');
-  assert.deepEqual((await db.query('select slug from public.brands order by slug')).rows.map(b=>b.slug),['geek','try84'],'suspensa some do público');
+  assert.deepEqual((await db.query('select slug from public.brands order by slug')).rows.map(b=>b.slug),['ess','geek','try84'],'suspensa some do público');
   await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,true)",[OWNER]);await db.exec('set local role authenticated');
   assert.deepEqual((await db.query(`select slug from public.brands where slug='solfado'`)).rows.length,1,'o dono ainda vê a própria marca suspensa');
  }finally{await db.exec('rollback');}
