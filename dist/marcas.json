@@ -22,28 +22,5 @@
   "featured_badge": "Lançamento",
   "featured_until": null,
   "external_url": null
- },
- {
-  "slug": "ess",
-  "name": "ESS",
-  "tagline": "carros esportivos · pista · diversão",
-  "bio": "Camisetas com carros esportivos, pista e bandeira quadriculada, no estilo divertido de corrida, para pequenos pilotos e para quem nunca deixou de ser um.",
-  "status": "active",
-  "plan": "free",
-  "theme": {
-   "mode": "solid",
-   "c1": "#ffbf1f",
-   "c2": "#ffbf1f",
-   "angle": 135,
-   "accent": "#e5231b"
-  },
-  "logo_path": null,
-  "cover_path": null,
-  "links": {},
-  "featured_product_id": null,
-  "featured_badge": null,
-  "featured_until": null,
-  "external_url": null,
-  "edition": "esporte"
  }
 ]
