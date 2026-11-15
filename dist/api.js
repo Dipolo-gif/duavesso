@@ -1,7 +1,10 @@
 // Chave pública (publishable): feita para o navegador; o acesso é limitado pelo RLS no banco.
 export const SUPABASE_URL='https://bkyzkighkuswsssvicpy.supabase.co';
 export const SUPABASE_KEY='sb_publishable_9rzjsC4wmHSmBxlKZfIwJg_SlDprprm';
-const SESSION_KEY='duavesso.session.v1',PKCE_KEY='duavesso.pkce.v1';
+// Área /admin: sessão própria, separada da conta de cliente da loja. Entrar ou sair do /admin não mexe no
+// login da loja (e vice-versa), e a sessão de administrador vale menos tempo.
+export const ADMIN_AREA=typeof location!=='undefined'&&/^\/admin(\/|$)/.test(location.pathname);
+const SESSION_KEY=ADMIN_AREA?'duavesso.admin.session.v1':'duavesso.session.v1',PKCE_KEY='duavesso.pkce.v1';
 // One-time, same-origin migration: keep carts and sessions after the rebrand.
 // Remove legacy tokens only after the new value is safely stored, so logout
 // cannot resurrect an old session on the next page load.
@@ -19,8 +22,8 @@ async function net(url,options){try{return await fetch(url,options);}catch{throw
 const siteURL=()=>location.origin+location.pathname;
 
 // Sessão ------------------------------------------------------------------------
-// Prazo máximo de uma sessão: depois de 30 dias do login, pede para entrar de novo.
-const MAX_SESSION_SECONDS=30*24*3600;
+// Prazo máximo de uma sessão: depois de 30 dias do login, pede para entrar de novo (no /admin, 12 horas).
+const MAX_SESSION_SECONDS=ADMIN_AREA?12*3600:30*24*3600;
 const now=()=>Math.floor(Date.now()/1000);
 function readStoredSession(){
  try{const s=JSON.parse(localStorage.getItem(SESSION_KEY));if(!s?.access_token||!s?.refresh_token)return null;return {...s,started_at:s.started_at||now()};}catch{return null;}
@@ -59,7 +62,7 @@ function refreshIfNeeded(){
  if(!session)return;
  if(now()-session.started_at>MAX_SESSION_SECONDS){signOut();return;}
  if(session.expires_at-now()>60)return;
- refreshing??=(navigator.locks?.request?navigator.locks.request('duavesso-auth-refresh',refreshNow):refreshNow()).finally(()=>{refreshing=null;});
+ refreshing??=(navigator.locks?.request?navigator.locks.request(ADMIN_AREA?'duavesso-admin-refresh':'duavesso-auth-refresh',refreshNow):refreshNow()).finally(()=>{refreshing=null;});
  return refreshing;
 }
 export async function authHeaders(){
@@ -108,6 +111,15 @@ export async function signUp(email,password,name){
 export async function signIn(email,password){
  const data=await authFetch('token?grant_type=password',{email,password});
  setSession(data,true);return session.user;
+}
+// Login do /admin: usuário e senha. O usuário é uma conta interna do Supabase Auth, com e-mail que não
+// recebe mensagens (<usuario>@admin.duavesso.invalid, migração 0022); a senha só passa pelo Supabase.
+export const ADMIN_LOGIN_DOMAIN='admin.duavesso.invalid';
+export const adminLogin=username=>{const u=String(username||'').trim().toLowerCase();return u.includes('@')?u:`${u}@${ADMIN_LOGIN_DOMAIN}`;};
+export const adminUsername=email=>String(email||'').endsWith('@'+ADMIN_LOGIN_DOMAIN)?String(email).split('@')[0]:String(email||'');
+export async function signInAdmin(username,password){
+ try{return await signIn(adminLogin(username),password);}
+ catch(error){throw new Error(error.message==='E-mail ou senha incorretos.'?'Usuário ou senha incorretos.':error.message);}
 }
 // Sai na hora (nesta e nas outras abas) e revoga a sessão no servidor. Se o acesso já venceu, renova
 // antes, senão o logout falharia em silêncio e a sessão continuaria válida lá. Sem internet, tenta 2 vezes.
@@ -238,6 +250,16 @@ export const adminAddEntry=({kind,category,amount,on,method,description,brand})=
 export const adminDeleteEntry=id=>rpc('admin_delete_entry',{p_id:id});
 export const adminFinanceReport=(from,to)=>rpc('admin_finance_report',{p_from:from,p_to:to});
 export const brandSalesReport=(slug,from,to)=>rpc('brand_sales_report',{p_slug:slug,p_from:from,p_to:to});
+// Área /admin (migração 0022): acessos, cupons, vendas por marca e por peça, e saldo do caixa
+export const adminAccessList=()=>rpc('admin_access_list',{});
+export const adminAccessAdd=username=>rpc('admin_access_add',{p_username:username});
+export const adminAccessRemove=login=>rpc('admin_access_remove',{p_login:login});
+export const adminListCoupons=()=>rpc('admin_list_coupons',{});
+export const adminSaveCoupon=({code,kind,value,min=0,maxUses=null,startsAt=null,endsAt=null,active=true,isNew=false})=>rpc('admin_save_coupon',{p_code:code,p_kind:kind,p_value:value,p_min_subtotal_cents:min,p_max_uses:maxUses,p_starts_at:startsAt,p_ends_at:endsAt,p_active:active,p_new:isNew});
+export const adminSetCouponActive=(code,active)=>rpc('admin_set_coupon_active',{p_code:code,p_active:active});
+export const adminDeleteCoupon=code=>rpc('admin_delete_coupon',{p_code:code});
+export const adminSalesReport=(from,to)=>rpc('admin_sales_report',{p_from:from,p_to:to});
+export const adminBalance=()=>rpc('admin_balance',{});
 // Dono exclui a própria loja pela Minha Marca (migração 0015); checkOnly só confere, sem apagar
 export const deleteMyBrand=(slug,confirm,checkOnly=false)=>rpc('delete_my_brand',{p_slug:slug,p_confirm:confirm,p_check_only:checkOnly});
 // Apaga as imagens da pasta da marca (logo, capas e fotos, inclusive as trocadas).

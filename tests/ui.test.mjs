@@ -862,7 +862,7 @@ test('Painel em abas: início, pedidos (abrir e mudar a situação), financeiro 
  const t=await setup(sessionFor('duavesso.co@gmail.com'),fetchStub,{path:'/painel'});try{
   await tick(60);
   t.w.confirm=()=>true;
-  assert.deepEqual([...t.doc.querySelectorAll('.adm-side .adm-tab span')].map(s=>s.textContent),['Início','Pedidos','Financeiro','Peças e custos','Marcas','Pedidos de marca']);
+  assert.deepEqual([...t.doc.querySelectorAll('.adm-side .adm-tab span')].map(s=>s.textContent),['Início','Pedidos','Vendas','Financeiro','Cupons','Peças e custos','Marcas','Pedidos de marca','Acessos']);
   assert(t.doc.querySelector('.adm-tab.on[href="painel"]'),'abre no Início');
   assert.equal(t.doc.querySelector('.adm-badge[data-badge="pedidos"]').textContent,'2','pagos para produzir no menu');
   const home=plain(t.doc.querySelector('#adm-main').textContent);
@@ -1057,4 +1057,85 @@ test('nova coleção: sem peças à venda, a página inicial mostra o aviso com 
   assert.match(card.textContent,/Site exclusivo/);assert.match(card.textContent,/Edição Geek/);
   assert.match(m.doc.querySelector('#marcas-view .mh-eds').textContent,/Edição Geek.*Marileus.*Edição Arte.*Em breve/s,'edições com as marcas');
  }finally{m.close();}
+});
+
+test('/admin: login por usuário e senha com sessão própria; abas Vendas, Cupons (criar com usos máximos) e Acessos; Sair volta ao login',async()=>{
+ const base=financeBackend(),calls=[];
+ const json=(body,status=200)=>({ok:status<300,status,json:async()=>body});
+ const coupons=[{code:'VOLTA10',kind:'percent',value:10,min_subtotal_cents:0,max_uses:50,uses:12,active:true,starts_at:null,ends_at:'2026-12-31T23:59:59-03:00',created_at:'2026-11-01T12:00:00Z',state:'ativo',paid_orders:9,discount_cents:14390,sales_cents:129510},
+  {code:'MENOS20',kind:'fixed',value:2000,min_subtotal_cents:20000,max_uses:null,uses:0,active:false,starts_at:null,ends_at:null,created_at:'2026-10-01T12:00:00Z',state:'pausado',paid_orders:0,discount_cents:0,sales_cents:0}];
+ const sales={from:'2026-10-16',to:'2026-11-14',current:{sales:75950,pieces:5,orders:3,brand_share:9600,piece_cost:22500},previous:{sales:15990,pieces:1,orders:1,brand_share:0,piece_cost:4500},
+  by_brand:[{slug:'geek',kind:'brand',name:'Marileus',sales:57560,pieces:4,orders:2,brand_share:9600,piece_cost:18000},{slug:null,kind:'own',name:'duavesso',sales:18390,pieces:1,orders:1,brand_share:0,piece_cost:4500}],
+  top:[{product_id:'geek-coracao',name:'Coração Pixelado',brand_slug:'geek',brand_name:'Marileus',qty:3,sales:43170,orders:2},{product_id:'heavy-avesso',name:'Heavy · Do Avesso',brand_slug:null,brand_name:'duavesso',qty:1,sales:18390,orders:1}],
+  sizes:[{size:'M',qty:3},{size:'G',qty:2}]};
+ const access=[{login:'admin@admin.duavesso.invalid',username:'admin',has_account:true,last_sign_in_at:'2026-11-14T15:00:00Z',me:true},{login:'duavesso.co@gmail.com',username:null,has_account:true,last_sign_in_at:null,me:false}];
+ const fetchStub=async(url,init={})=>{
+  const u=String(url),body=init.body&&typeof init.body==='string'?JSON.parse(init.body):{};
+  if(u.includes('/auth/v1/token?grant_type=password')){calls.push({u,body});
+   if(body.password!=='senha-certa-123')return json({error_code:'invalid_credentials',msg:'Invalid login credentials'},400);
+   return json({access_token:'adm-tok',refresh_token:'adm-ref',expires_in:3600,user:{id:'u-admin',email:body.email,user_metadata:{},app_metadata:{provider:'email'}}});}
+  if(u.includes('/auth/v1/logout')){calls.push({u,body});return json(null,204);}
+  if(u.includes('/rpc/admin_balance'))return json({in:123970,out:41000,balance:82970,site_in:33970,manual_in:90000,on:'2026-11-14'});
+  if(u.includes('/rpc/admin_list_coupons'))return json(coupons);
+  if(u.includes('/rpc/admin_save_coupon')||u.includes('/rpc/admin_set_coupon_active')||u.includes('/rpc/admin_access_remove')){calls.push({u,body});return json({});}
+  if(u.includes('/rpc/admin_sales_report')){calls.push({u,body});return json(sales);}
+  if(u.includes('/rpc/admin_access_list'))return json(access);
+  return base.fetchStub(url,init);
+ };
+ // A conta da loja (mesmo sendo a do e-mail antigo) não vale no /admin: a sessão de lá é outra
+ const t=await setup(sessionFor('duavesso.co@gmail.com'),fetchStub,{path:'/admin'});try{
+  await tick(40);
+  assert(t.doc.documentElement.classList.contains('admin-area'),'sem o cabeçalho da loja');
+  const form=t.doc.querySelector('#adm-login');assert(form,'tela de login');
+  assert.equal(t.doc.querySelector('.adm'),null,'painel fechado sem login de administrador');
+  const submit=f=>f.dispatchEvent(new t.w.Event('submit',{bubbles:true,cancelable:true}));
+  submit(form);await tick(10);
+  assert.match(t.doc.querySelector('#adm-login-msg').textContent,/Digite o usuário e a senha/);
+  form.elements.namedItem('username').value=' Admin ';form.elements.namedItem('password').value='errada';submit(form);await tick(30);
+  assert.equal(calls[0].body.email,'admin@admin.duavesso.invalid','o usuário vira a conta interna');
+  assert.match(t.doc.querySelector('#adm-login-msg').textContent,/Usuário ou senha incorretos/);
+  assert.equal(form.elements.namedItem('password').value,'','senha errada não fica no campo');
+  form.elements.namedItem('password').value='senha-certa-123';submit(form);await tick(80);
+  assert.equal(t.doc.querySelector('#adm-login'),null);
+  assert.deepEqual([...t.doc.querySelectorAll('.adm-side .adm-tab span')].map(s=>s.textContent),['Início','Pedidos','Vendas','Financeiro','Cupons','Peças e custos','Marcas','Pedidos de marca','Acessos']);
+  assert.equal(JSON.parse(t.w.localStorage.getItem('duavesso.admin.session.v1')).access_token,'adm-tok','sessão própria do /admin');
+  assert.equal(JSON.parse(t.w.localStorage.getItem('duavesso.session.v1')).access_token,'tok','a sessão da loja fica como estava');
+  assert.equal(t.doc.querySelector('.adm-user span').textContent,'admin');
+  assert.match(plain(t.doc.querySelector('.adm-balance').textContent),/Saldo em caixaR\$ 829,70/);
+  assert(t.doc.querySelector('.adm-tab.on[href="admin"]'),'os links do painel ficam no /admin');
+  // Vendas: cada marca e o ranking das camisetas
+  t.click('.adm-tab[href="admin?aba=vendas"]');await tick(40);
+  const vendas=plain(t.doc.querySelector('#adm-main').textContent);
+  assert.match(vendas,/VendidoR\$ 759,50/);assert.match(vendas,/Peças vendidas5/);
+  assert.deepEqual([...t.doc.querySelectorAll('.adm-sales tbody tr')].map(r=>plain(r.cells[0].querySelector('b').textContent)+' '+plain(r.cells[3].textContent)),['Marileus R$ 575,60','duavesso R$ 183,90']);
+  assert.deepEqual([...t.doc.querySelectorAll('.adm-rank tbody tr')].map(r=>`${r.cells[0].textContent} ${r.cells[1].querySelector('b').textContent} ${r.cells[2].textContent}`),['1º Coração Pixelado 3','2º Heavy · Do Avesso 1']);
+  // Cupons: lista com usos e situação; novo cupom com valor e número máximo de usos
+  t.click('.adm-tab[href="admin?aba=cupons"]');await tick(40);
+  const rows=[...t.doc.querySelectorAll('.adm-coupons tbody tr')];
+  assert.match(plain(rows[0].textContent),/VOLTA1010% ?12 de 50 ?até 31\/12\/2026 ?9R\$ 143,90 de desconto dado ?Ativo/);
+  assert.match(plain(rows[1].textContent),/MENOS20R\$ 20,00em compras a partir de R\$ 200,00 ?0sem limite de usos.*Pausado/);
+  assert.equal(rows[0].querySelector('[data-act="delete"]'),null,'cupom usado não tem Excluir');assert(rows[1].querySelector('[data-act="delete"]'));
+  t.click('#cup-new');
+  const cf=t.doc.querySelector('.cup-form'),ce=n=>cf.elements.namedItem(n);
+  ce('code').value='natal 15';ce('code').dispatchEvent(new t.w.Event('input',{bubbles:true}));assert.equal(ce('code').value,'NATAL15');
+  ce('value').value='95';submit(cf);await tick(10);
+  assert.match(t.doc.querySelector('#cup-msg').textContent,/de 1 a 90/);
+  ce('value').value='15';ce('min').value='100,00';ce('max').value='30';ce('to').value='2026-12-25';submit(cf);await tick(40);
+  const saved=calls.find(c=>c.u.includes('admin_save_coupon')).body;
+  assert.deepEqual(saved,{p_code:'NATAL15',p_kind:'percent',p_value:15,p_min_subtotal_cents:10000,p_max_uses:30,p_starts_at:null,p_ends_at:'2026-12-25T23:59:59-03:00',p_active:true,p_new:true});
+  assert.equal(t.doc.querySelector('.cup-form'),null,'fecha depois de salvar');
+  t.doc.querySelector('.adm-coupons tbody tr [data-act="toggle"]').click();await tick(40);
+  assert.deepEqual(calls.find(c=>c.u.includes('admin_set_coupon_active')).body,{p_code:'VOLTA10',p_active:false});
+  // Acessos: o usuário em uso não pode ser desligado; o e-mail antigo pode
+  t.click('.adm-tab[href="admin?aba=acessos"]');await tick(40);
+  const acc=plain(t.doc.querySelector('#adm-main').textContent);
+  assert.match(acc,/admin vocêConta criada.*em uso agora/);assert.match(acc,/Acesso antigo, pela conta da loja/);
+  assert.deepEqual([...t.doc.querySelectorAll('[data-remove]')].map(b=>b.dataset.remove),['duavesso.co@gmail.com']);
+  assert(t.doc.querySelector('#acc-pass'),'troca de senha para quem entrou por usuário');
+  // Sair: volta para o login e a sessão de administrador some
+  t.click('#adm-exit');await tick(40);
+  assert(t.doc.querySelector('#adm-login'),'login de novo');
+  assert.equal(t.w.localStorage.getItem('duavesso.admin.session.v1'),null);
+  assert(calls.some(c=>c.u.includes('/auth/v1/logout')),'sessão revogada no servidor');
+ }finally{t.close();}
 });

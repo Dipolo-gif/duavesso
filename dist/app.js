@@ -1,6 +1,6 @@
 import {PRODUCTS,discountOf,SIZES,ALL_SIZES,sizesOf,MARILEUS_MEASURES,CUSTOM,freeShippingMin,setPromos,promoGoals,INSTALLMENTS,installment,customMode,shippingSuggestion,money,escapeHTML as esc,totals,addItem,changeQuantity,normalizeCart,validImageURL,garmentLabel,PRINT_ZONES,PRINT_ZONE_AT,isZone,MAX_PRINTS,printsSummary} from './commerce.js';
 import {CHEST_Y,UNIT} from './studio-placement.js';
-import {online,rpc,uploadDesign,dataURLToBlob,getUser,signIn,signUp,signOut,resetPassword,updatePassword,signInWithGoogle,handleAuthRedirect,fetchProfile,updateProfile,fetchMyOrders,fetchPromos,checkCoupon,fetchBrands,fetchBrand,myBrands,updateBrand,uploadBrandAsset,brandAssetURL,isAdmin,adminListBrands,adminCreateBrand,adminSetBrandStatus,adminSetBrandPlan,adminSetBrandEdition,adminRemoveOwner,adminDeleteBrand,adminDeleteBrandAssets,deleteMyBrand,deleteBrandAssets,applyBrand,adminListApplications,adminSetApplicationStatus,adminListOrders,adminSetOrderStatus,adminListProductFinance,adminSetProductFinance,adminSetCustomCost,adminAddEntry,adminDeleteEntry,adminFinanceReport,brandSalesReport} from './api.js';
+import {online,rpc,uploadDesign,dataURLToBlob,getUser,signIn,signUp,signOut,resetPassword,updatePassword,signInWithGoogle,handleAuthRedirect,fetchProfile,updateProfile,fetchMyOrders,fetchPromos,checkCoupon,fetchBrands,fetchBrand,myBrands,updateBrand,uploadBrandAsset,brandAssetURL,isAdmin,adminListBrands,adminCreateBrand,adminSetBrandStatus,adminSetBrandPlan,adminSetBrandEdition,adminRemoveOwner,adminDeleteBrand,adminDeleteBrandAssets,deleteMyBrand,deleteBrandAssets,applyBrand,adminListApplications,adminSetApplicationStatus,adminListOrders,adminSetOrderStatus,adminListProductFinance,adminSetProductFinance,adminSetCustomCost,adminAddEntry,adminDeleteEntry,adminFinanceReport,brandSalesReport,ADMIN_AREA,signInAdmin,adminUsername,adminAccessList,adminAccessAdd,adminAccessRemove,adminListCoupons,adminSaveCoupon,adminSetCouponActive,adminDeleteCoupon,adminSalesReport,adminBalance} from './api.js';
 import {VIZ,columnsChart,lineChart,hbars,wireCharts} from './charts.js';
 import {BRANDS,brandFromRow,EDITIONS,editionName} from './brands.js';
 import {SITE,parseRoute,isAppPath,pageMeta,productPath,brandList,findBrand,setBrandList,upsertBrandRow} from './pages.js';
@@ -1023,12 +1023,16 @@ async function renderEditorPage(){
  else renderBrandEditor($('#me-root'),row,{admin:admin&&!mine.some(b=>b.slug===slug),isAdminUser:admin,canDelete:admin||mine.some(b=>b.slug===slug)});
 }
 
-// Painel da duavesso (/painel?aba=...) ----------------------------------------------------------------
+// Painel da duavesso (/admin?aba=...) ------------------------------------------------------------------
 // Layout de sistema, com menu lateral (estilo Shopify). Tudo passa por funções do banco que conferem a
-// administradora (migrações 0009 a 0012). O financeiro é livro caixa: vendas pagas do site + lançamentos.
-const ADMIN_TABS=[['inicio','Início'],['pedidos','Pedidos'],['financeiro','Financeiro'],['pecas','Peças e custos'],['marcas','Marcas'],['pedidos-de-marca','Pedidos de marca']];
+// administradora (migrações 0009 a 0012 e 0022). O financeiro é livro caixa: vendas pagas do site + lançamentos.
+// Dois endereços abrem o mesmo painel: /admin (login por usuário e senha, sessão própria, sem o cabeçalho
+// da loja) e /painel (endereço antigo, pela conta da loja, que vale enquanto o acesso por e-mail existir).
+const ADMIN_TABS=[['inicio','Início'],['pedidos','Pedidos'],['vendas','Vendas'],['financeiro','Financeiro'],['cupons','Cupons'],['pecas','Peças e custos'],['marcas','Marcas'],['pedidos-de-marca','Pedidos de marca'],['acessos','Acessos']];
 const adminTab=()=>{const t=new URLSearchParams(location.search).get('aba');return ADMIN_TABS.some(([k])=>k===t)?t:'inicio';};
-const adminHref=k=>k==='inicio'?'painel':`painel?aba=${k}`;
+const adminBase=()=>ADMIN_AREA?'admin':'painel';
+const adminHref=k=>k==='inicio'?adminBase():`${adminBase()}?aba=${k}`;
+document.documentElement.classList.toggle('admin-area',ADMIN_AREA);
 const adminStill=tab=>shownView==='admin'&&adminTab()===tab;
 let adminPrefill=null;
 // Datas no horário de Brasília (o banco usa o mesmo)
@@ -1061,14 +1065,41 @@ const kpiHTML=(label,value,sub='')=>`<div class="adm-card adm-kpi"><small>${labe
 const plural=(n,one,many)=>`${n} ${n===1?one:many}`;
 const appsList=()=>adminListApplications().then(r=>Array.isArray(r)?r:[],()=>[]);
 
+// Entrada do /admin: só usuário e senha (sem cadastro, sem Google). A senha vai direto para o Supabase Auth.
+function renderAdminLogin(view,note=''){
+ view.innerHTML=`<div class="adm-login"><form class="adm-login-card" id="adm-login" novalidate><p class="adm-login-brand">duavesso<small>ADMIN</small></p><h1>Área restrita</h1><p class="helper">Entre com o usuário e a senha de administrador.</p>
+<label>Usuário<input name="username" required maxlength="120" autocomplete="username" autocapitalize="none" spellcheck="false"></label>
+<label>Senha<input name="password" type="password" required maxlength="200" autocomplete="current-password"></label>
+<p class="adm-login-msg" id="adm-login-msg" role="alert">${esc(note)}</p>
+<button type="submit" class="button button-blue">Entrar</button><a class="adm-login-back" href="./">Voltar para a loja</a></form></div>`;
+ const form=$('#adm-login',view),f=n=>form.elements.namedItem(n),msg=$('#adm-login-msg',view);
+ form.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const name=f('username').value.trim(),pass=f('password').value;
+  if(!name||!pass){msg.textContent='Digite o usuário e a senha.';(name?f('password'):f('username')).focus();return;}
+  if(!online()){msg.textContent='Sem conexão com a loja agora. Tente de novo em instantes.';return;}
+  const btn=$('button[type=submit]',form);btn.disabled=true;btn.textContent='Entrando…';msg.textContent='';
+  // Entrou: o aviso de login (duavesso:auth) redesenha o painel
+  try{await signInAdmin(name,pass);}
+  catch(error){msg.textContent=error.message;btn.disabled=false;btn.textContent='Entrar';f('password').value='';f('password').focus();}
+ });
+ f('username').focus();
+}
 async function renderAdminPage(){
  const view=$('#admin-view'),user=getUser();
+ if(!user&&ADMIN_AREA){renderAdminLogin(view);return;}
  if(!user){view.innerHTML=`<div class="me-gate"><h1>Painel da duavesso</h1><p>Entre com a conta da duavesso.</p><button type="button" class="button button-blue" id="ad-login">Entrar</button></div>`;$('#ad-login').addEventListener('click',()=>openAuth('login'));return;}
  if(!view.querySelector('.adm'))view.innerHTML='<p class="helper me-gate">Carregando o painel…</p>';
- if(!await isAdmin()){if(shownView==='admin')view.innerHTML='<div class="me-gate"><h1>Área restrita</h1><p>Este painel é só da conta dona da duavesso.</p></div>';return;}
+ if(!await isAdmin()){
+  if(shownView!=='admin')return;
+  if(!ADMIN_AREA){view.innerHTML='<div class="me-gate"><h1>Área restrita</h1><p>Este painel é só da conta dona da duavesso.</p></div>';return;}
+  view.innerHTML=`<div class="me-gate"><h1>Área restrita</h1><p>O usuário <b>${esc(adminUsername(user.email))}</b> não tem acesso de administrador, ou a loja não respondeu agora.</p><button type="button" class="button button-blue" id="adm-switch">Entrar com outro usuário</button></div>`;
+  $('#adm-switch',view).addEventListener('click',()=>signOut());return;
+ }
  if(shownView!=='admin')return;
  const tab=adminTab();
- view.innerHTML=`<div class="adm"><nav class="adm-side" aria-label="Seções do painel"><a class="adm-logo" href="painel">duavesso<small>PAINEL</small></a>${ADMIN_TABS.map(([k,l])=>`<a class="adm-tab${k===tab?' on':''}" href="${adminHref(k)}"${k===tab?' aria-current="page"':''}><span>${l}</span><b class="adm-badge" data-badge="${k}" hidden></b></a>`).join('')}<span class="adm-sp"></span><a class="adm-out" href="./">Ver a loja <span aria-hidden="true">↗</span></a></nav><main class="adm-main" id="adm-main"><p class="helper">Carregando…</p></main></div>`;
+ view.innerHTML=`<div class="adm"><nav class="adm-side" aria-label="Seções do painel"><a class="adm-logo" href="${adminBase()}">duavesso<small>${ADMIN_AREA?'ADMIN':'PAINEL'}</small></a>${ADMIN_TABS.map(([k,l])=>`<a class="adm-tab${k===tab?' on':''}" href="${adminHref(k)}"${k===tab?' aria-current="page"':''}><span>${l}</span><b class="adm-badge" data-badge="${k}" hidden></b></a>`).join('')}<span class="adm-sp"></span><a class="adm-out" href="./">Ver a loja <span aria-hidden="true">↗</span></a>${ADMIN_AREA?`<div class="adm-user"><span title="Usuário que está usando o painel">${esc(adminUsername(user.email))}</span><button type="button" class="adm-exit" id="adm-exit">Sair</button></div>`:''}</nav><main class="adm-main" id="adm-main"><p class="helper">Carregando…</p></main></div>`;
+ $('#adm-exit',view)?.addEventListener('click',()=>signOut());
  adminBadges();
  const main=$('#adm-main',view);
  try{await ADMIN_VIEWS[tab](main);}
@@ -1082,14 +1113,17 @@ async function adminBadges(){
  set('pedidos',(c.pago||0)+(c.em_producao||0));set('pedidos-de-marca',apps.filter(a=>a.status==='new').length);
 }
 
+// Saldo do caixa: tudo o que entrou menos tudo o que saiu até hoje (vendas pagas da loja + lançamentos)
+const balanceHTML=b=>`<section class="adm-card adm-balance${+b.balance<0?' is-neg':''}"><div><small>Saldo em caixa</small><strong>${+b.balance<0?'− ':''}${money(Math.abs(+b.balance))}</strong><span class="adm-vs">Tudo o que entrou menos tudo o que saiu até hoje</span></div><dl><div><dt>Entradas</dt><dd class="pos">+ ${money(+b.in)}</dd></div><div><dt>Saídas</dt><dd class="neg">− ${money(+b.out)}</dd></div></dl></section>`;
 // Início: o resumo do dia e o que falta fazer
 async function adminHome(main){
- const [rep,orders,apps]=await Promise.all([adminFinanceReport(brDay(-6),brDay()),adminListOrders({limit:1}),appsList()]);
+ // O saldo vem da migração 0022; antes dela o cartão só não aparece
+ const [rep,orders,apps,bal]=await Promise.all([adminFinanceReport(brDay(-6),brDay()),adminListOrders({limit:1}),appsList(),adminBalance().catch(()=>null)]);
  if(!adminStill('inicio'))return;
  const c=orders.counts||{},today=rep.series.length?+rep.series[rep.series.length-1].in:0;
- const todo=[[c.aguardando_pagamento||0,'aguardando pagamento','painel?aba=pedidos&situacao=aguardando_pagamento'],[c.pago||0,'pagos, para produzir','painel?aba=pedidos&situacao=pago'],[c.em_producao||0,'em produção, para enviar','painel?aba=pedidos&situacao=em_producao'],[apps.filter(a=>a.status==='new').length,'pedidos de marca novos','painel?aba=pedidos-de-marca']];
- main.innerHTML=`<header class="adm-top"><div><p class="eyebrow">${esc(new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}))}</p><h1>Olá, duavesso</h1></div><div class="adm-top-acts"><a class="button me-ghost" href="painel?aba=pedidos">Ver pedidos</a><a class="button button-blue" href="painel?aba=financeiro&novo=1">+ Novo lançamento</a></div></header>
-<div class="adm-kpis">${kpiHTML('Entradas hoje',money(today))}${kpiHTML('Entradas em 7 dias',money(rep.current.in),deltaHTML(rep.current.in,rep.previous.in))}${kpiHTML('Lucro em 7 dias',money(rep.current.profit),deltaHTML(rep.current.profit,rep.previous.profit))}${kpiHTML('Aguardando pagamento',money(rep.pending.cents),`<span class="adm-vs">${plural(+rep.pending.orders,'pedido','pedidos')}</span>`)}</div>
+ const todo=[[c.aguardando_pagamento||0,'aguardando pagamento',adminBase()+'?aba=pedidos&situacao=aguardando_pagamento'],[c.pago||0,'pagos, para produzir',adminBase()+'?aba=pedidos&situacao=pago'],[c.em_producao||0,'em produção, para enviar',adminBase()+'?aba=pedidos&situacao=em_producao'],[apps.filter(a=>a.status==='new').length,'pedidos de marca novos',adminBase()+'?aba=pedidos-de-marca']];
+ main.innerHTML=`<header class="adm-top"><div><p class="eyebrow">${esc(new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}))}</p><h1>Olá, duavesso</h1></div><div class="adm-top-acts"><a class="button me-ghost" href="${adminBase()}?aba=pedidos">Ver pedidos</a><a class="button button-blue" href="${adminBase()}?aba=financeiro&novo=1">+ Novo lançamento</a></div></header>
+${bal?balanceHTML(bal):''}<div class="adm-kpis">${kpiHTML('Entradas hoje',money(today))}${kpiHTML('Entradas em 7 dias',money(rep.current.in),deltaHTML(rep.current.in,rep.previous.in))}${kpiHTML('Lucro em 7 dias',money(rep.current.profit),deltaHTML(rep.current.profit,rep.previous.profit))}${kpiHTML('Aguardando pagamento',money(rep.pending.cents),`<span class="adm-vs">${plural(+rep.pending.orders,'pedido','pedidos')}</span>`)}</div>
 <section class="adm-card"><h2>Para fazer</h2><ul class="adm-todo">${todo.map(([n,l,href])=>`<li class="${n?'':'is-done'}"><a href="${href}"><b>${n}</b><span>${l}</span><span aria-hidden="true">→</span></a></li>`).join('')}</ul></section>`;
 }
 
@@ -1117,10 +1151,10 @@ async function adminOrders(main){
   const c=data.counts||{},all=Object.values(c).reduce((a,b)=>a+(+b||0),0);
   const chips=[['','Todos',all],...Object.keys(STATUS_LABEL).map(k=>[k,STATUS_LABEL[k],c[k]||0])];
   main.innerHTML=`<header class="adm-top"><div><h1>Pedidos</h1><p class="adm-sub">Marque cada pedido conforme ele anda. Só pedidos pagos entram no financeiro e nas vendas das marcas.</p></div></header>
-<div class="adm-filters"><div class="adm-chips" role="group" aria-label="Filtrar por situação">${chips.map(([k,l,n])=>`<a class="adm-chip${k===status?' on':''}" href="painel?aba=pedidos${k?`&situacao=${k}`:''}"${k===status?' aria-current="true"':''}>${l} <b>${n}</b></a>`).join('')}</div>
+<div class="adm-filters"><div class="adm-chips" role="group" aria-label="Filtrar por situação">${chips.map(([k,l,n])=>`<a class="adm-chip${k===status?' on':''}" href="${adminBase()}?aba=pedidos${k?`&situacao=${k}`:''}"${k===status?' aria-current="true"':''}>${l} <b>${n}</b></a>`).join('')}</div>
 <form class="adm-search" id="adm-search" role="search"><input type="search" name="q" value="${esc(search)}" placeholder="Código, nome ou e-mail" maxlength="80" aria-label="Buscar pedidos"><button class="button me-ghost" type="submit">Buscar</button></form></div>
 ${data.orders.length?`<div class="adm-card adm-table-card"><table class="adm-table"><thead><tr><th>Pedido</th><th>Data</th><th>Cliente</th><th>Peças</th><th>Total</th><th>Situação</th></tr></thead><tbody>${data.orders.map(orderRowHTML).join('')}</tbody></table></div>${data.orders.length>=limit?'<button type="button" class="button me-ghost adm-more" id="adm-more">Carregar mais</button>':''}`:`<div class="adm-card adm-empty"><h2>${search?'Nenhum pedido encontrado':status?`Nenhum pedido em "${esc(STATUS_LABEL[status])}"`:'Nenhum pedido ainda'}</h2><p>Quando alguém comprar na loja, o pedido aparece aqui.</p></div>`}`;
-  $('#adm-search',main).addEventListener('submit',e=>{e.preventDefault();const q=e.target.elements.namedItem('q').value.trim();navigate(`/painel?aba=pedidos${status?`&situacao=${status}`:''}${q?`&busca=${encodeURIComponent(q)}`:''}`);});
+  $('#adm-search',main).addEventListener('submit',e=>{e.preventDefault();const q=e.target.elements.namedItem('q').value.trim();navigate(`/${adminBase()}?aba=pedidos${status?`&situacao=${status}`:''}${q?`&busca=${encodeURIComponent(q)}`:''}`);});
   $('#adm-more',main)?.addEventListener('click',()=>{limit+=50;load();});
   const toggle=(code,force)=>{const safe=String(code).replace(/["\\]/g,''),row=$(`.adm-order[data-code="${safe}"]`,main),det=$(`.adm-detail[data-detail="${safe}"]`,main);if(!row||!det)return;const show=force??det.hidden;det.hidden=!show;row.classList.toggle('on',show);$('[data-open]',row).setAttribute('aria-expanded',String(show));open=show?code:null;};
   $$('.adm-order',main).forEach(r=>r.addEventListener('click',()=>toggle(r.dataset.code)));
@@ -1200,27 +1234,27 @@ async function adminFinance(main){
  const qs=new URLSearchParams(location.search),custom=/^\d{4}-\d{2}-\d{2}$/.test(qs.get('de')||'')&&/^\d{4}-\d{2}-\d{2}$/.test(qs.get('ate')||'');
  const preset=custom?'':(FIN_PRESETS.some(([k])=>k===qs.get('periodo'))?qs.get('periodo'):'30');
  const to=custom?qs.get('ate'):brDay(),from=custom?qs.get('de'):brDay(-(+preset-1)),days=daysBetween(from,to);
- const [rep,brands]=await Promise.all([adminFinanceReport(from,to),adminListBrands().catch(()=>[])]);
+ const [rep,brands,bal]=await Promise.all([adminFinanceReport(from,to),adminListBrands().catch(()=>[]),adminBalance().catch(()=>null)]);
  if(!adminStill('financeiro'))return;
  const cur=rep.current,prev=rep.previous,margin=cur.in?Math.round(cur.profit/cur.in*100):0;
  const owing=rep.to_pay_brands.filter(b=>b.due>0),due=owing.reduce((s,b)=>s+(+b.due),0);
  const groups=rep.series.map(s=>({label:bucketLabel(s.start,rep.bucket),title:bucketTitle(s.start,rep.bucket),values:[+s.in,+s.out],extra:[['Lucro',money(s.in-s.out)]]}));
  main.innerHTML=`<header class="adm-top"><div><h1>Financeiro</h1><p class="adm-sub">${longDate(from)} a ${longDate(to)} · comparado com os ${days} dias anteriores</p></div><div class="adm-top-acts"><button type="button" class="button me-ghost" id="fin-csv">Exportar planilha</button><button type="button" class="button button-blue" id="fin-new">+ Novo lançamento</button></div></header>
-<div class="adm-filters"><div class="adm-seg" role="group" aria-label="Período">${FIN_PRESETS.map(([k,l])=>`<a class="${k===preset?'on':''}" href="painel?aba=financeiro&periodo=${k}"${k===preset?' aria-current="true"':''}>${l}</a>`).join('')}</div>
+<div class="adm-filters"><div class="adm-seg" role="group" aria-label="Período">${FIN_PRESETS.map(([k,l])=>`<a class="${k===preset?'on':''}" href="${adminBase()}?aba=financeiro&periodo=${k}"${k===preset?' aria-current="true"':''}>${l}</a>`).join('')}</div>
 <form class="adm-range" id="fin-range"><label>De<input type="date" name="de" value="${from}" required></label><label>Até<input type="date" name="ate" value="${to}" required></label><button class="button me-ghost" type="submit">Aplicar</button></form></div>
-<div class="adm-kpis">${kpiHTML('Entradas',money(cur.in),deltaHTML(cur.in,prev.in))}${kpiHTML('Saídas',money(cur.out),deltaHTML(cur.out,prev.out,{upGood:false}))}${kpiHTML('Lucro líquido',money(cur.profit),deltaHTML(cur.profit,prev.profit)+(cur.in?` <span class="adm-vs">· margem ${margin}%</span>`:''))}${kpiHTML('A repassar às marcas',money(due),`<span class="adm-vs">${owing.length?plural(owing.length,'marca','marcas'):'nada pendente'}</span>`)}</div>
+${bal?balanceHTML(bal):''}<div class="adm-kpis">${kpiHTML('Entradas',money(cur.in),deltaHTML(cur.in,prev.in))}${kpiHTML('Saídas',money(cur.out),deltaHTML(cur.out,prev.out,{upGood:false}))}${kpiHTML('Lucro líquido',money(cur.profit),deltaHTML(cur.profit,prev.profit)+(cur.in?` <span class="adm-vs">· margem ${margin}%</span>`:''))}${kpiHTML('A repassar às marcas',money(due),`<span class="adm-vs">${owing.length?plural(owing.length,'marca','marcas'):'nada pendente'}</span>`)}</div>
 <div class="adm-kpis adm-kpis-sm">${kpiHTML('Vendas pagas na loja',money(cur.site_in),`<span class="adm-vs">${plural(+cur.orders,'pedido','pedidos')} · ${plural(+cur.pieces,'peça','peças')}</span>`)}${kpiHTML('Margem estimada das vendas',money(cur.est_margin),`<span class="adm-vs">vendas − custo das peças (${money(cur.piece_cost)}) − parte das marcas (${money(cur.brand_share)})</span>`)}${kpiHTML('Aguardando pagamento',money(rep.pending.cents),`<span class="adm-vs">${plural(+rep.pending.orders,'pedido','pedidos')}, fora da conta</span>`)}</div>
 <div class="adm-row2"><section class="adm-card"><h2>Entradas e saídas</h2>${columnsChart({label:'Entradas e saídas no período',groups,series:[{name:'Entradas',color:VIZ.in},{name:'Saídas',color:VIZ.out}],format:money,axis:axisMoney})}</section>
 <section class="adm-card"><h2>Para onde foi o dinheiro</h2>${hbars(rep.out_by_category.map(c=>({label:c.category,value:+c.cents})),money,VIZ.out)}<h2 class="adm-gap">De onde veio</h2>${hbars(rep.in_by_source.map(c=>({label:c.source,value:+c.cents})),money)}</section></div>
 ${rep.to_pay_brands.length?`<section class="adm-card"><h2>Repasses às marcas</h2><table class="adm-table"><thead><tr><th>Marca</th><th>Ganhou nas vendas pagas</th><th>Já repassado</th><th>A repassar</th><th><span class="sr-only">Ação</span></th></tr></thead><tbody>${rep.to_pay_brands.map(b=>`<tr><td><b>${esc(b.name)}</b></td><td>${money(b.earned)}</td><td>${money(b.paid)}</td><td><b>${money(b.due)}</b></td><td>${b.due>0?`<button type="button" class="button me-ghost" data-repasse="${esc(b.slug)}" data-due="${+b.due}">Registrar repasse</button>`:''}</td></tr>`).join('')}</tbody></table></section>`:''}
 <section class="adm-card"><div class="adm-card-head"><h2>Lançamentos</h2><small>${plural(rep.entries.length,'lançamento','lançamentos')} no período</small></div>${rep.entries.length?`<div class="adm-scroll"><table class="adm-table adm-entries"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Forma</th><th>Origem</th><th class="num">Valor</th><th><span class="sr-only">Apagar</span></th></tr></thead><tbody>${rep.entries.map(e=>`<tr><td>${shortDate(e.on)}</td><td>${esc(e.description||'—')}${e.brand_name?`<small>${esc(e.brand_name)}</small>`:''}</td><td>${esc(e.category)}</td><td>${esc(e.method||'')}</td><td><span class="pill ${e.source==='site'?'paid':'off'}">${e.source==='site'?'Loja':'Manual'}</span></td><td class="num ${e.kind==='in'?'pos':'neg'}">${e.kind==='in'?'+':'−'} ${money(e.amount_cents)}</td><td>${e.source==='manual'?`<button type="button" class="ad-x" data-del="${e.id}" aria-label="Apagar o lançamento: ${esc(e.description||e.category)}">×</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p class="viz-empty">Nenhum lançamento neste período. Use "+ Novo lançamento" para registrar vendas por fora, custos e repasses.</p>'}</section>`;
  wireCharts(main);
- $('#fin-range',main).addEventListener('submit',e=>{e.preventDefault();const f=e.target.elements,de=f.namedItem('de').value,ate=f.namedItem('ate').value;if(!de||!ate||ate<de){toast('Escolha um período válido: a data final depois da inicial.');return;}navigate(`/painel?aba=financeiro&de=${de}&ate=${ate}`);});
+ $('#fin-range',main).addEventListener('submit',e=>{e.preventDefault();const f=e.target.elements,de=f.namedItem('de').value,ate=f.namedItem('ate').value;if(!de||!ate||ate<de){toast('Escolha um período válido: a data final depois da inicial.');return;}navigate(`/${adminBase()}?aba=financeiro&de=${de}&ate=${ate}`);});
  $('#fin-new',main).addEventListener('click',()=>openEntryForm({brands}));
  $$('[data-repasse]',main).forEach(b=>b.addEventListener('click',()=>openEntryForm({brands,kind:'out',category:'Repasse a marcas',brand:b.dataset.repasse,amount:+b.dataset.due})));
  $$('[data-del]',main).forEach(b=>b.addEventListener('click',async()=>{if(!await ask({title:'Apagar lançamento',text:'Ele sai do financeiro e não dá para desfazer.',ok:'Apagar',danger:true}))return;try{await adminDeleteEntry(+b.dataset.del);toast('Lançamento apagado.');renderAdminPage();}catch(error){toast(error.message);}}));
  $('#fin-csv',main).addEventListener('click',()=>downloadCSV(`duavesso-financeiro-${from}-a-${to}.csv`,[['Data','Tipo','Categoria','Descrição','Forma','Origem','Marca','Valor (R$)'],...rep.entries.map(e=>[longDate(e.on),e.kind==='in'?'Entrada':'Saída',e.category,e.description||'',e.method||'',e.source==='site'?'Loja':'Manual',e.brand_name||'',(e.amount_cents/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2,useGrouping:false})])]));
- if(qs.get('novo')){history.replaceState(history.state,'',`/painel?aba=financeiro${custom?`&de=${from}&ate=${to}`:`&periodo=${preset}`}`);openEntryForm({brands});}
+ if(qs.get('novo')){history.replaceState(history.state,'',`/${adminBase()}?aba=financeiro${custom?`&de=${from}&ate=${to}`:`&periodo=${preset}`}`);openEntryForm({brands});}
 }
 
 // Pedidos de marca: a fila do formulário "Quero minha marca na duavesso"
@@ -1229,7 +1263,7 @@ async function adminApplications(main){
  main.innerHTML=`<header class="adm-top"><div><h1>Pedidos de marca</h1><p class="adm-sub">Quem preencheu "Quero minha marca na duavesso" na página de marcas. Para aprovar, use Criar marca: a pessoa precisa ter conta na loja.</p></div></header>${apps.length?adminAppsHTML(apps):'<div class="adm-card adm-empty"><h2>Nenhum pedido ainda</h2><p>Quando alguém pedir para ter a marca na duavesso, o pedido aparece aqui.</p></div>'}`;
  $$('.ad-app',main).forEach(r=>r.addEventListener('click',async e=>{
   const a=apps.find(x=>String(x.id)===r.dataset.app),act=e.target.closest('[data-app-act]')?.dataset.appAct;if(!a||!act)return;
-  if(act==='create'){adminPrefill={email:a.email,name:a.brand_name};navigate('/painel?aba=marcas');return;}
+  if(act==='create'){adminPrefill={email:a.email,name:a.brand_name};navigate('/'+adminBase()+'?aba=marcas');return;}
   if(act==='declined'&&!await ask({title:'Recusar pedido de marca',text:`Recusar o pedido da <strong>${esc(a.brand_name)}</strong>?`,ok:'Recusar',danger:true}))return;
   try{await adminSetApplicationStatus(a.id,act);toast('Pedido atualizado.');renderAdminPage();}catch(error){toast(error.message);}
  }));
@@ -1288,7 +1322,131 @@ async function adminBrands(main){
   }catch(error){toast(error.message);}
  }));
 }
-const ADMIN_VIEWS={inicio:adminHome,pedidos:adminOrders,financeiro:adminFinance,pecas:adminPieces,marcas:adminBrands,'pedidos-de-marca':adminApplications};
+// Vendas: cada marca (cada site) e as camisetas que mais saem no período. Só pedidos pagos entram, e os
+// valores são os das peças (sem frete e antes dos descontos); o dinheiro que entrou de fato está no Financeiro.
+async function adminSales(main){
+ const qs=new URLSearchParams(location.search),custom=/^\d{4}-\d{2}-\d{2}$/.test(qs.get('de')||'')&&/^\d{4}-\d{2}-\d{2}$/.test(qs.get('ate')||'');
+ const preset=custom?'':(FIN_PRESETS.some(([k])=>k===qs.get('periodo'))?qs.get('periodo'):'30');
+ const to=custom?qs.get('ate'):brDay(),from=custom?qs.get('de'):brDay(-(+preset-1)),days=daysBetween(from,to);
+ const rep=await adminSalesReport(from,to);
+ if(!adminStill('vendas'))return;
+ const cur=rep.current,prev=rep.previous,total=+cur.sales||0,ticket=+cur.orders?Math.round(total/+cur.orders):0,prevTicket=+prev.orders?Math.round(+prev.sales/+prev.orders):0;
+ const share=v=>total?`${Math.round(+v/total*100)}%`:'0%',keeps=b=>+b.sales-(+b.brand_share)-(+b.piece_cost),pieces=n=>plural(+n,'peça','peças');
+ const brandRow=b=>`<tr><td><b>${esc(b.name)}</b><small>${b.kind==='brand'?`marca parceira · /marcas/${esc(b.slug)}`:b.kind==='custom'?'criadas no estúdio':'peças da própria duavesso'}</small></td><td class="num">${+b.pieces}</td><td class="num">${+b.orders}</td><td class="num"><b>${money(+b.sales)}</b></td><td class="num">${share(b.sales)}</td><td class="num">${b.kind==='brand'?money(+b.brand_share):'<span class="adm-na">não se aplica</span>'}</td><td class="num">${money(+b.piece_cost)}</td><td class="num"><b>${money(keeps(b))}</b></td></tr>`;
+ const topRow=(t,i)=>`<tr><td class="adm-rank-n">${i+1}º</td><td><b>${esc(t.name)}</b><small>${esc(t.brand_name)}</small></td><td class="num"><b>${+t.qty}</b></td><td class="num">${+t.orders}</td><td class="num">${money(+t.sales)}</td></tr>`;
+ main.innerHTML=`<header class="adm-top"><div><h1>Vendas</h1><p class="adm-sub">${longDate(from)} a ${longDate(to)} · comparado com os ${days} dias anteriores. Só pedidos pagos entram, pelo valor das peças (sem frete e antes dos descontos).</p></div><div class="adm-top-acts"><button type="button" class="button me-ghost" id="sal-csv">Exportar planilha</button></div></header>
+<div class="adm-filters"><div class="adm-seg" role="group" aria-label="Período">${FIN_PRESETS.map(([k,l])=>`<a class="${k===preset?'on':''}" href="${adminBase()}?aba=vendas&periodo=${k}"${k===preset?' aria-current="true"':''}>${l}</a>`).join('')}</div>
+<form class="adm-range" id="sal-range"><label>De<input type="date" name="de" value="${from}" required></label><label>Até<input type="date" name="ate" value="${to}" required></label><button class="button me-ghost" type="submit">Aplicar</button></form></div>
+<div class="adm-kpis">${kpiHTML('Vendido',money(total),deltaHTML(cur.sales,prev.sales))}${kpiHTML('Peças vendidas',String(+cur.pieces),deltaHTML(cur.pieces,prev.pieces))}${kpiHTML('Pedidos pagos',String(+cur.orders),deltaHTML(cur.orders,prev.orders))}${kpiHTML('Valor médio por pedido',money(ticket),deltaHTML(ticket,prevTicket))}</div>
+${rep.by_brand.length?`<div class="adm-row2"><section class="adm-card"><h2>Quanto cada marca vendeu</h2>${hbars(rep.by_brand.map(b=>({label:b.name,value:+b.sales})),money)}</section>
+<section class="adm-card"><h2>Tamanhos que mais saem</h2>${hbars(rep.sizes.map(s=>({label:s.size||'Sem tamanho',value:+s.qty})),pieces,VIZ.previous)}</section></div>
+<section class="adm-card"><div class="adm-card-head"><h2>Cada marca no período</h2><small>fica com a duavesso = vendido − parte da marca − custo das peças</small></div><div class="adm-scroll"><table class="adm-table adm-sales"><thead><tr><th>Marca</th><th class="num">Peças</th><th class="num">Pedidos</th><th class="num">Vendido</th><th class="num">Do total</th><th class="num">Parte da marca</th><th class="num">Custo das peças</th><th class="num">Fica com a duavesso</th></tr></thead><tbody>${rep.by_brand.map(brandRow).join('')}</tbody></table></div></section>
+<section class="adm-card"><div class="adm-card-head"><h2>Camisetas mais vendidas</h2><small>${plural(rep.top.length,'peça','peças')} com venda no período</small></div><div class="adm-scroll"><table class="adm-table adm-rank"><thead><tr><th>Posição</th><th>Camiseta</th><th class="num">Peças vendidas</th><th class="num">Pedidos</th><th class="num">Vendido</th></tr></thead><tbody>${rep.top.map(topRow).join('')}</tbody></table></div></section>`
+ :'<div class="adm-card adm-empty"><h2>Nenhuma venda paga neste período</h2><p>As vendas entram aqui quando o pedido é marcado como pago, em Pedidos.</p></div>'}`;
+ $('#sal-range',main).addEventListener('submit',e=>{e.preventDefault();const f=e.target.elements,de=f.namedItem('de').value,ate=f.namedItem('ate').value;if(!de||!ate||ate<de){toast('Escolha um período válido: a data final depois da inicial.');return;}navigate(`/${adminBase()}?aba=vendas&de=${de}&ate=${ate}`);});
+ const reais=c=>(+c/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2,useGrouping:false});
+ $('#sal-csv',main).addEventListener('click',()=>downloadCSV(`duavesso-vendas-${from}-a-${to}.csv`,[['Marca','Peças','Pedidos','Vendido (R$)','Parte da marca (R$)','Custo das peças (R$)','Fica com a duavesso (R$)'],...rep.by_brand.map(b=>[b.name,+b.pieces,+b.orders,reais(b.sales),reais(b.brand_share),reais(b.piece_cost),reais(keeps(b))]),[],['Posição','Camiseta','Marca','Peças vendidas','Pedidos','Vendido (R$)'],...rep.top.map((t,i)=>[i+1,t.name,t.brand_name,+t.qty,+t.orders,reais(t.sales)])]));
+}
+
+// Cupons: códigos de desconto do pagamento, com valor, compra mínima, número máximo de usos e validade
+const COUPON_PILL={ativo:'ok',agendado:'paid',esgotado:'warn',pausado:'off',vencido:'off'};
+const COUPON_STATE={ativo:'Ativo',agendado:'Agendado',esgotado:'Esgotado',pausado:'Pausado',vencido:'Vencido'};
+const couponValue=c=>c.kind==='percent'?`${c.value}%`:money(c.value);
+// As datas do cupom valem pelo dia de Brasília: começa às 0h e termina às 23h59
+const brDateOf=iso=>iso?new Date(Date.parse(iso)-3*3600e3).toISOString().slice(0,10):'';
+const couponValidity=c=>{const a=brDateOf(c.starts_at),b=brDateOf(c.ends_at);return a&&b?`${longDate(a)} a ${longDate(b)}`:b?`até ${longDate(b)}`:a?`a partir de ${longDate(a)}`:'<span class="adm-na">sem prazo</span>';};
+function openCouponForm(coupon=null){
+ const isNew=!coupon,c=coupon||{code:'',kind:'percent',value:0,min_subtotal_cents:0,max_uses:null,starts_at:null,ends_at:null,active:true,uses:0};
+ const d=document.createElement('dialog');d.className='fin-dialog';d.setAttribute('aria-labelledby','cup-title');
+ d.innerHTML=`<div class="dialog-heading"><h2 id="cup-title">${isNew?'Novo cupom':`Editar ${esc(c.code)}`}</h2><button type="button" class="icon-button" data-close aria-label="Fechar">×</button></div>
+<form class="fin-form cup-form" novalidate><label>Código<input name="code" required maxlength="20" placeholder="Ex.: VOLTA10" autocomplete="off" autocapitalize="characters" spellcheck="false" value="${esc(c.code)}"${isNew?'':' readonly'}><small class="cup-hint">${isNew?'De 3 a 20 letras ou números, sem espaços. É o que o cliente digita no pagamento.':'O código não muda. Para outro código, crie um cupom novo.'}</small></label>
+<div class="fin-kind" role="radiogroup" aria-label="Tipo de desconto"><label><input type="radio" name="kind" value="percent"${c.kind==='percent'?' checked':''}><span>Porcentagem</span></label><label><input type="radio" name="kind" value="fixed"${c.kind==='fixed'?' checked':''}><span>Valor em reais</span></label></div>
+<div class="field-row"><label><span id="cup-vlabel">Desconto</span><span class="adm-money"><span id="cup-vunit">%</span><input name="value" inputmode="decimal" required autocomplete="off" value="${c.value?(c.kind==='percent'?c.value:centsInput(c.value)):''}"></span></label><label>Compra mínima (opcional)<span class="adm-money"><span>R$</span><input name="min" inputmode="decimal" placeholder="0,00" autocomplete="off" value="${centsInput(c.min_subtotal_cents)}"></span></label></div>
+<div class="field-row"><label>Número máximo de usos<input name="max" inputmode="numeric" placeholder="Sem limite" autocomplete="off" value="${c.max_uses||''}"></label><label>Já foi usado<input value="${plural(+c.uses||0,'vez','vezes')}" disabled></label></div>
+<div class="field-row"><label>Vale a partir de (opcional)<input type="date" name="from" value="${brDateOf(c.starts_at)}"></label><label>Vale até (opcional)<input type="date" name="to" value="${brDateOf(c.ends_at)}"></label></div>
+<label class="cup-check"><input type="checkbox" name="active"${c.active?' checked':''}><span>Cupom ativo. Desmarque para pausar sem apagar.</span></label>
+<p class="cup-msg" id="cup-msg" role="alert"></p>
+<button type="submit" class="button button-blue">${isNew?'Criar cupom':'Salvar cupom'}</button></form>`;
+ document.body.append(d);d.showModal();
+ const form=$('.cup-form',d),f=n=>form.elements.namedItem(n),kindNow=()=>form.querySelector('input[name=kind]:checked').value,close=()=>d.remove(),msg=$('#cup-msg',d);
+ const sync=()=>{const pct=kindNow()==='percent';$('#cup-vunit',d).textContent=pct?'%':'R$';$('#cup-vlabel',d).textContent=pct?'Desconto (de 1 a 90%)':'Desconto em reais';f('value').placeholder=pct?'10':'0,00';};
+ sync();
+ form.addEventListener('change',e=>{if(e.target.name==='kind'){f('value').value='';sync();f('value').focus();}});
+ f('code').addEventListener('input',e=>{e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'');});
+ d.addEventListener('click',e=>{if(e.target.closest('[data-close]'))close();});
+ d.addEventListener('cancel',e=>{e.preventDefault();close();});
+ form.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const fail=(text,field)=>{msg.textContent=text;f(field).focus();};
+  const code=f('code').value.trim().toUpperCase(),kind=kindNow(),raw=f('value').value.trim();
+  if(!/^[A-Z0-9]{3,20}$/.test(code))return fail('O código precisa ter de 3 a 20 letras ou números, sem espaços nem acentos.','code');
+  const value=kind==='percent'?(/^\d{1,2}$/.test(raw)?+raw:NaN):parseMoney(raw);
+  if(kind==='percent'&&!(value>=1&&value<=90))return fail('Digite a porcentagem do desconto, de 1 a 90, sem vírgula.','value');
+  if(kind==='fixed'&&!(value>0))return fail('Digite o valor do desconto em reais.','value');
+  const min=parseMoney(f('min').value)||0,maxRaw=f('max').value.trim();
+  if(maxRaw&&!/^[1-9]\d{0,5}$/.test(maxRaw))return fail('O número máximo de usos precisa ser um número inteiro a partir de 1. Deixe vazio para não ter limite.','max');
+  const from=f('from').value,to=f('to').value;
+  if(from&&to&&to<from)return fail('A validade termina antes de começar.','to');
+  const btn=$('button[type=submit]',form);btn.disabled=true;btn.textContent='Salvando…';msg.textContent='';
+  try{
+   await adminSaveCoupon({code,kind,value,min,maxUses:maxRaw?+maxRaw:null,startsAt:from?`${from}T00:00:00-03:00`:null,endsAt:to?`${to}T23:59:59-03:00`:null,active:f('active').checked,isNew});
+   close();toast(isNew?`Cupom ${code} criado.`:`Cupom ${code} salvo.`);if(shownView==='admin')renderAdminPage();
+  }catch(error){msg.textContent=error.message;btn.disabled=false;btn.textContent=isNew?'Criar cupom':'Salvar cupom';}
+ });
+ (isNew?f('code'):f('value')).focus();
+}
+async function adminCoupons(main){
+ const list=await adminListCoupons();if(!adminStill('cupons'))return;
+ const live=list.filter(c=>c.state==='ativo').length,uses=list.reduce((s,c)=>s+(+c.uses||0),0),given=list.reduce((s,c)=>s+(+c.discount_cents||0),0);
+ const row=c=>`<tr data-code="${esc(c.code)}"${c.state==='ativo'||c.state==='agendado'?'':' class="is-off"'}><td><b class="cup-code">${esc(c.code)}</b></td><td><b>${couponValue(c)}</b>${+c.min_subtotal_cents?`<small>em compras a partir de ${money(+c.min_subtotal_cents)}</small>`:''}</td>
+<td>${+c.uses}${c.max_uses?` de ${+c.max_uses}<span class="cup-bar" aria-hidden="true"><i style="width:${Math.min(100,Math.round(+c.uses/+c.max_uses*100))}%"></i></span>`:'<small>sem limite de usos</small>'}</td><td>${couponValidity(c)}</td>
+<td>${+c.paid_orders}${+c.discount_cents?`<small>${money(+c.discount_cents)} de desconto dado</small>`:''}</td><td><span class="pill ${COUPON_PILL[c.state]||'off'}">${COUPON_STATE[c.state]||esc(c.state)}</span></td>
+<td><div class="cup-acts"><button type="button" class="button me-ghost" data-act="edit">Editar</button><button type="button" class="button me-ghost" data-act="toggle">${c.active?'Pausar':'Reativar'}</button>${+c.uses?'':'<button type="button" class="button me-ghost ad-danger" data-act="delete">Excluir</button>'}</div></td></tr>`;
+ main.innerHTML=`<header class="adm-top"><div><h1>Cupons</h1><p class="adm-sub">Códigos de desconto que o cliente digita no pagamento. Cada cupom tem o seu valor e pode ter compra mínima, número máximo de usos e validade.</p></div><div class="adm-top-acts"><button type="button" class="button button-blue" id="cup-new">+ Novo cupom</button></div></header>
+<div class="adm-kpis adm-kpis-sm">${kpiHTML('Cupons valendo agora',String(live),`<span class="adm-vs">de ${plural(list.length,'cupom criado','cupons criados')}</span>`)}${kpiHTML('Usos em pedidos',String(uses),'<span class="adm-vs">conta também pedido ainda não pago</span>')}${kpiHTML('Desconto dado',money(given),'<span class="adm-vs">em pedidos pagos</span>')}</div>
+${list.length?`<div class="adm-card adm-table-card"><table class="adm-table adm-coupons"><thead><tr><th>Código</th><th>Desconto</th><th>Usos</th><th>Validade</th><th>Pedidos pagos</th><th>Situação</th><th><span class="sr-only">Ações</span></th></tr></thead><tbody>${list.map(row).join('')}</tbody></table></div>`
+ :'<div class="adm-card adm-empty"><h2>Nenhum cupom ainda</h2><p>Crie o primeiro em "+ Novo cupom": escolha o código, o desconto e, se quiser, o número máximo de usos.</p></div>'}`;
+ $('#cup-new',main).addEventListener('click',()=>openCouponForm());
+ $$('tr[data-code]',main).forEach(tr=>tr.addEventListener('click',async e=>{
+  const act=e.target.closest('[data-act]')?.dataset.act,c=list.find(x=>x.code===tr.dataset.code);if(!act||!c)return;
+  if(act==='edit'){openCouponForm(c);return;}
+  try{
+   if(act==='toggle'){await adminSetCouponActive(c.code,!c.active);toast(c.active?`Cupom ${c.code} pausado.`:`Cupom ${c.code} reativado.`);}
+   if(act==='delete'){if(!await ask({title:'Excluir cupom',text:`O cupom <strong>${esc(c.code)}</strong> nunca foi usado e será apagado. Não dá para desfazer.`,ok:'Excluir',danger:true}))return;await adminDeleteCoupon(c.code);toast(`Cupom ${c.code} excluído.`);}
+   renderAdminPage();
+  }catch(error){toast(error.message);}
+ }));
+}
+
+// Acessos: quem entra no painel. Usuário e senha são contas do Supabase Auth (a senha nunca passa por aqui);
+// o acesso antigo é a conta da loja pelo e-mail, que dá para desligar depois de conferir o login novo.
+async function adminAccess(main){
+ const list=await adminAccessList();if(!adminStill('acessos'))return;
+ const users=list.filter(a=>a.username),emails=list.filter(a=>!a.username),me=list.find(a=>a.me);
+ const seen=a=>a.last_sign_in_at?esc(new Date(a.last_sign_in_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})):'<span class="adm-na">nunca entrou</span>';
+ const row=a=>`<tr><td><b>${esc(a.username||a.login)}</b>${a.me?' <span class="pill paid">você</span>':''}</td><td>${a.has_account?'<span class="pill ok">Conta criada</span>':'<span class="pill warn">Falta criar a conta no Supabase</span>'}</td><td>${seen(a)}</td><td class="num">${a.me?'<span class="adm-na">em uso agora</span>':`<button type="button" class="button me-ghost ad-danger" data-remove="${esc(a.login)}" data-name="${esc(a.username||a.login)}">Desligar acesso</button>`}</td></tr>`;
+ const table=rows=>`<div class="adm-scroll"><table class="adm-table"><thead><tr><th>Quem</th><th>Conta</th><th>Último acesso</th><th><span class="sr-only">Ação</span></th></tr></thead><tbody>${rows.map(row).join('')}</tbody></table></div>`;
+ main.innerHTML=`<header class="adm-top"><div><h1>Acessos</h1><p class="adm-sub">Quem entra neste painel. Cada usuário é uma conta com senha própria, criada no Supabase. A senha nunca aparece aqui nem passa pela loja.</p></div></header>
+<section class="adm-card"><h2>Usuário e senha (entrada pelo /admin)</h2>${users.length?table(users):'<p class="viz-empty">Nenhum usuário ainda.</p>'}
+<form class="adm-access-add" id="acc-add" novalidate><label>Dar acesso a outro usuário<input name="username" required maxlength="30" placeholder="ex.: financeiro" autocapitalize="none" autocomplete="off" spellcheck="false"></label><button type="submit" class="button button-blue">Dar acesso</button>
+<p class="helper">Antes, crie a conta no painel do Supabase: Authentication, Users, Add user, com o e-mail <b><span id="acc-mail">usuario</span>@admin.duavesso.invalid</b>, a senha que você escolher e a opção Auto Confirm User ligada. Depois digite só o usuário aqui.</p></form></section>
+${emails.length?`<section class="adm-card"><h2>Acesso antigo, pela conta da loja</h2><p class="adm-sub adm-gap-b">Estas contas entram na loja com o e-mail e abrem o painel em /painel. Depois de conferir que o seu usuário e a sua senha funcionam no /admin, desligue este acesso.</p>${table(emails)}</section>`:''}
+${ADMIN_AREA&&me?.username?`<section class="adm-card"><h2>Trocar a minha senha</h2><form class="adm-pass" id="acc-pass" novalidate><label>Nova senha<input type="password" name="password" required minlength="10" maxlength="200" autocomplete="new-password"></label><label>Repita a nova senha<input type="password" name="again" required maxlength="200" autocomplete="new-password"></label><button type="submit" class="button me-ghost">Trocar senha</button><p class="helper">Pelo menos 10 caracteres, com letras e números. Se esquecer a senha, apague a conta no Supabase e crie de novo com o mesmo e-mail: o acesso volta.</p></form></section>`:''}`;
+ const add=$('#acc-add',main);
+ add.elements.namedItem('username').addEventListener('input',e=>{e.target.value=e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g,'');$('#acc-mail',main).textContent=e.target.value||'usuario';});
+ add.addEventListener('submit',async e=>{e.preventDefault();const name=add.elements.namedItem('username').value.trim();
+  if(!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(name)){toast('Usuário inválido: use de 3 a 30 letras minúsculas, números, ponto, hífen ou sublinhado.');return;}
+  try{await adminAccessAdd(name);toast(`Pronto: ${name} já entra pelo /admin.`);renderAdminPage();}catch(error){toast(error.message);}});
+ $$('[data-remove]',main).forEach(b=>b.addEventListener('click',async()=>{
+  if(!await ask({title:'Desligar acesso',text:`<strong>${esc(b.dataset.name)}</strong> deixa de entrar no painel. A conta continua existindo, só perde o acesso de administrador.`,ok:'Desligar acesso',danger:true}))return;
+  try{await adminAccessRemove(b.dataset.remove);toast('Acesso desligado.');renderAdminPage();}catch(error){toast(error.message);}}));
+ $('#acc-pass',main)?.addEventListener('submit',async e=>{e.preventDefault();const f=e.target,pass=f.elements.namedItem('password').value;
+  if(pass.length<10||!/[A-Za-z]/.test(pass)||!/\d/.test(pass)){toast('A senha precisa ter pelo menos 10 caracteres, com letras e números.');return;}
+  if(pass!==f.elements.namedItem('again').value){toast('As duas senhas não são iguais.');return;}
+  const btn=$('button',f);btn.disabled=true;
+  try{await updatePassword(pass);f.reset();toast('Senha trocada.');}catch(error){toast(error.message);}finally{btn.disabled=false;}});
+}
+const ADMIN_VIEWS={inicio:adminHome,pedidos:adminOrders,vendas:adminSales,financeiro:adminFinance,cupons:adminCoupons,pecas:adminPieces,marcas:adminBrands,'pedidos-de-marca':adminApplications,acessos:adminAccess};
 
 // Navegação ------------------------------------------------------------------------
 // Endereços reais (pages.js) sem recarregar a página: links internos viram pushState. O produto abre
@@ -1323,7 +1481,7 @@ function route(){
  if(view!==shownView||brand!==shownBrand||view==='editor'||view==='admin')showView(view,brand);
  if(r.product)showProduct(r.product);
  else if($('#product-dialog').open){closingByRoute=true;closeDialog($('#product-dialog'));closingByRoute=false;}
- setMeta(r.product?r:{view,brand});
+ setMeta(r.product?r:{view,brand,area:r.area});
  if(r.section)requestAnimationFrame(()=>$(r.section).scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'}));
 }
 // Para você (/para-voce): a linha do "arraste e compare" e o atalho "Ver como funciona"
@@ -1357,6 +1515,8 @@ document.addEventListener('click',e=>{
  if(!a||e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||a.target||a.hasAttribute('download'))return;
  const url=new URL(a.href,location.href);
  if(url.origin!==location.origin||!isAppPath(url.pathname))return;
+ // Entrar ou sair do /admin recarrega a página: lá a sessão é outra (a de administrador), separada da loja
+ if(/^\/admin(\/|$)/.test(url.pathname)!==ADMIN_AREA)return;
  // Âncora para algo desta página que não é seção da loja (ex.: pular para o conteúdo): só rola até lá.
  const target=url.pathname==='/'&&url.hash&&!['#inicio','#colecao','#sobre'].includes(url.hash)&&document.getElementById(url.hash.slice(1));
  if(target){e.preventDefault();target.setAttribute('tabindex','-1');target.focus();return;}
@@ -1384,7 +1544,8 @@ function renderAuthState(){
  if(user)$('#open-account').textContent=`Olá, ${firstName(user)}`;
  $('#mobile-account').textContent=user?'Minha conta':'Entrar';
 }
-window.addEventListener('duavesso:auth',()=>{profile=null;renderAuthState();});
+// No /admin, entrar ou sair (nesta aba ou em outra) troca entre a tela de login e o painel
+window.addEventListener('duavesso:auth',()=>{profile=null;renderAuthState();if(ADMIN_AREA&&shownView==='admin')renderAdminPage();});
 function setAuthStatus(message,kind=''){const el=$('#auth-status');el.textContent=message;el.className=`auth-status ${kind}`;}
 function showAuthTab(tab){
  $$('[data-auth-tab]').forEach(b=>{const on=b.dataset.authTab===tab;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on));});

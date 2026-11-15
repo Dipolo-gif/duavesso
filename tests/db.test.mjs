@@ -30,8 +30,8 @@ async function order(items,{shipping='standard',cust=customer}={}){
 }
 const rejects=(items,re,opts)=>assert.rejects(order(items,opts),re);
 
-test('all migrations apply in order and 0006 to 0021 can be applied twice',async()=>{
- for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql','0013_tecidos_do_fornecedor.sql','0014_codigo_de_pedido_sem_colisao.sql','0015_dono_exclui_marca.sql','0016_marketplace_edicoes_promocao.sql','0017_colecao_em_reformulacao.sql','0018_estampa_dtf_textil.sql','0019_colecao_marileus_dragao_ronin.sql','0020_marileus_tamanhos_e_critical_fate.sql','0021_marca_ess.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
+test('all migrations apply in order and 0006 to 0022 can be applied twice',async()=>{
+ for(const f of ['0006_catalogo_atual.sql','0007_seguranca_limites_rastreio.sql','0008_checkout_boleto_parcelas_cupom.sql','0009_marcas_base.sql','0010_sobre_e_pedidos_de_marca.sql','0011_excluir_marca.sql','0012_financeiro_e_vendas.sql','0013_tecidos_do_fornecedor.sql','0014_codigo_de_pedido_sem_colisao.sql','0015_dono_exclui_marca.sql','0016_marketplace_edicoes_promocao.sql','0017_colecao_em_reformulacao.sql','0018_estampa_dtf_textil.sql','0019_colecao_marileus_dragao_ronin.sql','0020_marileus_tamanhos_e_critical_fate.sql','0021_marca_ess.sql','0022_admin_acesso_cupons_vendas.sql']){assert.ok(MIGRATIONS.includes(f));await db.exec(readFileSync(new URL(f,MIG),'utf8'));}
 });
 
 test('active catalog in the database matches dist/commerce.js field by field',async()=>{
@@ -585,5 +585,140 @@ test('código de pedido: relógio real + 8 caracteres, sem repetir mesmo com mui
   const codes=[];for(let i=0;i<200;i++)codes.push((await orderWith([tee('simples')],{cust:{email:`c${i}@example.com`}})).code);
   assert(codes.every(c=>/^AV-[0-9A-F]{11,}-[0-9A-F]{8}$/.test(c)),codes[0]);
   assert.equal(new Set(codes).size,200,'nenhum código repetido');
+ }finally{await db.exec('rollback');}
+});
+
+// 0022 · Área /admin: acesso por usuário e senha, cupons, vendas por marca e por peça, saldo ----------------
+const USER_ADMIN='bbbbbbbb-0000-4000-8000-00000000000d',USER_SOCIA='bbbbbbbb-0000-4000-8000-00000000000e';
+test('admin (0022): acesso por usuário só com conta confirmada; ver, adicionar e desligar acessos sem se trancar para fora',async()=>{
+ await brandUsers();
+ await db.exec('begin');
+ try{
+  assert.equal((await db.query(`select count(*)::int n from private.admin_emails where email='admin@admin.duavesso.invalid'`)).rows[0].n,1,'usuário admin na lista');
+  // Cadastro feito por fora (sem confirmação, porque o endereço não recebe e-mail) não vira administrador
+  await db.query(`insert into auth.users (id,email) values ($1,'admin@admin.duavesso.invalid')`,[USER_ADMIN]);
+  await roleIs(USER_ADMIN);
+  assert.equal((await db.query('select public.is_admin() as a')).rows[0].a,false,'conta sem confirmação não entra');
+  await rejectsIn(()=>db.query('select public.admin_access_list()'),/Área restrita/);
+  // Conta criada pela duavesso no Supabase (confirmada) entra
+  await db.exec('reset role');await db.query('update auth.users set email_confirmed_at=now(),last_sign_in_at=now() where id=$1',[USER_ADMIN]);
+  await roleIs(USER_ADMIN);
+  assert.equal((await db.query('select public.is_admin() as a')).rows[0].a,true);
+  const list=(await db.query('select public.admin_access_list() as r')).rows[0].r;
+  assert.deepEqual(list.map(a=>[a.login,a.username,a.has_account,a.me]),[['admin@admin.duavesso.invalid','admin',true,true],['duavesso.co@gmail.com',null,true,false]],'usuários primeiro, depois e-mails');
+  assert.ok(list[0].last_sign_in_at,'último acesso');
+  // Dono de marca e quem não entrou não veem nem mexem
+  await roleIs(OWNER);
+  await rejectsIn(()=>db.query('select public.admin_access_list()'),/Área restrita/);
+  await rejectsIn(()=>db.query(`select public.admin_access_add('invasor')`),/Área restrita/);
+  await rejectsIn(()=>db.query(`select public.admin_access_remove('duavesso.co@gmail.com')`),/Área restrita/);
+  await rejectsIn(async()=>{await db.exec('reset role');await db.exec('set local role anon');return db.query('select public.admin_access_list()');},/permission denied/,'sem login não chama');
+  // Adicionar outro usuário: nome conferido e a conta precisa existir antes
+  await roleIs(USER_ADMIN);
+  await rejectsIn(()=>db.query(`select public.admin_access_add('Só Cia')`),/Usuário inválido/);
+  await rejectsIn(()=>db.query(`select public.admin_access_add('ab')`),/Usuário inválido/);
+  await rejectsIn(()=>db.query(`select public.admin_access_add('socia')`),/Crie primeiro a conta socia@admin\.duavesso\.invalid/);
+  await db.exec('reset role');await db.query(`insert into auth.users (id,email,email_confirmed_at) values ($1,'socia@admin.duavesso.invalid',now())`,[USER_SOCIA]);
+  await roleIs(USER_ADMIN);
+  assert.equal((await db.query(`select public.admin_access_add(' Socia ') as r`)).rows[0].r,'socia@admin.duavesso.invalid');
+  await rejectsIn(()=>db.query(`select public.admin_access_add('socia')`),/já tem acesso/);
+  await roleIs(USER_SOCIA);
+  assert.equal((await db.query('select public.is_admin() as a')).rows[0].a,true,'a nova usuária entra');
+  // Desligar: nunca o acesso em uso; o e-mail antigo sai e deixa de ser administrador
+  await rejectsIn(()=>db.query(`select public.admin_access_remove('socia@admin.duavesso.invalid')`),/Você está usando este acesso agora/);
+  await rejectsIn(()=>db.query(`select public.admin_access_remove('ninguem@exemplo.com')`),/Acesso não encontrado/);
+  await db.query(`select public.admin_access_remove('duavesso.co@gmail.com')`);
+  await roleIs(ADMIN);
+  assert.equal((await db.query('select public.is_admin() as a')).rows[0].a,false,'acesso antigo pelo e-mail desligado');
+  await rejectsIn(()=>db.query('select public.admin_list_orders()'),/Área restrita/);
+ }finally{await db.exec('rollback');}
+});
+
+test('admin (0022): cupons pelo painel (criar, editar, pausar, excluir), com valor, usos máximos e validade conferidos',async()=>{
+ await brandUsers();
+ await db.exec('begin');
+ try{
+  await roleIs(OWNER);
+  await rejectsIn(()=>db.query('select public.admin_list_coupons()'),/Área restrita/);
+  await rejectsIn(()=>db.query(`select public.admin_save_coupon('GRATIS','percent',90,0,null,null,null,true,true)`),/Área restrita/);
+  await roleIs(ADMIN);
+  const save=(code,kind,value,{min=0,max=null,from=null,to=null,active=true,isNew=true}={})=>db.query('select public.admin_save_coupon($1,$2,$3,$4,$5,$6::timestamptz,$7::timestamptz,$8,$9) as r',[code,kind,value,min,max,from,to,active,isNew]).then(r=>r.rows[0].r);
+  const coupons=async()=>(await db.query('select public.admin_list_coupons() as r')).rows[0].r;
+  const c=await save(' volta10 ','percent',10,{max:2});
+  assert.deepEqual([c.code,c.kind,c.value,c.max_uses,c.uses,c.active],['VOLTA10','percent',10,2,0,true],'código em maiúsculas');
+  await rejectsIn(()=>save('VOLTA10','percent',15),/Já existe um cupom/);
+  await rejectsIn(()=>save('a b','percent',10),/de 3 a 20 letras ou números/);
+  await rejectsIn(()=>save('NOVENTA5','percent',95),/até 90%/);
+  await rejectsIn(()=>save('ZERO','fixed',0),/Informe o valor/);
+  await rejectsIn(()=>save('TIPO','brinde',10),/tipo do desconto/);
+  await rejectsIn(()=>save('USOS','percent',10,{max:0}),/pelo menos 1/);
+  await rejectsIn(()=>save('DATAS','percent',10,{from:'2030-02-01T00:00:00Z',to:'2030-01-01T00:00:00Z'}),/termina antes de começar/);
+  await rejectsIn(()=>save('NAOEXISTE','percent',10,{isNew:false}),/Cupom não encontrado/);
+  // Dois usos e acabou: o terceiro pedido não leva o desconto
+  const first=await orderWith([tee('heavy-avesso',1)],{cust:{coupon:'volta10',email:'a@example.com'}});
+  await orderWith([tee('heavy-avesso',1)],{cust:{coupon:'VOLTA10',email:'b@example.com'}});
+  await rejectsIn(()=>orderWith([tee('heavy-avesso',1)],{cust:{coupon:'VOLTA10',email:'c@example.com'}}),/Cupom inválido ou expirado/);
+  let row=(await coupons()).find(x=>x.code==='VOLTA10');
+  assert.deepEqual([row.uses,row.state,row.paid_orders,row.discount_cents],[2,'esgotado',0,0],'usos contam no pedido; pagos só depois do pagamento');
+  await db.query('select public.admin_set_order_status($1,$2)',[first.code,'pago']);
+  row=(await coupons()).find(x=>x.code==='VOLTA10');
+  assert.deepEqual([row.paid_orders,row.discount_cents,row.sales_cents],[1,first.coupon_discount_cents,first.total_cents]);
+  // Editar aumenta o limite; pausar tira do checkout
+  await save('VOLTA10','percent',10,{max:5,isNew:false});
+  assert.equal((await coupons()).find(x=>x.code==='VOLTA10').state,'ativo');
+  assert.equal((await db.query(`select public.check_coupon('VOLTA10',20000) as r`)).rows[0].r.ok,true);
+  await db.query(`select public.admin_set_coupon_active('volta10',false)`);
+  assert.equal((await coupons()).find(x=>x.code==='VOLTA10').state,'pausado');
+  assert.equal((await db.query(`select public.check_coupon('VOLTA10',20000) as r`)).rows[0].r.ok,false);
+  await rejectsIn(()=>db.query(`select public.admin_set_coupon_active('NADA',true)`),/Cupom não encontrado/);
+  // Situações pela validade; desconto em reais com compra mínima
+  await save('FUTURO','percent',5,{from:'2099-01-01T03:00:00Z'});await save('PASSADO','percent',5,{to:'2020-01-01T03:00:00Z'});
+  const fixed=await save('MENOS20','fixed',2000,{min:20000});
+  assert.deepEqual([fixed.kind,fixed.value,fixed.min_subtotal_cents],['fixed',2000,20000]);
+  const all=await coupons();
+  assert.deepEqual(['FUTURO','PASSADO','MENOS20'].map(k=>all.find(x=>x.code===k).state),['agendado','vencido','ativo']);
+  // Excluir: só o que nunca foi usado
+  await rejectsIn(()=>db.query(`select public.admin_delete_coupon('VOLTA10')`),/já foi usado em pedidos/);
+  await db.query(`select public.admin_delete_coupon('menos20')`);
+  assert.equal((await coupons()).some(x=>x.code==='MENOS20'),false);
+  await rejectsIn(()=>db.query(`select public.admin_delete_coupon('MENOS20')`),/Cupom não encontrado/);
+ }finally{await db.exec('rollback');}
+});
+
+test('admin (0022): vendas por marca e por peça no período, sem dados de cliente, e saldo do caixa',async()=>{
+ await brandUsers();
+ await db.exec('begin');
+ try{
+  await db.query(`update public.products set brand_slug=null where id='heavy-avesso'`);
+  await db.query(`insert into private.product_finance (product_id,unit_cost_cents,brand_base_cents) values ('geek-coracao',4500,11990),('heavy-avesso',5200,null)`);
+  const paid=await orderWith([tee('geek-coracao',2),tee('heavy-avesso',1)],{cust:{uf:'SP'}});
+  const open=await orderWith([tee('geek-coracao',5)],{cust:{email:'outro@example.com'}});
+  const own=paid.subtotal_cents-28780; // preço da peça da duavesso
+  await roleIs(OWNER);
+  await rejectsIn(()=>db.query('select public.admin_sales_report($1::date,$2::date)',[daysAgo(29),brToday()]),/Área restrita/);
+  await rejectsIn(()=>db.query('select public.admin_balance()'),/Área restrita/);
+  await roleIs(ADMIN);
+  await db.query('select public.admin_set_order_status($1,$2)',[paid.code,'pago']);
+  const sales=async()=>(await db.query('select public.admin_sales_report($1::date,$2::date) as r',[daysAgo(29),brToday()])).rows[0].r;
+  let rep=await sales();
+  assert.deepEqual(rep.current,{sales:28780+own,pieces:3,orders:1,brand_share:4800,piece_cost:4500*2+5200},'só o pedido pago entra');
+  assert.deepEqual(rep.previous,{sales:0,pieces:0,orders:0,brand_share:0,piece_cost:0});
+  const geek=(await db.query(`select name from public.brands where slug='geek'`)).rows[0].name;
+  assert.deepEqual(rep.by_brand.map(b=>[b.kind,b.slug,b.name,b.sales,b.pieces,b.orders,b.brand_share]),[['brand','geek',geek,28780,2,1,4800],['own',null,'duavesso',own,1,1,0]],'cada marca e as peças da duavesso, da que mais vendeu para a que menos');
+  assert.deepEqual(rep.top.map(t=>[t.product_id,t.qty,t.sales,t.brand_name]),[['geek-coracao',2,28780,geek],['heavy-avesso',1,own,'duavesso']],'ranking das peças');
+  assert.deepEqual(rep.sizes,[{size:'M',qty:3}]);
+  const raw=JSON.stringify(rep);for(const secret of [customer.email,customer.name,customer.address,customer.cep])assert(!raw.includes(secret),`sem ${secret}`);
+  await rejectsIn(()=>db.query(`select public.admin_sales_report('2026-02-01'::date,'2026-01-01'::date)`),/Período inválido/);
+  // O segundo pedido pago entra e muda o ranking; cancelado sai
+  await db.query('select public.admin_set_order_status($1,$2)',[open.code,'pago']);
+  rep=await sales();
+  assert.deepEqual([rep.current.pieces,rep.current.orders,rep.top[0].qty,rep.by_brand[0].pieces],[8,2,7,7]);
+  await db.query('select public.admin_set_order_status($1,$2)',[open.code,'cancelado']);
+  assert.equal((await sales()).current.pieces,3);
+  // Saldo: vendas pagas do site + entradas lançadas − saídas lançadas, até hoje
+  const add=(kind,cat,cents,on=brToday())=>db.query('select public.admin_add_entry($1,$2,$3,$4::date,$5,$6,$7)',[kind,cat,cents,on,'Pix','teste',null]);
+  await add('in','Venda por fora',45000);await add('out','Produção',38000);await add('out','Frete',2000,daysAgo(400));
+  const bal=(await db.query('select public.admin_balance() as r')).rows[0].r;
+  assert.deepEqual([bal.site_in,bal.manual_in,bal.in,bal.out,bal.balance],[paid.total_cents,45000,paid.total_cents+45000,40000,paid.total_cents+5000],'conta o histórico todo, não só o período');
  }finally{await db.exec('rollback');}
 });

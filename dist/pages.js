@@ -8,7 +8,8 @@
 //   /para-voce             camiseta personalizada a partir de 1 peça
 //   /checkout              finalizar compra (fora do Google)
 //   /minha-marca           editor da loja da marca (dono da marca; fora do Google)
-//   /painel                painel da dona do site (fora do Google)
+//   /admin                 área da duavesso: login por usuário e senha, com sessão própria (fora do Google)
+//   /painel                endereço antigo do mesmo painel, pela conta da loja (fora do Google)
 import {PRODUCTS,money,INSTALLMENTS,installment} from './commerce.js';
 import {BRANDS,brandFromStatic,brandFromRow} from './brands.js';
 
@@ -40,6 +41,7 @@ export function parseRoute(pathname,hash=''){
  if(p==='/para-voce')return {view:'paravoce',path:'/para-voce'};
  if(p==='/checkout')return {view:'checkout',path:'/checkout'};
  if(p==='/minha-marca')return {view:'editor',path:'/minha-marca'};
+ if(p==='/admin')return {view:'admin',area:'admin',path:'/admin'};
  if(p==='/painel')return {view:'admin',path:'/painel'};
  if(p==='/marcas')return {view:'marcas',brand:null,path:'/marcas'};
  if((m=p.match(/^\/marcas\/([a-z0-9-]+)$/)))return {view:'marcas',brand:m[1],path:p};
@@ -62,6 +64,7 @@ export function pageMeta(r){
    image:productImage(product),imageAlt:`${product.name}, camiseta oversized ${product.color.toLowerCase()}`,product,brand};
  }
  if(r.view==='editor')return {path:'/minha-marca',title:'Minha Marca · duavesso',description:'Edite a loja da sua marca na duavesso.',noindex:true,...HOME_IMAGE};
+ if(r.view==='admin'&&r.area==='admin')return {path:'/admin',title:'Admin · duavesso',description:'Área restrita da duavesso.',noindex:true,...HOME_IMAGE};
  if(r.view==='admin')return {path:'/painel',title:'Painel da duavesso',description:'Painel da duavesso.',noindex:true,...HOME_IMAGE};
  if(r.view==='checkout')return {path:'/checkout',title:'Finalizar compra · duavesso',description:'Entrega, pagamento e resumo do seu pedido na duavesso.',noindex:true,...HOME_IMAGE};
  if(r.view==='studio')return {path:'/estudio',title:'Crie sua camiseta personalizada · Estúdio duavesso',
@@ -79,7 +82,7 @@ export function pageMeta(r){
 }
 
 // Páginas que existem mas não vão para o Google (sem sitemap, com noindex).
-export const privateRoutes=()=>[{view:'checkout'},{view:'editor'},{view:'admin'}];
+export const privateRoutes=()=>[{view:'checkout'},{view:'editor'},{view:'admin'},{view:'admin',area:'admin'}];
 // Todas as páginas públicas (para o gerador e o sitemap).
 export function allRoutes(){
  return [{view:'shop'},{view:'marcas',brand:null},...BRAND_LIST.map(b=>({view:'marcas',brand:b.slug})),{view:'studio'},{view:'paravoce'},...PRODUCTS.map(p=>({view:'shop',product:p.id}))];

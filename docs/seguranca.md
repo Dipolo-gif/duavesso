@@ -51,3 +51,12 @@ Pendências desta sondagem: "Prevent use of leaked passwords" (HaveIBeenPwned) s
 - Notificação por e-mail (confirmação de pedido e mudança de status).
 - CAPTCHA (Turnstile) e limite por IP se houver abuso.
 - Painel de atendimento: hoje os pedidos e as artes são vistos no painel do Supabase (Table Editor e Storage → `designs`).
+
+## Área /admin: acesso por usuário e senha (migração 0022)
+
+- Endereço: `/admin`. Tela de login própria (usuário e senha), sem cadastro e sem Google. A sessão do /admin é separada da conta de cliente da loja (chave `duavesso.admin.session.v1`) e vale no máximo 12 horas.
+- O usuário é uma conta do Supabase Auth com e-mail interno `<usuario>@admin.duavesso.invalid`. Esse endereço não recebe mensagens, então um cadastro feito por fora nunca fica confirmado, e `is_admin()` só aceita conta confirmada que esteja em `private.admin_emails`.
+- Criar um usuário: no painel do Supabase, Authentication, Users, Add user, com o e-mail interno, a senha escolhida e Auto Confirm User ligado. O primeiro usuário (`admin`) já está na lista; os seguintes são adicionados na aba Acessos do painel, depois de criar a conta.
+- A senha só passa pelo Supabase. Trocar: aba Acessos, "Trocar a minha senha". Esqueceu: apagar a conta no Supabase e criar de novo com o mesmo e-mail (o acesso volta, porque a lista é por e-mail).
+- Acesso antigo: a conta da loja `duavesso.co@gmail.com` continua abrindo o painel em `/painel` até ser desligada na aba Acessos. O painel não deixa desligar o acesso que está em uso, então sempre sobra um que funciona.
+- Depende de "Confirm email" continuar ligado no Supabase Auth (hoje está: `mailer_autoconfirm: false`).
