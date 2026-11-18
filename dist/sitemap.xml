@@ -13,6 +13,14 @@
     <image:image><image:loc>https://loja-duavesso.vercel.app/assets/og-duavesso.jpg</image:loc></image:image>
   </url>
   <url>
+    <loc>https://loja-duavesso.vercel.app/marcas/ess</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/og-duavesso.jpg</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://loja-duavesso.vercel.app/marcas/try84</loc>
+    <image:image><image:loc>https://loja-duavesso.vercel.app/assets/try84-bola.jpg</image:loc></image:image>
+  </url>
+  <url>
     <loc>https://loja-duavesso.vercel.app/estudio</loc>
     <image:image><image:loc>https://loja-duavesso.vercel.app/assets/og-duavesso.jpg</image:loc></image:image>
   </url>

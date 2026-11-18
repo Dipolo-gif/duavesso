@@ -18,7 +18,10 @@ import {BRANDS,brandFromStatic,brandFromRow} from './brands.js';
 let BRAND_LIST=BRANDS.filter(b=>!b.off).map(brandFromStatic);
 export const brandList=()=>BRAND_LIST;
 export const findBrand=slug=>BRAND_LIST.find(b=>b.slug===slug)||null;
-export function setBrandList(rows){if(Array.isArray(rows))BRAND_LIST=rows.filter(r=>r&&r.status!=='suspended').map(brandFromRow);}
+// Marcas do banco + marcas com site exclusivo que ainda não estão no banco (ex.: migração pendente),
+// para o site de cada uma não ficar sem cartão no marketplace.
+export function setBrandList(rows){if(!Array.isArray(rows))return;const live=rows.filter(r=>r&&r.status!=='suspended').map(brandFromRow),seen=new Set(rows.map(r=>r&&r.slug));
+ BRAND_LIST=[...live,...BRANDS.filter(b=>b.exclusive&&!b.off&&!seen.has(b.slug)).map(brandFromStatic)];}
 export function upsertBrandRow(row){const b=brandFromRow(row);BRAND_LIST=[...BRAND_LIST.filter(x=>x.slug!==b.slug),b];}
 
 export const SITE='https://loja-duavesso.vercel.app/';

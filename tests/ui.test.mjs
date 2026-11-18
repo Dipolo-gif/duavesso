@@ -238,7 +238,7 @@ test('Marcas: sem o banco, o hub mostra só as marcas no ar e a geek abre sua p�
  s.w.location.hash='marcas';await new Promise(r=>setTimeout(r,10));
  assert.equal(s.doc.querySelector('#marcas-view').hidden,false,'tela Marcas visível');
  assert.equal(s.doc.querySelector('#shop-view').hidden,true,'loja escondida');
- assert.deepEqual([...s.doc.querySelectorAll('#marcas-view .brand-card')].map(a=>a.getAttribute('href')),['marileus','ess'],'Marileus e ESS, e cada cartão leva direto ao site da marca: TRY84 e SolFáDó saíram da loja');
+ assert.deepEqual([...s.doc.querySelectorAll('#marcas-view .brand-card')].map(a=>a.getAttribute('href')),['marileus','ess','try84'],'Marileus, ESS e TRY84, e cada cartão leva direto ao site da marca: SolFáDó saiu da loja');
  s.w.location.hash='marca-geek';await new Promise(r=>setTimeout(r,10));
  assert.equal(s.doc.querySelectorAll('#marcas-view .product-grid .product-card').length,6,'Marileus (geek): 6 peças com o cartão da página inicial');
  assert(s.doc.querySelector('#marcas-view .product-card .product-visual.poses .pose'),'geek: card com poses (Frente/Costas/Lado)');assert(s.doc.querySelector('#marcas-view .product-card .product-add'),'botão de adicionar como na página inicial');
@@ -268,9 +268,9 @@ test('Marcas que voltam: reativadas no painel, TRY84 e SolFáDó reaparecem com 
  assert(s.doc.querySelector('#marcas-view .b2[data-theme="rugby"]'),'página try84 com tema rugby');assert.match(s.doc.querySelector('#marcas-view .b2').getAttribute('style'),/--brand-paint:#1c1d1f/,'cores da marca');
  assert.equal(s.doc.querySelectorAll('#marcas-view .brand-prod').length,5,'5 produtos reais da TRY84');
  assert(s.doc.querySelector('.brand-prod-img img[src*="try84-"]'),'foto de produto hospedada local');
- assert(s.doc.querySelector('.brand-prod[href^="https://try84.com.br/"]'),'produto linka pro site da marca');
- assert(s.doc.querySelector('.b2-cover img[src*="try84-hero"]'),'capa oficial da try84');
- assert(s.doc.querySelector('#marcas-view a[href="https://try84.com.br"]'),'link para o site da marca');
+ assert(s.doc.querySelector('.brand-prod[href="try84#colecao"]'),'produto linka pro site exclusivo da marca');
+ assert(s.doc.querySelector('.b2-cover img[src*="try84-bola"]'),'capa oficial da try84');
+ assert(s.doc.querySelector('#marcas-view a[href="try84"]'),'link para o site exclusivo da marca');
  assert.equal(s.doc.querySelector('.brand-notify'),null,'marca com coleção não mostra form de aviso');
  s.w.location.hash='marca-solfado';await new Promise(r=>setTimeout(r,40));
  assert.equal(s.doc.querySelectorAll('#marcas-view .brand-prod').length,10,'solfado: 10 estampas');
