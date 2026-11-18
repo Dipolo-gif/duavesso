@@ -14,8 +14,8 @@ Tamanhos P, M, G e GG. Estúdio: criar a estampa na hora (R$ 129,90) ou descreve
 
 ## Marcas
 
-- [Marileus](https://loja-duavesso.vercel.app/marcas/geek): Cultura geek no avesso: games, pixel, sci-fi e as referências que só quem é do meio pega, no caimento oversized da duavesso.
 - [ESS](https://loja-duavesso.vercel.app/marcas/ess): Camisetas com carros esportivos, pista e bandeira quadriculada, no estilo divertido de corrida, para pequenos pilotos e para quem nunca deixou de ser um.
+- [Marileus](https://loja-duavesso.vercel.app/marcas/geek): Cultura geek no avesso: games, pixel, sci-fi e as referências que só quem é do meio pega, no caimento oversized da duavesso.
 - [TRY84](https://loja-duavesso.vercel.app/marcas/try84): Feita por jogadores. Rugby lifestyle em preto e branco, do treino ao terceiro tempo.
 
 ## Páginas
